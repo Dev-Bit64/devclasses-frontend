@@ -1,0 +1,108 @@
+
+.your-result {
+  .score-card {
+    background: linear-gradient(135deg, rgba(247, 250, 255, 0.95) 0%, rgba(240, 248, 255, 0.9) 100%);
+    border-radius: 24px;
+    border: 1px solid rgba(80, 140, 255, 0.15);
+    box-shadow: 0 12px 40px rgba(80, 140, 255, 0.08);
+    margin-bottom: 10px;
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(20px);
+    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    
+    &:hover {
+      box-shadow: 0 20px 60px rgba(62, 105, 231, 0.12);
+      border-color: rgba(80, 140, 255, 0.25);
+    }
+    
+    .score-section {
+      text-align: center;
+      padding: 48px 20px 40px 20px;
+      position: relative;
+      
+      .score-display {
+        margin-bottom: 24px;
+        position: relative;
+        display: inline-block;
+        
+        .ant-progress-circle {
+          filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.1));
+        }
+        
+        .score-text {
+          .percentage {
+            font-size: 36px;
+            font-weight: 800;
+            color: #1e2b3a;
+            line-height: 1;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          }
+          
+          .score-ratio {
+            font-size: 18px;
+            font-weight: 600;
+            color: #696969;
+            margin-top: 6px;
+            letter-spacing: 1px;
+          }
+        }
+      }
+      
+      .score-title {
+        color: #2c3e50;
+        font-size: 24px;
+        font-weight: 700;
+        margin: 0;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      }
+    }
+    
+    // Animated background gradient
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(45deg, 
+        rgba(24, 144, 255, 0.05) 0%, 
+        rgba(82, 196, 26, 0.05) 50%, 
+        rgba(250, 173, 20, 0.05) 100%);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: 0;
+    }
+    
+    &:hover::before {
+      opacity: 1;
+    }
+    
+    .score-section {
+      position: relative;
+      z-index: 1;
+    }
+  }
+}
+
+// Mobile optimizations
+@media (max-width: 768px) {
+  .your-result .score-card .score-section {
+    padding: 32px 16px 28px 16px;
+    
+    .score-display .score-text {
+      .percentage {
+        font-size: 28px !important;
+      }
+      
+      .score-ratio {
+        font-size: 14px !important;
+      }
+    }
+    
+    .score-title {
+      font-size: 18px !important;
+    }
+  }
+}

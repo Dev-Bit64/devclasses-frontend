@@ -1,0 +1,93 @@
+@import '../../scss/mixin.scss';
+
+.login {
+  height: 100vh;
+
+  &__wrapper {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  &__details {
+    flex: 1;
+    max-width: 57.4rem;
+    margin: 0 auto;
+    padding: 2rem;
+
+    &--logo {
+      height: auto;
+      width: 100%;
+      text-align: center;
+      margin: 0 auto 2rem;
+
+      & > img {
+        width: 100%;
+        max-width: 28rem;
+        height: auto;
+      }
+    }
+
+    &--body {
+      padding: 0 1rem;
+    }
+  }
+
+  &__layout {
+    flex: 1;
+    background-color: #90D5FF;
+    display: flex;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+
+    &--image {
+      max-width: 100%;
+      width: 100%;
+      height: auto;
+      object-fit: cover;
+    }
+  }
+
+  // 🔽 Mobile screens
+  @media (max-width: 768px) {
+    flex-direction: column;
+
+    &__layout {
+      display: none;
+    }
+
+    &__details {
+      width: 100%;
+      padding: 1.5rem 1rem;
+
+      &--logo {
+        margin-bottom: 2rem;
+
+        & > img {
+          max-width: 20rem;
+        }
+      }
+    }
+  }
+
+  // 🔽 Tablets
+  @media (max-width: 1024px) {
+    &__details {
+      padding: 2rem;
+    }
+
+    &__layout--image {
+      max-width: 90%;
+    }
+  }
+
+  // 🔽 Small laptops
+  @media (max-width: 1440px) {
+    &__layout--image {
+      max-width: 100%;
+    }
+  }
+}

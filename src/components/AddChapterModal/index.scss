@@ -1,0 +1,39 @@
+.add-chapter-modal {
+  .ant-modal-content {
+    border-radius: 10px;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+    background: #fff;
+    padding: 24px 16px;
+    @media (max-width: 480px) {
+      padding: 12px 4px;
+    }
+  }
+  .ant-modal-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #222;
+    text-align: center;
+  }
+  .ant-form-item-label > label {
+    font-weight: 500;
+    color: #333;
+  }
+  .ant-input {
+    border-radius: 6px;
+  }
+  .ant-btn-primary {
+    background: #1677ff;
+    border-radius: 6px;
+    font-weight: 500;
+  }
+  .ant-btn-danger {
+    background: #ff4d4f;
+    border-radius: 6px;
+    font-weight: 500;
+    color: #fff;
+    border: none;
+    &:hover {
+      background: #d9363e;
+    }
+  }
+}

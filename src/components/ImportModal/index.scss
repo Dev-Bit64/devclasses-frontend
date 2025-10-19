@@ -1,0 +1,309 @@
+.import-modal {
+  .ant-modal-content {
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.15);
+    padding: 0;
+  }
+
+  // Global reset for upload component - remove visual indicators but preserve main border
+  .ant-upload-wrapper,
+  .ant-upload-btn {
+    &::before,
+    &::after {
+      display: none !important;
+      content: none !important;
+      opacity: 0 !important;
+      visibility: hidden !important;
+    }
+
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  // Reset only pseudo-elements for drag area, preserve main styling
+  .ant-upload-drag-container {
+    &::before,
+    &::after {
+      display: none !important;
+      content: none !important;
+    }
+  }
+
+  // Remove any drag indicators, corner markers, or positioning helpers
+  [class*="ant-upload"] {
+    &::before,
+    &::after {
+      display: none !important;
+      content: none !important;
+    }
+  }
+
+  .ant-modal-header {
+    display: none;
+  }
+
+  .ant-modal-close {
+    display: none;
+  }
+
+  .ant-modal-body {
+    padding: 0 !important;
+  }
+
+  .import-modal-content {
+    padding: 24px;
+    background: #fafafa;
+    min-height: auto;
+  }
+
+  .import-modal-header {
+    text-align: center;
+    margin-bottom: 24px;
+
+    .import-icon {
+      font-size: 36px;
+      color: #52c41a;
+      margin-bottom: 12px;
+      display: block;
+    }
+
+    .import-title {
+      margin-bottom: 0 !important;
+      color: #1f1f1f;
+      font-weight: 700;
+    }
+  }
+
+  .import-modal-body {
+    margin-bottom: 20px;
+
+    // Reset only pseudo-elements, preserve main styling
+    .ant-upload-wrapper {
+      .ant-upload-drag {
+        &::before,
+        &::after {
+          display: none !important;
+        }
+      }
+    }
+
+    // .upload-dragger,
+    // .ant-upload-drag {
+    //   border: 2px dashed #d9d9d9 !important;
+    //   border-radius: 8px !important;
+    //   background: #fff !important;
+    //   transition: all 0.3s ease;
+    //   padding: 24px 16px;
+    //   position: relative;
+    //   overflow: hidden;
+    //   box-sizing: border-box;
+
+    //   &:hover {
+    //     border-color: #1890ff !important;
+    //     background: #f0f9ff !important;
+    //   }
+    // }
+
+    // More specific targeting for Ant Design upload component
+    .ant-upload-wrapper .ant-upload-drag {
+      border: 2px dashed #d9d9d9 !important;
+      background: #fff !important;
+
+      &:hover {
+        border-color: #1890ff !important;
+        background: #f0f9ff !important;
+      }
+
+      &::before,
+      &::after {
+        display: none !important;
+        content: none !important;
+      }
+
+      // Remove any child pseudo-elements that might create corner indicators
+      * {
+        &::before,
+        &::after {
+          display: none !important;
+          content: none !important;
+        }
+      }
+
+      // Specifically target Ant Design's drag corner classes
+      .ant-upload-drag-icon,
+      .ant-upload-hint,
+      .ant-upload-text {
+        position: relative;
+
+        &::before,
+        &::after {
+          display: none !important;
+          content: none !important;
+        }
+      }
+
+      .ant-upload-drag-icon {
+        margin-bottom: 12px;
+
+        .anticon {
+          font-size: 36px;
+          color: #1890ff;
+        }
+      }
+
+      .ant-upload-text {
+        font-size: 15px;
+        font-weight: 600;
+        color: #1f1f1f;
+        margin-bottom: 6px;
+      }
+
+      .ant-upload-hint {
+        color: #666;
+        font-size: 13px;
+        margin-bottom: 0;
+      }
+    }
+
+  }
+
+  .import-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 16px;
+    border-top: 1px solid #f0f0f0;
+
+    .cancel-button {
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 14px;
+      background: #fff;
+      color: #ff4d4f;
+      border: 2px solid #ff4d4f;
+      height: 36px;
+      padding: 0 20px;
+      transition: all 0.3s ease;
+
+      &:hover {
+        background: #fff1f0;
+        color: #ff4d4f;
+        border-color: #ff7875;
+        box-shadow: 0 2px 8px rgba(255, 77, 79, 0.15);
+      }
+    }
+
+    .import-submit-button {
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 14px;
+      background: linear-gradient(135deg, #1890ff 0%, #52c41a 100%);
+      border: none;
+      height: 36px;
+      padding: 0 20px;
+      transition: all 0.3s ease;
+
+      &:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3);
+      }
+
+      &:disabled {
+        background: #f5f5f5;
+        color: #bfbfbf;
+        cursor: not-allowed;
+      }
+    }
+  }
+
+  // Mobile responsive styles
+  @media (max-width: 768px) {
+    .ant-modal-content {
+      margin: 8px;
+      border-radius: 12px;
+      max-width: calc(100vw - 16px);
+    }
+
+    .import-modal-content {
+      padding: 16px;
+      min-height: auto;
+    }
+
+    .import-modal-header {
+      margin-bottom: 16px;
+
+      .import-icon {
+        font-size: 32px;
+        margin-bottom: 8px;
+      }
+
+      .import-title {
+        font-size: 18px;
+      }
+    }
+
+    .import-modal-body {
+      margin-bottom: 16px;
+
+      .upload-dragger {
+        padding: 20px 12px;
+
+        .ant-upload-drag-icon .anticon {
+          font-size: 32px;
+        }
+
+        .ant-upload-text {
+          font-size: 14px;
+        }
+
+        .ant-upload-hint {
+          font-size: 12px;
+        }
+      }
+    }
+
+    .import-modal-footer {
+      padding-top: 12px;
+      flex-direction: column;
+      gap: 8px;
+
+      .cancel-button,
+      .import-submit-button {
+        width: 100%;
+        height: 36px;
+        font-size: 14px;
+      }
+    }
+  }
+
+  @media (max-width: 480px) {
+    .ant-modal-content {
+      margin: 4px;
+      border-radius: 8px;
+      max-width: calc(100vw - 8px);
+    }
+
+    .import-modal-content {
+      padding: 12px;
+    }
+
+    .import-modal-header {
+      margin-bottom: 12px;
+
+      .import-icon {
+        font-size: 28px;
+        margin-bottom: 6px;
+      }
+
+      .import-title {
+        font-size: 16px;
+      }
+    }
+
+    .import-modal-body {
+      .upload-dragger {
+        padding: 16px 8px;
+      }
+    }
+  }
+}

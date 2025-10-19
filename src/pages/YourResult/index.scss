@@ -1,0 +1,129 @@
+
+// Modular partials for layout and sections
+@import '../../components/YourResult/_layout.scss';
+@import '../../components/YourResult/_score.scss';
+@import '../../components/YourResult/_stats.scss';
+@import '../../components/YourResult/_summary.scss';
+@import '../../components/YourResult/_action.scss';
+@import '../../components/YourResult/_responsive.scss';
+@import '../../components/YourResult/_animations.scss';
+@import '../../components/YourResult/_interactive.scss';
+
+/* Enhanced interactivity & animations */
+.animate-fade-in {
+  animation: fade-in 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+@keyframes fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-up {
+  animation: fade-up 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+.fade-in-up.delay-1 { animation-delay: 0.15s; }
+.fade-in-up.delay-2 { animation-delay: 0.3s; }
+.fade-in-up.delay-3 { animation-delay: 0.45s; }
+.fade-in-up.delay-4 { animation-delay: 0.6s; }
+
+@keyframes fade-up {
+  0% {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pulse-effect {
+  animation: pulse-glow 2s infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(250, 173, 20, 0.4);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px 10px rgba(250, 173, 20, 0);
+  }
+}
+
+.hover-scale {
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.hover-scale:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 20px 40px rgba(80, 140, 255, 0.15);
+}
+
+.hover-lift {
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.hover-lift:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+}
+
+.card-anim {
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.card-anim::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.card-anim:hover::before {
+  left: 100%;
+}
+
+// Smooth scrolling
+html, body {
+  scroll-behavior: smooth;
+}
+
+.your-result {
+  overflow-y: auto !important;
+  max-height: 100vh;
+}
+
+.result-content {
+  position: relative;
+  z-index: 10;
+}
+
+// Mobile optimizations
+@media (max-width: 768px) {
+  .hover-scale:hover,
+  .hover-lift:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}

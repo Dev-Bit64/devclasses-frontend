@@ -1,0 +1,165 @@
+
+// Interactive elements and micro-interactions
+
+.your-result {
+  // Enhanced stat card decorations
+  .stat-card {
+    position: relative;
+    overflow: hidden;
+    
+    .stat-decoration {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 60px;
+      height: 60px;
+      opacity: 0.1;
+      transition: all 0.3s ease;
+      
+      &.total {
+        background: radial-gradient(circle, #1890ff 30%, transparent 70%);
+        border-radius: 50% 0 0 50%;
+      }
+      
+      &.correct {
+        background: radial-gradient(circle, #52c41a 30%, transparent 70%);
+        border-radius: 50% 0 0 50%;
+      }
+      
+      &.wrong {
+        background: radial-gradient(circle, #ff4d4f 30%, transparent 70%);
+        border-radius: 50% 0 0 50%;
+      }
+      
+      &.accuracy {
+        background: radial-gradient(circle, #722ed1 30%, transparent 70%);
+        border-radius: 50% 0 0 50%;
+      }
+    }
+    
+    &:hover .stat-decoration {
+      opacity: 0.2;
+      transform: scale(1.2);
+    }
+  }
+  
+  // Action buttons styling
+  .action-section {
+    text-align: center;
+    padding: 24px 0;
+    
+    .action-buttons {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      
+      .primary-action {
+        background: linear-gradient(135deg, #1890ff, #40a9ff);
+        border: none;
+        color: white;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        box-shadow: 0 8px 25px rgba(24, 144, 255, 0.3);
+        transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        
+        &:hover {
+          background: linear-gradient(135deg, #40a9ff, #1890ff);
+          transform: translateY(-2px);
+          box-shadow: 0 12px 35px rgba(24, 144, 255, 0.4);
+        }
+      }
+      
+      .secondary-actions {
+        display: flex;
+        gap: 12px;
+        
+        .secondary-action {
+          background: rgba(255, 255, 255, 0.9);
+          border: 2px solid rgba(24, 144, 255, 0.2);
+          color: #1890ff;
+          font-weight: 500;
+          transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+          backdrop-filter: blur(10px);
+          
+          &:hover {
+            background: rgba(24, 144, 255, 0.1);
+            border-color: #1890ff;
+            transform: translateY(-1px);
+            box-shadow: 0 8px 20px rgba(24, 144, 255, 0.2);
+          }
+        }
+      }
+    }
+  }
+  
+  // Enhanced summary card
+  .summary-card {
+    .animated-progress {
+      .ant-progress-bg {
+        transition: all 1s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      }
+    }
+    
+    .stat-row {
+      transition: all 0.2s ease;
+      padding: 4px 8px;
+      border-radius: 8px;
+      
+      &:hover {
+        background: rgba(0, 0, 0, 0.02);
+        transform: translateX(4px);
+      }
+    }
+  }
+  
+  // Floating particles effect
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+      radial-gradient(2px 2px at 20px 30px, rgba(24, 144, 255, 0.3), transparent),
+      radial-gradient(2px 2px at 40px 70px, rgba(82, 196, 26, 0.3), transparent),
+      radial-gradient(1px 1px at 90px 40px, rgba(250, 173, 20, 0.3), transparent),
+      radial-gradient(1px 1px at 130px 80px, rgba(255, 77, 79, 0.3), transparent);
+    background-repeat: repeat;
+    background-size: 200px 200px;
+    animation: float-particles 20s linear infinite;
+    pointer-events: none;
+    z-index: 0;
+  }
+}
+
+@keyframes float-particles {
+  0% {
+    transform: translateY(0px);
+  }
+  100% {
+    transform: translateY(-200px);
+  }
+}
+
+// Mobile-specific interactions
+@media (max-width: 768px) {
+  .your-result {
+    .action-section .action-buttons {
+      .secondary-actions {
+        flex-direction: column;
+        width: 100%;
+        
+        .secondary-action {
+          width: 100%;
+        }
+      }
+    }
+    
+    // Disable particle animation on mobile for performance
+    &::after {
+      display: none;
+    }
+  }
+}
