@@ -1,38 +1,31 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button, Table, Modal, Form, Input, Select, Row, Col, Space, Popconfirm, Tooltip, message } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, ImportOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
-import { getQuestionsAction, addQuestionAction } from '../../redux/action/questionAction';
+import { getQuestionsAction, addQuestionAction, updateQuestionAction, deleteQuestionAction } from '../../redux/action/questionAction';
+import { getSubjectsAction, getchaptersBySubjectIdAction } from '../../redux/action/subjectAction';
 import { RootState, AppDispatch } from '../../redux/store';
-import { AddQuestionPayload } from '../../interfaces/interfaces';
+import { AddQuestionPayload, UpdateQuestionPayload } from '../../interfaces/interfaces';
 import ImportModal from '../../components/ImportModal';
+import CustomDropdown from '../../components/ImportModal/CustomDropdown';
 import './index.scss';
 import type { Breakpoint } from 'antd/es/_util/responsiveObserver';
 
-const { Option } = Select;
-
+// Board options for filtering
 const BOARD_OPTIONS = [
   { label: 'GSEB', value: 'GSEB' },
   { label: 'CBSE', value: 'CBSE' },
 ];
+
+// Standard options for filtering
 const STANDARD_OPTIONS = [
   { label: '11th', value: '11th' },
   { label: '12th', value: '12th' },
 ];
-const SUBJECT_OPTIONS = [
-  { label: 'Mathematics', value: 'Mathematics' },
-  { label: 'Physics', value: 'Physics' },
-  { label: 'Chemistry', value: 'Chemistry' },
-  { label: 'Biology', value: 'Biology' },
-  { label: 'English', value: 'English' },
-];
-const CHAPTER_OPTIONS: { [key: string]: string[] } = {
-  Mathematics: ['Algebra', 'Geometry', 'Calculus', 'Statistics'],
-  Physics: ['Mechanics', 'Thermodynamics', 'Optics', 'Electricity'],
-  Chemistry: ['Organic Chemistry', 'Inorganic Chemistry', 'Physical Chemistry'],
-  Biology: ['Cell Biology', 'Genetics', 'Ecology', 'Human Anatomy'],
-  English: ['Grammar', 'Literature', 'Composition', 'Vocabulary'],
-};
+
+// Correct answer options for question form
 const CORRECT_ANSWER_OPTIONS = [
   { label: 'Option A', value: 'A' },
   { label: 'Option B', value: 'B' },
@@ -44,25 +37,55 @@ const DEFAULT_PAGE_SIZE = 20;
 
 const QuestionsPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
+
+  // Redux selectors for questions and subjects
   const { data, isLoading } = useSelector((state: RootState) => state.questions);
+  const { subjectLists, chapterLists } = useSelector((state: RootState) => state.subject);
+
   const questions = Array.isArray(data?.data) ? data.data : [];
   const total = data?.total || 0;
 
+  // Modal and form state
   const [modalVisible, setModalVisible] = useState(false);
   const [importModalVisible, setImportModalVisible] = useState(false);
   const [form] = Form.useForm();
+
+  // Question editing state
   const [editingKey, setEditingKey] = useState<number | null>(null);
-  const [selectedSubject, setSelectedSubject] = useState<string>('Mathematics');
+
+  // Subject and chapter state for form
+  const [selectedSubject, setSelectedSubject] = useState<string | undefined>(undefined);
+  const [_selectedSubjectId, setSelectedSubjectId] = useState<string | undefined>(undefined);
+
+  // Filter state for questions list
   const [filterBoard, setFilterBoard] = useState<string | undefined>(undefined);
   const [filterStandard, setFilterStandard] = useState<string | undefined>(undefined);
   const [filterSubject, setFilterSubject] = useState<string | undefined>(undefined);
   const [filterChapter, setFilterChapter] = useState<string | undefined>(undefined);
+
+  // Search and pagination state
   const [searchText, setSearchText] = useState<string>('');
   const [page, setPage] = useState<number>(1);
   const [sortField, setSortField] = useState<string>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  // Fetch questions
+  // Selection state for bulk operations - managed by Ant Design Table's rowSelection
+  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+
+  /**
+   * Fetch subjects on component mount
+   * - Retrieves all available subjects from the API
+   * - Used to populate the subject dropdown in the form
+   */
+  useEffect(() => {
+    dispatch(getSubjectsAction({}));
+  }, [dispatch]);
+
+  /**
+   * Fetch questions based on current filters and pagination
+   * - Called when page, search, sort field, or sort order changes
+   * - Includes filter parameters for board, standard, subject, and chapter
+   */
   const fetchQuestions = useCallback(() => {
     dispatch(getQuestionsAction({
       page,
@@ -77,18 +100,17 @@ const QuestionsPage: React.FC = () => {
     fetchQuestions();
   }, [fetchQuestions]);
 
+  /**
+   * Handle search button click
+   * - Validates that search text is at least 3 characters
+   * - Only triggers API call on button click (not on input change)
+   * - Allows clearing search with empty string
+   */
   const handleSearch = () => {
-    if (searchText.trim().length >= 3) {
-      setPage(1);
-      dispatch(getQuestionsAction({
-        page: 1,
-        limit: DEFAULT_PAGE_SIZE,
-        search: searchText.trim(),
-        sortField: sortField,
-        sortOrder,
-      }));
-    } else if (searchText.trim().length === 0) {
-      // If search is cleared, fetch without search
+    const trimmedSearch = searchText.trim();
+
+    // Allow clearing search with empty string
+    if (trimmedSearch.length === 0) {
       setPage(1);
       dispatch(getQuestionsAction({
         page: 1,
@@ -97,38 +119,169 @@ const QuestionsPage: React.FC = () => {
         sortField: sortField,
         sortOrder,
       }));
-    } else {
-      message.warning('Search text must be at least 3 characters long');
+      return;
     }
+
+    // Validate minimum 3 characters for search
+    if (trimmedSearch.length < 3) {
+      message.warning('Search text must be at least 3 characters long');
+      return;
+    }
+
+    // Perform search with valid text
+    setPage(1);
+    dispatch(getQuestionsAction({
+      page: 1,
+      limit: DEFAULT_PAGE_SIZE,
+      search: trimmedSearch,
+      sortField: sortField,
+      sortOrder,
+    }));
   };
 
+  /**
+   * Handle search input change
+   * - Only updates the search text state
+   * - Does NOT trigger API calls (only on button click)
+   */
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchText(value);
-
-    // Only trigger API call when search is completely cleared
-    if (value.trim() === '') {
-      setPage(1);
-      dispatch(getQuestionsAction({
-        page: 1,
-        limit: DEFAULT_PAGE_SIZE,
-        search: '',
-        sortField: sortField,
-        sortOrder,
-      }));
-    }
   };
 
+  /**
+   * Handle search input key press
+   * - Triggers search when Enter key is pressed
+   * - Provides better UX for keyboard users
+   */
   const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       handleSearch();
     }
   };
 
+  /**
+   * Handle Board filter change
+   * - Updates board filter state
+   * - Resets pagination to page 1
+   * - Triggers API call to fetch filtered questions
+   */
+  const handleBoardChange = (value: string) => {
+    const newBoard = value || undefined;
+    setFilterBoard(newBoard);
+    setPage(1);
+    dispatch(getQuestionsAction({
+      page: 1,
+      limit: DEFAULT_PAGE_SIZE,
+      board: newBoard,
+      standard: filterStandard,
+      subject: filterSubject,
+      chapter: filterChapter,
+      search: searchText,
+      sortField: sortField,
+      sortOrder,
+    }));
+  };
+
+  /**
+   * Handle Standard filter change
+   * - Updates standard filter state
+   * - Resets pagination to page 1
+   * - Triggers API call to fetch filtered questions
+   */
+  const handleStandardChange = (value: string) => {
+    const newStandard = value || undefined;
+    setFilterStandard(newStandard);
+    setPage(1);
+    dispatch(getQuestionsAction({
+      page: 1,
+      limit: DEFAULT_PAGE_SIZE,
+      board: filterBoard,
+      standard: newStandard,
+      subject: filterSubject,
+      chapter: filterChapter,
+      search: searchText,
+      sortField: sortField,
+      sortOrder,
+    }));
+  };
+
+  /**
+   * Handle Subject filter change (for filter dropdown)
+   * - Updates subject filter state
+   * - Fetches chapters for the selected subject from the API
+   * - Clears chapter filter when subject changes
+   * - Resets pagination to page 1
+   * - Triggers API call to fetch filtered questions
+   */
+  const handleFilterSubjectChange = (value: string) => {
+    const newSubject = value || undefined;
+    setFilterSubject(newSubject);
+    setFilterChapter(undefined); // Clear chapter when subject changes
+    setPage(1);
+
+    // Fetch chapters for the selected subject
+    if (newSubject) {
+      dispatch(getchaptersBySubjectIdAction(newSubject));
+    }
+
+    dispatch(getQuestionsAction({
+      page: 1,
+      limit: DEFAULT_PAGE_SIZE,
+      board: filterBoard,
+      standard: filterStandard,
+      subject: newSubject,
+      chapter: undefined,
+      search: searchText,
+      sortField: sortField,
+      sortOrder,
+    }));
+  };
+
+  /**
+   * Handle Chapter filter change
+   * - Updates chapter filter state
+   * - Resets pagination to page 1
+   * - Triggers API call to fetch filtered questions
+   */
+  const handleChapterChange = (value: string) => {
+    const newChapter = value || undefined;
+    setFilterChapter(newChapter);
+    setPage(1);
+    dispatch(getQuestionsAction({
+      page: 1,
+      limit: DEFAULT_PAGE_SIZE,
+      board: filterBoard,
+      standard: filterStandard,
+      subject: filterSubject,
+      chapter: newChapter,
+      search: searchText,
+      sortField: sortField,
+      sortOrder,
+    }));
+  };
+
+  /**
+   * Show Add Question modal
+   * - Resets form fields
+   * - Clears editing state
+   * - Sets default subject to first available subject from the list
+   * - Fetches chapters for the default subject
+   */
   const showModal = () => {
     setEditingKey(null);
     form.resetFields();
-    setSelectedSubject('Mathematics');
+
+    // Set default subject to the first subject in the list if available
+    if (Array.isArray(subjectLists) && subjectLists.length > 0) {
+      const firstSubjectId = subjectLists[0].id;
+      setSelectedSubject(firstSubjectId);
+      setSelectedSubjectId(firstSubjectId);
+
+      // Fetch chapters for the default subject
+      dispatch(getchaptersBySubjectIdAction(firstSubjectId));
+    }
+
     setModalVisible(true);
   };
 
@@ -154,16 +307,64 @@ const QuestionsPage: React.FC = () => {
     }
   };
 
+  /**
+   * Handle edit button click
+   * - Loads question data into the form
+   * - Sets the subject and fetches corresponding chapters
+   * - Opens the modal for editing
+   *
+   * @param record - The question record to edit
+   */
   const handleEdit = (record: any) => {
-    setEditingKey(record.key);
-    setSelectedSubject(record.subject);
+    setEditingKey(record.id);
+
+    // Set the subject ID from the record
+    const subjectId = record.subjectId || record.subject;
+    setSelectedSubject(subjectId);
+    setSelectedSubjectId(subjectId);
+
+    // Fetch chapters for the selected subject
+    if (subjectId) {
+      dispatch(getchaptersBySubjectIdAction(subjectId));
+    }
+
+    // Load form values from the record
     form.setFieldsValue(record);
     setModalVisible(true);
   };
 
-  // TODO: Implement delete with redux
-  const handleDelete = (key: number) => {
-    // dispatch(deleteQuestionAction(key));
+  /**
+   * Handle delete one or multiple questions
+   * - Accepts a single question ID or array of IDs
+   * - Converts single ID to array format for consistent API handling
+   * - Dispatches deleteQuestionAction with array of IDs
+   * - Redux slice removes the question(s) from the list and updates total count
+   * - Shows success/error message via Redux toast notifications
+   * - Supports both single deletion (from Actions column) and bulk deletion
+   *
+   * @param questionIds - Single question ID or array of question IDs to delete
+   */
+  const handleDelete = async (questionIds: string | string[]) => {
+    try {
+      // Convert single ID to array format for consistent API handling
+      const idsArray = Array.isArray(questionIds) ? questionIds : [questionIds];
+
+      // Dispatch delete action and wait for response
+      const resultAction = await dispatch(deleteQuestionAction(idsArray));
+
+      // Check if deletion was successful
+      if (deleteQuestionAction.fulfilled.match(resultAction)) {
+        // Success message is handled by Redux slice toast notification
+        // No additional action needed here
+      } else {
+        // Error message is handled by Redux slice toast notification
+        console.error('Failed to delete question(s):', resultAction.payload);
+      }
+    } catch (error) {
+      // Handle unexpected errors
+      console.error('Error in handleDelete:', error);
+      message.error('An unexpected error occurred while deleting question(s).');
+    }
   };
 
   const handleModalCancel = () => {
@@ -172,26 +373,41 @@ const QuestionsPage: React.FC = () => {
     form.resetFields();
   };
 
+  /**
+   * Handle subject change in the form
+   * - Updates the selected subject state
+   * - Fetches chapters for the selected subject from the API
+   * - Clears the chapter field when subject changes
+   *
+   * @param value - The selected subject ID
+   */
   const handleSubjectChange = (value: string) => {
     setSelectedSubject(value);
+    setSelectedSubjectId(value);
     form.setFieldsValue({ chapter: undefined });
+
+    // Fetch chapters for the selected subject
+    if (value) {
+      dispatch(getchaptersBySubjectIdAction(value));
+    }
   };
 
   /**
    * Handle form submission for adding/editing questions
    *
-   * This function integrates with the addQuestion API to create new questions.
-   * It follows the AddQuestionPayload interface structure and includes:
+   * This function integrates with the addQuestion and updateQuestion APIs.
+   * It follows the AddQuestionPayload/UpdateQuestionPayload interface structure and includes:
    * - Form validation and data preparation
+   * - Proper subjectId and chapterId mapping from selected values
    * - API call using Redux Toolkit's createAsyncThunk
    * - Loading state management
    * - Success/error handling with user feedback
-   * - Automatic refresh of questions list after successful addition
+   * - Automatic refresh of questions list after successful operation
    *
    * @param values - Form values containing question data
    * @param values.board - Educational board (GSEB/CBSE)
-   * @param values.subject - Subject name
-   * @param values.chapter - Chapter name
+   * @param values.subject - Subject ID (from dropdown)
+   * @param values.chapter - Chapter ID (from dropdown)
    * @param values.standard - Educational standard/grade
    * @param values.question - The question text
    * @param values.optionA - Option A text
@@ -202,15 +418,41 @@ const QuestionsPage: React.FC = () => {
    */
   const handleFinish = async (values: any) => {
     try {
+      // Handle Edit Question
       if (editingKey !== null) {
-        // TODO: Implement edit functionality with updateQuestion API
-        message.info('Edit functionality will be implemented soon');
-        setModalVisible(false);
-        setEditingKey(null);
-        form.resetFields();
+        // Prepare payload for updateQuestion API according to UpdateQuestionPayload interface
+        const updateQuestionPayload: UpdateQuestionPayload = {
+          id: String(editingKey),
+          board: values.board,
+          subject: values.subject,
+          chapter: values.chapter,
+          standard: values.standard,
+          question: values.question,
+          optionA: values.optionA,
+          optionB: values.optionB,
+          optionC: values.optionC,
+          optionD: values.optionD,
+          correctAnswer: values.correctAnswer,
+        };
+
+        // Dispatch updateQuestion action
+        const resultAction = await dispatch(updateQuestionAction(updateQuestionPayload));
+
+        // Check if the action was fulfilled successfully
+        if (updateQuestionAction.fulfilled.match(resultAction)) {
+          // Success: Close modal and reset form
+          // Redux slice automatically updates the questions list in state
+          setModalVisible(false);
+          setEditingKey(null);
+          form.resetFields();
+        } else {
+          // Handle API error - error message will be shown by the slice
+          console.error('Failed to update question:', resultAction.payload);
+        }
         return;
       }
 
+      // Handle Add Question
       // Prepare payload for addQuestion API according to AddQuestionPayload interface
       const addQuestionPayload: AddQuestionPayload = {
         board: values.board,
@@ -222,7 +464,10 @@ const QuestionsPage: React.FC = () => {
         optionB: values.optionB,
         optionC: values.optionC,
         optionD: values.optionD,
-        correctAnswer: values.correctAnswer
+        correctAnswer: values.correctAnswer,
+        // Map the selected subject and chapter IDs
+        subjectId: values.subject || '',
+        chapterId: values.chapter || ''
       };
 
       // Dispatch addQuestion action
@@ -230,16 +475,11 @@ const QuestionsPage: React.FC = () => {
 
       // Check if the action was fulfilled successfully
       if (addQuestionAction.fulfilled.match(resultAction)) {
-        // Success: Show success message and close modal
-        message.success('Question added successfully!');
-
-        // Close modal and reset form
+        // Success: Close modal and reset form
+        // Redux slice automatically adds the question to the questions list in state
         setModalVisible(false);
         setEditingKey(null);
         form.resetFields();
-
-        // Refresh the questions list to show the newly added question
-        fetchQuestions();
       } else {
         // Handle API error - error message will be shown by the slice
         console.error('Failed to add question:', resultAction.payload);
@@ -259,25 +499,139 @@ const QuestionsPage: React.FC = () => {
     }
   };
 
+  /**
+   * Table columns configuration with optimized widths for better readability
+   * - Board, Standard, Subject, Chapter: Filter columns (responsive)
+   * - Question: Main content column with increased width (200px)
+   * - Option A, B, C, D: Answer options with increased width (150px each)
+   * - Correct Answer: Correct option indicator
+   * - Actions: Edit and Delete buttons (fixed right)
+   * - Horizontal scroll enabled for proper display on smaller screens
+   */
   const columns = [
-    { title: 'Board', dataIndex: 'board', key: 'board', responsive: ['md'] as Breakpoint[] },
-    { title: 'Standard', dataIndex: 'standard', key: 'standard', responsive: ['md'] as Breakpoint[] },
-    { title: 'Subject', dataIndex: 'subject', key: 'subject' },
-    { title: 'Chapter', dataIndex: 'chapter', key: 'chapter', responsive: ['lg'] as Breakpoint[] },
-    { title: 'Question', dataIndex: 'question', key: 'question', ellipsis: true },
-    { title: 'A', dataIndex: 'optionA', key: 'optionA', responsive: ['lg'] as Breakpoint[] },
-    { title: 'B', dataIndex: 'optionB', key: 'optionB', responsive: ['lg'] as Breakpoint[] },
-    { title: 'C', dataIndex: 'optionC', key: 'optionC', responsive: ['lg'] as Breakpoint[] },
-    { title: 'D', dataIndex: 'optionD', key: 'optionD', responsive: ['lg'] as Breakpoint[] },
-    { title: 'Correct', dataIndex: 'correctAnswer', key: 'correctAnswer', render: (val: string) => `Option ${val}` },
+    {
+      title: 'Board',
+      dataIndex: 'board',
+      key: 'board',
+      width: 100,
+      responsive: ['md'] as Breakpoint[],
+    },
+    {
+      title: 'Standard',
+      dataIndex: 'standard',
+      key: 'standard',
+      width: 100,
+      responsive: ['md'] as Breakpoint[],
+    },
+    {
+      title: 'Subject',
+      dataIndex: 'subject',
+      key: 'subject',
+      width: 120,
+    },
+    {
+      title: 'Chapter',
+      dataIndex: 'chapter',
+      key: 'chapter',
+      width: 120,
+      responsive: ['lg'] as Breakpoint[],
+    },
+    {
+      title: 'Question',
+      dataIndex: 'question',
+      key: 'question',
+      width: 200,
+      ellipsis: {
+        showTitle: false,
+      },
+      render: (text: string) => (
+        <Tooltip title={text}>
+          {text}
+        </Tooltip>
+      ),
+    },
+    {
+      title: 'Option A',
+      dataIndex: 'optionA',
+      key: 'optionA',
+      width: 150,
+      responsive: ['lg'] as Breakpoint[],
+      ellipsis: {
+        showTitle: false,
+      },
+      render: (text: string) => (
+        <Tooltip title={text}>
+          {text}
+        </Tooltip>
+      ),
+    },
+    {
+      title: 'Option B',
+      dataIndex: 'optionB',
+      key: 'optionB',
+      width: 150,
+      responsive: ['lg'] as Breakpoint[],
+      ellipsis: {
+        showTitle: false,
+      },
+      render: (text: string) => (
+        <Tooltip title={text}>
+          {text}
+        </Tooltip>
+      ),
+    },
+    {
+      title: 'Option C',
+      dataIndex: 'optionC',
+      key: 'optionC',
+      width: 150,
+      responsive: ['lg'] as Breakpoint[],
+      ellipsis: {
+        showTitle: false,
+      },
+      render: (text: string) => (
+        <Tooltip title={text}>
+          {text}
+        </Tooltip>
+      ),
+    },
+    {
+      title: 'Option D',
+      dataIndex: 'optionD',
+      key: 'optionD',
+      width: 150,
+      responsive: ['lg'] as Breakpoint[],
+      ellipsis: {
+        showTitle: false,
+      },
+      render: (text: string) => (
+        <Tooltip title={text}>
+          {text}
+        </Tooltip>
+      ),
+    },
+    {
+      title: 'Correct Answer',
+      dataIndex: 'correctAnswer',
+      key: 'correctAnswer',
+      width: 120,
+      render: (val: string) => `Option ${val}`,
+    },
     {
       title: 'Actions',
       key: 'actions',
       fixed: 'right' as const,
+      width: 100,
       render: (_: any, record: any) => (
         <Space>
           <Button icon={<EditOutlined />} onClick={() => handleEdit(record)} size="small" />
-          <Popconfirm title="Delete this question?" onConfirm={() => handleDelete(record.key)} okText="Yes" cancelText="No">
+          <Popconfirm
+            title="Delete this question?"
+            description="This action cannot be undone."
+            onConfirm={() => handleDelete(record.id)}
+            okText="Yes"
+            cancelText="No"
+          >
             <Button icon={<DeleteOutlined />} danger size="small" />
           </Popconfirm>
         </Space>
@@ -304,16 +658,16 @@ const QuestionsPage: React.FC = () => {
           </Button>
         </Space>
       </div>
-      {/* Filters and Search Bar */}
+      {/* Filters and Search Bar - Responsive layout for all screen sizes */}
       <div className="filters-search-container" style={{
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         gap: '20px',
         marginBottom: '18px',
         flexWrap: 'wrap'
       }}>
-        {/* Filters Section */}
+        {/* Filters Section - Responsive custom dropdowns for Board, Standard, Subject, and Chapter */}
         <div className="filters-section" style={{
           display: 'flex',
           flexWrap: 'wrap',
@@ -322,42 +676,84 @@ const QuestionsPage: React.FC = () => {
           flex: '1',
           minWidth: 'fit-content'
         }}>
-          <Select
-            allowClear
-            placeholder="Subject"
-            style={{ minWidth: 140 }}
-            value={filterSubject}
-            onChange={val => { setFilterSubject(val); setFilterChapter(undefined); setPage(1); }}
-            options={SUBJECT_OPTIONS}
-          />
-          <Select
-            allowClear
-            placeholder="Chapter"
-            style={{ minWidth: 140 }}
-            value={filterChapter}
-            onChange={val => { setFilterChapter(val); setPage(1); }}
-            options={filterSubject ? CHAPTER_OPTIONS[filterSubject].map(ch => ({ label: ch, value: ch })) : []}
-            disabled={!filterSubject}
-          />
+          {/* Board Filter Dropdown - Triggers API call on change */}
+          <div className="filter-dropdown-wrapper">
+            <CustomDropdown
+              options={BOARD_OPTIONS}
+              value={filterBoard || ''}
+              onChange={handleBoardChange}
+              placeholder="Board"
+              size="middle"
+            />
+          </div>
+
+          {/* Standard Filter Dropdown - Triggers API call on change */}
+          <div className="filter-dropdown-wrapper">
+            <CustomDropdown
+              options={STANDARD_OPTIONS}
+              value={filterStandard || ''}
+              onChange={handleStandardChange}
+              placeholder="Standard"
+              size="middle"
+            />
+          </div>
+
+          {/* Subject Filter Dropdown - Triggers API call on change, clears chapter filter */}
+          <div className="filter-dropdown-wrapper">
+            <CustomDropdown
+              options={
+                Array.isArray(subjectLists)
+                  ? subjectLists.map((subject: any) => ({
+                    label: subject.subjectName,
+                    value: subject.id,
+                  }))
+                  : []
+              }
+              value={filterSubject || ''}
+              onChange={handleFilterSubjectChange}
+              placeholder="Subject"
+              size="middle"
+            />
+          </div>
+
+          {/* Chapter Filter Dropdown - Disabled if no subject selected, triggers API call on change */}
+          <div className="filter-dropdown-wrapper">
+            <CustomDropdown
+              options={
+                filterSubject && Array.isArray(chapterLists)
+                  ? chapterLists.map((chapter: any) => ({
+                    label: chapter.chapterName,
+                    value: chapter.id,
+                  }))
+                  : []
+              }
+              value={filterChapter || ''}
+              onChange={handleChapterChange}
+              placeholder="Chapter"
+              disabled={!filterSubject}
+              size="middle"
+            />
+          </div>
         </div>
 
-        {/* Search Section */}
+        {/* Search Section - Responsive search input and button */}
         <div className="search-section" style={{
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'flex-start',
           gap: '4px',
-          flexShrink: 0,
-          minWidth: 'fit-content'
+          flex: '0 1 auto',
+          minWidth: '0',
+          width: '100%'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', width: '100%', minWidth: '0' }}>
             <Input
               allowClear
               placeholder="Search question... (min 3 characters)"
               prefix={<SearchOutlined />}
               style={{
-                minWidth: 300,
-                maxWidth: 400,
+                flex: '1',
+                minWidth: '0',
                 borderColor: searchText.length > 0 && searchText.length < 3 ? '#ff4d4f' : undefined
               }}
               value={searchText}
@@ -370,7 +766,7 @@ const QuestionsPage: React.FC = () => {
               icon={<SearchOutlined />}
               onClick={handleSearch}
               className="search-button"
-              style={{ flexShrink: 0, marginLeft: '4px', height: '36px' }}
+              style={{ flexShrink: 0, marginLeft: '4px', height: '36px', whiteSpace: 'nowrap' }}
               disabled={searchText.length > 0 && searchText.length < 3}
             >
               Search
@@ -401,9 +797,15 @@ const QuestionsPage: React.FC = () => {
             onChange: (p) => setPage(p),
           }}
           bordered
-          rowKey="key"
+          rowKey="id"
           scroll={{ x: 'max-content' }}
           onChange={handleTableChange}
+          // Checkbox selection configuration - maintains table responsiveness
+          rowSelection={{
+            selectedRowKeys,
+            onChange: (keys) => setSelectedRowKeys(keys),
+            type: 'checkbox',
+          }}
         />
       </div>
 
@@ -441,8 +843,12 @@ const QuestionsPage: React.FC = () => {
           form={form}
           layout="vertical"
           onFinish={handleFinish}
-          initialValues={{ board: 'GSEB', standard: '11th', subject: 'Mathematics' }}
-          
+          initialValues={{
+            board: 'GSEB',
+            standard: '11th',
+            // Set default subject to first available subject ID
+            subject: Array.isArray(subjectLists) && subjectLists.length > 0 ? subjectLists[0].id : undefined
+          }}
           className="question-form"
         >
           {/* ---------------- Basic Information Section ---------------- */}
@@ -482,10 +888,18 @@ const QuestionsPage: React.FC = () => {
                   rules={[{ required: true, message: 'Please select subject' }]}
                 >
                   <Select
-                    options={SUBJECT_OPTIONS}
+                    options={
+                      Array.isArray(subjectLists)
+                        ? subjectLists.map((subject: any) => ({
+                          label: subject.subjectName,
+                          value: subject.id,
+                        }))
+                        : []
+                    }
                     placeholder="Select Subject"
                     onChange={handleSubjectChange}
                     size="large"
+                    allowClear
                   />
                 </Form.Item>
               </Col>
@@ -498,14 +912,16 @@ const QuestionsPage: React.FC = () => {
                   <Select
                     placeholder="Select Chapter"
                     options={
-                      selectedSubject
-                        ? CHAPTER_OPTIONS[selectedSubject].map((ch: string) => ({
-                          label: ch,
-                          value: ch,
+                      selectedSubject && Array.isArray(chapterLists)
+                        ? chapterLists.map((chapter: any) => ({
+                          label: chapter.chapterName,
+                          value: chapter.id,
                         }))
                         : []
                     }
                     size="large"
+                    allowClear
+                    disabled={!selectedSubject}
                   />
                 </Form.Item>
               </Col>

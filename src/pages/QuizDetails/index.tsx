@@ -1,94 +1,167 @@
-﻿
-import React, { useState } from 'react';
-import { Select, Button, Form, message } from 'antd';
+﻿/* eslint-disable @typescript-eslint/no-unused-vars */
+
+import React, { useState, useEffect } from 'react';
+import { Button, Form, message } from 'antd';
 import { BookOutlined, FileTextOutlined, NumberOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '../../redux/store';
+import { getSubjectsAction, getchaptersBySubjectIdAction } from '../../redux/action/subjectAction';
+import { getExamQuestionsAction } from '../../redux/action/examAction';
+import CustomDropdown, { DropdownOption } from '../../components/ImportModal/CustomDropdown';
 import './index.scss';
-
-const { Option } = Select;
 
 const QuizDetailsPage: React.FC = () => {
     const [form] = Form.useForm();
     const navigate = useNavigate();
+    const dispatch = useDispatch();
+
+    // Redux state selectors
+    const { subjectLists, chapterLists } = useSelector((state: RootState) => state.subject);
+    const { isLoading: examLoading } = useSelector((state: RootState) => state.exam);
+
+    // Local component state
     const [selectedSubject, setSelectedSubject] = useState<string>('');
+    const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
     const [selectedChapter, setSelectedChapter] = useState<string>('');
+    const [selectedChapterId, setSelectedChapterId] = useState<string>('');
     const [selectedQuestions, setSelectedQuestions] = useState<number | undefined>();
     const [loading, setLoading] = useState(false);
 
-    const subjects = [
-        { value: 'mathematics', label: '🔢 Mathematics', icon: '📐' },
-        { value: 'physics', label: '⚗️ Physics', icon: '🔬' },
-        { value: 'chemistry', label: '🧪 Chemistry', icon: '⚛️' },
-        { value: 'biology', label: '🧬 Biology', icon: '🌱' },
-        { value: 'english', label: '📚 English', icon: '📖' },
-    ];
-
-    const chapters = {
-        mathematics: ['📊 Algebra', '📐 Geometry', '📈 Calculus', '📉 Statistics'],
-        physics: ['⚙️ Mechanics', '🔥 Thermodynamics', '🔍 Optics', '⚡ Electricity'],
-        chemistry: ['🌿 Organic Chemistry', '⚡ Inorganic Chemistry', '🔬 Physical Chemistry'],
-        biology: ['🔬 Cell Biology', '🧬 Genetics', '🌍 Ecology', '👤 Human Anatomy'],
-        english: ['✏️ Grammar', '📖 Literature', '✍️ Composition', '📝 Vocabulary'],
-    };
-
+    // Question number options
     const questionNumbers = [
         { value: 5, label: '5 Questions', description: 'Quick Quiz' },
         { value: 10, label: '10 Questions', description: 'Short Test' },
         { value: 15, label: '15 Questions', description: 'Medium Test' },
         { value: 20, label: '20 Questions', description: 'Standard Test' },
-        { value: 25, label: '25 Questions', description: 'Extended Test' },
-        { value: 30, label: '30 Questions', description: 'Comprehensive' },
-        { value: 50, label: '50 Questions', description: 'Full Assessment' },
     ];
 
+    /**
+     * Fetch subjects on component mount
+     * This populates the subject dropdown with data from the API
+     */
+    useEffect(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        dispatch(getSubjectsAction({}) as any);
+    }, [dispatch]);
+
+    /**
+     * Handle subject selection
+     * - Updates selected subject state
+     * - Resets chapter selection
+     * - Fetches chapters for the selected subject
+     * - Shows success message
+     */
     const handleSubjectChange = (value: string) => {
         setSelectedSubject(value);
+        setSelectedSubjectId(value);
         setSelectedChapter('');
+        setSelectedChapterId('');
         form.setFieldsValue({ chapter: undefined });
 
+        // Fetch chapters for the selected subject
+        if (value) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            dispatch(getchaptersBySubjectIdAction(value) as any);
+        }
+
         // Show success message
-        const selectedSubjectLabel = subjects.find(s => s.value === value)?.label;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const selectedSubjectLabel = subjectLists.find((s: any) => s._id === value)?.subjectName;
         message.success(`${selectedSubjectLabel} selected!`);
     };
 
+    /**
+     * Handle chapter selection
+     * - Updates selected chapter state
+     * - Shows info message
+     */
     const handleChapterChange = (value: string) => {
         setSelectedChapter(value);
-        message.info(`Chapter "${value}" selected!`);
+        setSelectedChapterId(value);
+        message.info(`Chapter selected!`);
     };
 
+    /**
+     * Handle question count selection
+     * - Updates selected questions count
+     * - Shows info message with description
+     */
     const handleQuestionsChange = (value: number) => {
         setSelectedQuestions(value);
         const selectedOption = questionNumbers.find(q => q.value === value);
         message.info(`${selectedOption?.label} - ${selectedOption?.description} selected!`);
     };
 
+    /**
+     * Handle form submission - Generate Exam
+     * - Validates all required fields
+     * - Calls getExamQuestionsAction API with selected values
+     * - Navigates to Test page with exam questions
+     * - Handles errors with user-friendly messages
+     */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleSubmit = async (values: any) => {
         setLoading(true);
 
         try {
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            // Prepare payload for getExamQuestions API
+            const payload = {
+                board: 'CBSE', // You may need to make this dynamic based on user selection
+                standard: '10', // You may need to make this dynamic based on user selection
+                subject: selectedSubjectId,
+                chapter: selectedChapterId,
+                noOfQuestions: selectedQuestions || 5,
+            };
 
-            console.log('Form submitted:', values);
-            message.success({
-                content: '🎉 Test generated successfully! Redirecting to quiz...',
-                duration: 2,
-                style: {
-                    marginTop: '20vh',
-                },
-            });
+            // Call the getExamQuestions API
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const result = await dispatch(getExamQuestionsAction(payload) as any);
 
-            // Navigate to quiz taking page
-            setTimeout(() => {
-                navigate('/quiz');
-            }, 1000);
+            if (result.payload?.statusCode === 200) {
+                message.success({
+                    content: '🎉 Test generated successfully! Redirecting to quiz...',
+                    duration: 2,
+                    style: {
+                        marginTop: '20vh',
+                    },
+                });
+
+                // Navigate to test page after a short delay
+                setTimeout(() => {
+                    navigate('/quiz');
+                }, 1000);
+            } else {
+                message.error('Failed to generate test. Please try again.');
+            }
 
         } catch (error) {
             message.error('Failed to generate test. Please try again.');
+            console.error('Error generating exam:', error);
         } finally {
             setLoading(false);
         }
     };
+
+    // Convert subjects to dropdown options
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const subjectOptions: DropdownOption[] = subjectLists.map((subject: any) => ({
+        value: subject._id,
+        label: subject.subjectName,
+    }));
+
+    // Convert chapters to dropdown options
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const chapterOptions: DropdownOption[] = chapterLists.map((chapter: any) => ({
+        value: chapter._id,
+        label: chapter.chapterName,
+    }));
+
+    // Convert question numbers to dropdown options
+    const questionOptions: DropdownOption[] = questionNumbers.map((q) => ({
+        value: q.value.toString(),
+        label: `${q.label} - ${q.description}`,
+    }));
 
     return (
         <div className="test-page">
@@ -105,6 +178,7 @@ const QuizDetailsPage: React.FC = () => {
                     className="test-form"
                     requiredMark={false}
                 >
+                    {/* Subject Dropdown */}
                     <Form.Item
                         label={
                             <span>
@@ -115,27 +189,16 @@ const QuizDetailsPage: React.FC = () => {
                         name="subject"
                         rules={[{ required: true, message: '📚 Please select a subject to continue!' }]}
                     >
-                        <Select
-                            placeholder="🔍 Select a subject to get started..."
+                        <CustomDropdown
+                            options={subjectOptions}
+                            value={selectedSubject}
                             onChange={handleSubjectChange}
-                            className="form-select"
+                            placeholder="🔍 Select a subject to get started..."
                             size="large"
-                            showSearch
-                            optionFilterProp="children"
-                            filterOption={(input, option) =>
-                                (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
-                            }
-                        >
-                            {subjects.map((subject) => (
-                                <Option key={subject.value} value={subject.value}>
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        {subject.label}
-                                    </span>
-                                </Option>
-                            ))}
-                        </Select>
+                        />
                     </Form.Item>
 
+                    {/* Chapter Dropdown */}
                     <Form.Item
                         label={
                             <span>
@@ -146,27 +209,17 @@ const QuizDetailsPage: React.FC = () => {
                         name="chapter"
                         rules={[{ required: true, message: '📖 Please select a chapter!' }]}
                     >
-                        <Select
-                            placeholder={selectedSubject ? "📋 Choose your chapter..." : "🔒 Select a subject first"}
+                        <CustomDropdown
+                            options={chapterOptions}
+                            value={selectedChapter}
                             onChange={handleChapterChange}
+                            placeholder={selectedSubject ? "📋 Choose your chapter..." : "🔒 Select a subject first"}
                             disabled={!selectedSubject}
-                            className="form-select"
                             size="large"
-                            showSearch
-                            optionFilterProp="children"
-                            filterOption={(input, option) =>
-                                (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
-                            }
-                            notFoundContent={selectedSubject ? "No chapters found" : "Select a subject first"}
-                        >
-                            {selectedSubject && chapters[selectedSubject as keyof typeof chapters]?.map((chapter) => (
-                                <Option key={chapter} value={chapter}>
-                                    {chapter}
-                                </Option>
-                            ))}
-                        </Select>
+                        />
                     </Form.Item>
 
+                    {/* Questions Count Dropdown */}
                     <Form.Item
                         label={
                             <span>
@@ -177,39 +230,31 @@ const QuizDetailsPage: React.FC = () => {
                         name="questions"
                         rules={[{ required: true, message: '🔢 Please select the number of questions!' }]}
                     >
-                        <Select
+                        <CustomDropdown
+                            options={questionOptions}
+                            value={selectedQuestions?.toString() || ''}
+                            onChange={(value) => handleQuestionsChange(parseInt(value))}
                             placeholder="🎯 How many questions would you like?"
-                            onChange={handleQuestionsChange}
-                            className="form-select"
                             size="large"
-                            showSearch={false}
-                        >
-                            {questionNumbers.map((option) => (
-                                <Option key={option.value} value={option.value}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span style={{ fontWeight: 600 }}>{option.label}</span>
-                                        <span style={{ color: '#666', fontSize: '12px' }}>{option.description}</span>
-                                    </div>
-                                </Option>
-                            ))}
-                        </Select>
+                        />
                     </Form.Item>
 
+                    {/* Generate Exam Button */}
                     <Form.Item>
                         <Button
                             type="primary"
                             htmlType="submit"
                             className="submit-button"
-                            loading={loading}
+                            loading={loading || examLoading}
                             disabled={!selectedSubject || !selectedChapter || !selectedQuestions}
                         >
-                            {loading ? (
+                            {loading || examLoading ? (
                                 <span>
                                     🔄 Generating Your Test...
                                 </span>
                             ) : (
                                 <span>
-                                    🚀 Generate Test
+                                    🚀 Generate Exam
                                 </span>
                             )}
                         </Button>

@@ -72,6 +72,7 @@ export enum APIEndpoints {
   GetQuestions = "/questions/getQuestions",
   AddQuestion = "/questions/createQuestion",
   UpdateQuestion = "/questions/updateQuestion",
+  DeleteQuestion = "/questions/deleteQuestion",
   ImportQuestions = "/questions/importQuestions",
 
   //Users
@@ -97,5 +98,9 @@ export enum APIEndpoints {
 
   //Dashboard
   GetDashboardDetails = "/dashboard/getDashboardDetails",
+
+  //Exam
+  GetSubjectsForExam = "/exam/getSubjectsForExam",
+  GetQuestionsForExam = "/exam/getExamQuestions",
 
 }

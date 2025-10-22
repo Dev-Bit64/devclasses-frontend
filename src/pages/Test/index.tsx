@@ -1,65 +1,73 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Radio, Space, Progress, message, Statistic } from 'antd';
+import { Button, Radio, Space, Progress, message, Statistic, Empty } from 'antd';
 import { LeftOutlined, RightOutlined, CheckOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../redux/store';
 import './index.scss';
 
 const { Countdown } = Statistic;
 
+/**
+ * Question interface for MCQ questions
+ * Represents the structure of exam questions from the API
+ */
 interface Question {
-  id: number;
+  _id?: string;
+  id?: number;
   question: string;
   options: string[];
-  correctAnswer: number;
+  correctAnswer?: number;
 }
 
 const TestPage: React.FC = () => {
   const navigate = useNavigate();
-  
-  // Sample questions data - this would normally come from props or API
-  const questions: Question[] = [
-    {
-      id: 1,
-      question: "What is the capital of France?",
-      options: ["London", "Berlin", "Paris", "Madrid"],
-      correctAnswer: 2
-    },
-    {
-      id: 2,
-      question: "Which planet is known as the Red Planet?",
-      options: ["Venus", "Mars", "Jupiter", "Saturn"],
-      correctAnswer: 1
-    },
-    {
-      id: 3,
-      question: "What is 2 + 2?",
-      options: ["3", "4", "5", "6"],
-      correctAnswer: 1
-    },
-    {
-      id: 4,
-      question: "Who wrote 'Romeo and Juliet'?",
-      options: ["Charles Dickens", "William Shakespeare", "Jane Austen", "Mark Twain"],
-      correctAnswer: 1
-    },
-    {
-      id: 5,
-      question: "What is the largest ocean on Earth?",
-      options: ["Atlantic Ocean", "Indian Ocean", "Arctic Ocean", "Pacific Ocean"],
-      correctAnswer: 3
-    }
-  ];
+
+  // Get exam questions from Redux store
+  const { examQuestions } = useSelector((state: RootState) => state.exam);
+
+  /**
+   * Transform exam questions from API response to Question interface
+   * Handles both API format and fallback to sample data
+   */
+  const transformedQuestions: Question[] = examQuestions && examQuestions.length > 0
+    ? examQuestions.map((q: any, index: number) => ({
+        _id: q._id,
+        id: index + 1,
+        question: q.question,
+        options: q.options || [],
+        correctAnswer: q.correctAnswer,
+      }))
+    : []; // Empty array if no questions from API
+
+  // Use transformed questions or show empty state
+  const questions = transformedQuestions.length > 0 ? transformedQuestions : [];
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [selectedAnswers, setSelectedAnswers] = useState<{ [key: number]: number }>({});
+  const [selectedAnswers, setSelectedAnswers] = useState<{ [key: string | number]: number }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [timeLeft, setTimeLeft] = useState(30 * 60 * 1000); // 30 minutes in milliseconds
 
-  const currentQuestion = questions[currentQuestionIndex];
-  const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
-
-  // Timer effect
+  // Handle empty questions state
   useEffect(() => {
+    if (questions.length === 0) {
+      message.warning('No questions available. Please generate a test first.');
+      setTimeout(() => {
+        navigate('/quiz-details');
+      }, 2000);
+    }
+  }, [questions.length, navigate]);
+
+  const currentQuestion = questions[currentQuestionIndex];
+  const progress = questions.length > 0 ? ((currentQuestionIndex + 1) / questions.length) * 100 : 0;
+
+  /**
+   * Timer effect - Auto-submit when time runs out
+   * Countdown timer for the exam duration
+   */
+  useEffect(() => {
+    if (questions.length === 0) return; // Don't start timer if no questions
+
     const timer = setInterval(() => {
       setTimeLeft((prevTime) => {
         if (prevTime <= 1000) {
@@ -71,12 +79,18 @@ const TestPage: React.FC = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [questions.length]);
 
+  /**
+   * Handle answer selection for current question
+   * Stores the selected option index for the current question
+   */
   const handleAnswerChange = (value: number) => {
+    const questionKey = currentQuestion._id || currentQuestion.id;
     setSelectedAnswers(prev => ({
       ...prev,
-      [currentQuestion.id]: value
+      [questionKey]: value
     }));
   };
 
@@ -116,13 +130,30 @@ const TestPage: React.FC = () => {
 
   const isLastQuestion = currentQuestionIndex === questions.length - 1;
   const isFirstQuestion = currentQuestionIndex === 0;
-  const hasAnsweredCurrent = selectedAnswers[currentQuestion.id] !== undefined;
+  const currentQuestionKey = currentQuestion ? (currentQuestion._id || currentQuestion.id) : null;
+  const hasAnsweredCurrent = currentQuestionKey ? selectedAnswers[currentQuestionKey] !== undefined : false;
+
+  // Show empty state if no questions are available
+  if (questions.length === 0) {
+    return (
+      <div className="quiz-taking">
+        <Empty
+          description="No Questions Available"
+          style={{ marginTop: '100px' }}
+        >
+          <Button type="primary" onClick={() => navigate('/quiz-details')}>
+            Generate a Test
+          </Button>
+        </Empty>
+      </div>
+    );
+  }
 
   return (
     <div className="quiz-taking">
       <div className="quiz-header">
         <div className="quiz-title-container">
-          <h1 className="quiz-title">📝 Mathematics Test</h1>
+          <h1 className="quiz-title">📝 Exam Test</h1>
           <div className="timer-container">
             <ClockCircleOutlined className="timer-icon" />
             <Countdown
@@ -138,8 +169,8 @@ const TestPage: React.FC = () => {
           </div>
         </div>
         <div className="quiz-progress">
-          <Progress 
-            percent={progress} 
+          <Progress
+            percent={progress}
             strokeColor="#3E69E7"
             trailColor="rgba(62, 105, 231, 0.1)"
             strokeWidth={8}
@@ -155,22 +186,22 @@ const TestPage: React.FC = () => {
               <span className="question-number">Question {currentQuestionIndex + 1}</span>
               <span className="question-type">Multiple Choice</span>
             </div>
-            
+
             <div className="question-text">
               {currentQuestion.question}
             </div>
 
             <div className="options-container">
-              <Radio.Group 
-                value={selectedAnswers[currentQuestion.id]} 
+              <Radio.Group
+                value={selectedAnswers[currentQuestionKey]}
                 onChange={(e) => handleAnswerChange(e.target.value)}
                 className="quiz-radio-group"
               >
                 <Space direction="vertical" size="large" className="options-list">
                   {currentQuestion.options.map((option, index) => (
-                    <Radio 
-                      key={index} 
-                      value={index} 
+                    <Radio
+                      key={index}
+                      value={index}
                       className="quiz-radio-option"
                     >
                       <span className="option-label">
@@ -195,18 +226,23 @@ const TestPage: React.FC = () => {
             Previous
           </Button>
 
+          {/* Question indicator dots - shows progress and answered status */}
           <div className="question-indicator">
-            {questions.map((_, index) => (
-              <div
-                key={index}
-                className={`indicator-dot ${
-                  index === currentQuestionIndex ? 'active' : ''
-                } ${selectedAnswers[questions[index].id] !== undefined ? 'answered' : ''}`}
-                onClick={() => setCurrentQuestionIndex(index)}
-              />
-            ))}
+            {questions.map((question, index) => {
+              const questionKey = question._id || question.id;
+              return (
+                <div
+                  key={index}
+                  className={`indicator-dot ${
+                    index === currentQuestionIndex ? 'active' : ''
+                  } ${selectedAnswers[questionKey] !== undefined ? 'answered' : ''}`}
+                  onClick={() => setCurrentQuestionIndex(index)}
+                />
+              );
+            })}
           </div>
 
+          {/* Submit or Next button based on question position */}
           {isLastQuestion ? (
             <Button
               onClick={handleSubmit}

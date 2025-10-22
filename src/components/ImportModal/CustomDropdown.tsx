@@ -51,10 +51,20 @@ const CustomDropdown: React.FC<CustomDropdownProps> = ({
     };
   }, [open]);
 
-  // Handle option select
-  const handleSelect = (optionValue: string) => {
+  /**
+   * Handle option selection
+   * - Calls onChange callback with selected value
+   * - Closes dropdown immediately after selection
+   * - Prevents event propagation to avoid double-click issues
+   */
+  const handleSelect = (optionValue: string, event?: React.MouseEvent) => {
+    // Prevent event from bubbling up
+    if (event) {
+      event.stopPropagation();
+    }
     onChange(optionValue);
-    setOpen(false); // Close dropdown after selection
+    // Close dropdown after selection
+    setOpen(false);
   };
 
   // Keyboard navigation
@@ -92,7 +102,7 @@ const CustomDropdown: React.FC<CustomDropdownProps> = ({
               <div
                 key={opt.value}
                 className={`custom-dropdown-option${opt.value === value ? ' selected' : ''}`}
-                onClick={() => handleSelect(opt.value)}
+                onClick={(e) => handleSelect(opt.value, e)}
                 role="option"
                 aria-selected={opt.value === value}
               >

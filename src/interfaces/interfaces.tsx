@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export interface RegisterForm {
     firstName: string;
     lastName: string;
@@ -43,6 +44,8 @@ export interface InitialState {
     chapterLists?: any
     updatedChapter?: any;
     updatedSubject?: any;
+    examSubjectsList?: any
+    examQuestions?: any;
 }
 
 export interface PagninationPayload {
@@ -51,6 +54,10 @@ export interface PagninationPayload {
     search: string;
     sortField: string;
     sortOrder: string;
+    board?: string;
+    standard?: string;
+    subject?: string;
+    chapter?: string;
 }
 
 export interface GetUserResultsPayload {
@@ -123,4 +130,17 @@ export interface AddChapter {
 export interface UpdateChapter {
     id:string;
     chapterName: string;
+}
+
+export interface GetExamSubjects {
+    board: string;
+    standard: string;
+}
+
+export interface GetExamQuestions {
+    board: string;
+    standard: string;
+    subject: string;
+    chapter: string;
+    noOfQuestions: number;
 }

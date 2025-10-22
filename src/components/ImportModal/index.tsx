@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useState, useEffect } from 'react';
 import { Modal, Upload, Button, Typography, Alert, Space, Form, Row, Col } from 'antd';
 import { InboxOutlined, FileExcelOutlined, CloseOutlined } from '@ant-design/icons';
 import type { UploadProps, UploadFile } from 'antd';
+import { useDispatch, useSelector } from 'react-redux';
+import { getSubjectsAction, getchaptersBySubjectIdAction } from '../../redux/action/subjectAction';
+import { RootState, AppDispatch } from '../../redux/store';
 import CustomDropdown from './CustomDropdown';
 import './index.scss';
 
 const { Dragger } = Upload;
 const { Title } = Typography;
-// const { Option } = Select;
 
 // Interface for dropdown options
 interface DropdownOption {
@@ -15,18 +18,27 @@ interface DropdownOption {
   label: string;
 }
 
-// Interface for subject with chapters
-interface SubjectWithChapters extends DropdownOption {
-  chapters: DropdownOption[];
-}
-
 interface ImportModalProps {
   visible: boolean;
   onClose: () => void;
-  onImport: (file: File) => void;
+  onImport: (file: File, importData: ImportData) => void;
+}
+
+// Interface for import data payload
+interface ImportData {
+  standard: string;
+  board: string;
+  subject: string;
+  chapter: string;
 }
 
 const ImportModal: React.FC<ImportModalProps> = ({ visible, onClose, onImport }) => {
+  const dispatch = useDispatch<AppDispatch>();
+
+  // Redux selectors for subjects and chapters
+  const { subjectLists, chapterLists } = useSelector((state: RootState) => state.subject);
+
+  // File upload state
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [uploading, setUploading] = useState(false);
 
@@ -36,94 +48,52 @@ const ImportModal: React.FC<ImportModalProps> = ({ visible, onClose, onImport })
   const [selectedSubject, setSelectedSubject] = useState<string>('');
   const [selectedChapter, setSelectedChapter] = useState<string>('');
 
-  // Mock data for dropdowns
+  // Static data for standards and boards
   const standards: DropdownOption[] = [
-    { value: 'class-1', label: 'Class 1' },
-    { value: 'class-2', label: 'Class 2' },
-    { value: 'class-3', label: 'Class 3' },
-    { value: 'class-4', label: 'Class 4' },
-    { value: 'class-5', label: 'Class 5' },
-    { value: 'class-6', label: 'Class 6' },
-    { value: 'class-7', label: 'Class 7' },
-    { value: 'class-8', label: 'Class 8' },
-    { value: 'class-9', label: 'Class 9' },
-    { value: 'class-10', label: 'Class 10' },
-    { value: 'class-11', label: 'Class 11' },
-    { value: 'class-12', label: 'Class 12' },
+    { value: '11th', label: '11th Standard' },
+    { value: '12th', label: '12th Standard' },
   ];
 
   const boards: DropdownOption[] = [
     { value: 'cbse', label: 'CBSE' },
-    { value: 'icse', label: 'ICSE' },
-    { value: 'state-board', label: 'State Board' },
-    { value: 'ib', label: 'IB' },
-    { value: 'igcse', label: 'IGCSE' },
-  ];
-
-  const subjects: SubjectWithChapters[] = [
-    {
-      value: 'mathematics',
-      label: 'Mathematics',
-      chapters: [
-        { value: 'algebra', label: 'Algebra' },
-        { value: 'geometry', label: 'Geometry' },
-        { value: 'trigonometry', label: 'Trigonometry' },
-        { value: 'calculus', label: 'Calculus' },
-        { value: 'statistics', label: 'Statistics' },
-      ]
-    },
-    {
-      value: 'physics',
-      label: 'Physics',
-      chapters: [
-        { value: 'mechanics', label: 'Mechanics' },
-        { value: 'thermodynamics', label: 'Thermodynamics' },
-        { value: 'optics', label: 'Optics' },
-        { value: 'electricity', label: 'Electricity' },
-        { value: 'magnetism', label: 'Magnetism' },
-      ]
-    },
-    {
-      value: 'chemistry',
-      label: 'Chemistry',
-      chapters: [
-        { value: 'organic-chemistry', label: 'Organic Chemistry' },
-        { value: 'inorganic-chemistry', label: 'Inorganic Chemistry' },
-        { value: 'physical-chemistry', label: 'Physical Chemistry' },
-        { value: 'biochemistry', label: 'Biochemistry' },
-      ]
-    },
-    {
-      value: 'biology',
-      label: 'Biology',
-      chapters: [
-        { value: 'cell-biology', label: 'Cell Biology' },
-        { value: 'genetics', label: 'Genetics' },
-        { value: 'ecology', label: 'Ecology' },
-        { value: 'evolution', label: 'Evolution' },
-        { value: 'human-biology', label: 'Human Biology' },
-      ]
-    },
-    {
-      value: 'english',
-      label: 'English',
-      chapters: [
-        { value: 'grammar', label: 'Grammar' },
-        { value: 'literature', label: 'Literature' },
-        { value: 'composition', label: 'Composition' },
-        { value: 'comprehension', label: 'Comprehension' },
-      ]
-    },
+    { value: 'gseb', label: 'GSEB' },
   ];
 
   /**
-   * Get available chapters based on selected subject
-   * Returns empty array if no subject is selected
+   * Fetch subjects from API when modal becomes visible
+   * - Dispatches getSubjectsAction to fetch all available subjects
+   * - Populates the subject dropdown with API data
    */
-  const getAvailableChapters = (): DropdownOption[] => {
-    if (!selectedSubject) return [];
-    const subject = subjects.find(sub => sub.value === selectedSubject);
-    return subject ? subject.chapters : [];
+  useEffect(() => {
+    if (visible) {
+      dispatch(getSubjectsAction({}));
+    }
+  }, [visible, dispatch]);
+
+  /**
+   * Convert API subject data to dropdown options format
+   * - Maps subjectLists from Redux to DropdownOption format
+   * - Returns empty array if no subjects available
+   */
+  const getSubjectOptions = (): DropdownOption[] => {
+    if (!Array.isArray(subjectLists)) return [];
+    return subjectLists.map((subject: any) => ({
+      value: subject.id,
+      label: subject.subjectName,
+    }));
+  };
+
+  /**
+   * Convert API chapter data to dropdown options format
+   * - Maps chapterLists from Redux to DropdownOption format
+   * - Returns empty array if no chapters available
+   */
+  const getChapterOptions = (): DropdownOption[] => {
+    if (!Array.isArray(chapterLists)) return [];
+    return chapterLists.map((chapter: any) => ({
+      value: chapter.id,
+      label: chapter.chapterName,
+    }));
   };
 
   /**
@@ -144,13 +114,19 @@ const ImportModal: React.FC<ImportModalProps> = ({ visible, onClose, onImport })
 
   /**
    * Handle subject dropdown change
-   * Updates the selected subject and resets chapter selection
-   * since chapters depend on the selected subject
+   * - Updates the selected subject value
+   * - Resets chapter selection since chapters depend on the selected subject
+   * - Dispatches getChapters API call to fetch chapters for the selected subject
    */
   const handleSubjectChange = (value: string) => {
     setSelectedSubject(value);
     // Reset chapter when subject changes to avoid invalid selection
     setSelectedChapter('');
+
+    // Fetch chapters for the selected subject from API
+    if (value) {
+      dispatch(getchaptersBySubjectIdAction(value));
+    }
   };
 
   /**
@@ -171,7 +147,10 @@ const ImportModal: React.FC<ImportModalProps> = ({ visible, onClose, onImport })
 
   /**
    * Handle the file upload/import process
-   * Validates form, triggers import callback, and resets form on success
+   * - Validates form fields and file selection
+   * - Prepares import data payload with selected values
+   * - Triggers import callback with file and import data
+   * - Resets form on success
    */
   const handleUpload = async () => {
     if (!isFormValid()) return;
@@ -179,9 +158,20 @@ const ImportModal: React.FC<ImportModalProps> = ({ visible, onClose, onImport })
     setUploading(true);
     try {
       const file = fileList[0].originFileObj as File;
-      await onImport(file);
+
+      // Prepare import data payload
+      const importData: ImportData = {
+        standard: selectedStandard,
+        board: selectedBoard,
+        subject: selectedSubject,
+        chapter: selectedChapter,
+      };
+
+      // Call the import callback with file and import data
+      onImport(file, importData);
+
+      // Reset form to initial state after successful import
       setFileList([]);
-      // Reset form to initial state
       setSelectedStandard('');
       setSelectedBoard('');
       setSelectedSubject('');
@@ -320,11 +310,11 @@ const ImportModal: React.FC<ImportModalProps> = ({ visible, onClose, onImport })
                   </Form.Item>
                 </Col>
 
-                {/* Subject Dropdown */}
+                {/* Subject Dropdown - Fetches subjects from API */}
                 <Col xs={24} sm={12}>
                   <Form.Item label="Subject" required className="form-item">
                     <CustomDropdown
-                      options={subjects}
+                      options={getSubjectOptions()}
                       value={selectedSubject}
                       onChange={handleSubjectChange}
                       placeholder="Select Subject"
@@ -334,11 +324,11 @@ const ImportModal: React.FC<ImportModalProps> = ({ visible, onClose, onImport })
                   </Form.Item>
                 </Col>
 
-                {/* Chapter Dropdown - Disabled until a subject is selected */}
+                {/* Chapter Dropdown - Fetches chapters from API based on selected subject */}
                 <Col xs={24} sm={12}>
                   <Form.Item label="Chapter" required className="form-item">
                     <CustomDropdown
-                      options={getAvailableChapters()}
+                      options={getChapterOptions()}
                       value={selectedChapter}
                       onChange={handleChapterChange}
                       placeholder="Select Chapter"

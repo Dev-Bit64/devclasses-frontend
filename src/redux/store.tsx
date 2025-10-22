@@ -3,6 +3,8 @@ import auth from "./slice/authSlice";
 import userSlice from "./slice/userSlice";
 import questionsSlice from "./slice/questionSlice";
 import dashboardSlice from "./slice/dashboardSlice";
+import subjectSlice from "./slice/subjectSlice";
+import examSlice from "./slice/examSlice";
 
 // import profileSlice from "./slice/profileSlice";
 // import OrganisationSlice from "./slice/organisationSlice";
@@ -12,7 +14,9 @@ const store = configureStore({
         auth: auth.reducer,
         user: userSlice.reducer,
         questions: questionsSlice.reducer,
-        dashboard: dashboardSlice.reducer
+        dashboard: dashboardSlice.reducer,
+        subject: subjectSlice.reducer,
+        exam: examSlice.reducer,
     }
 });
 

@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { postApi, putApi } from "../apis";
+import { postApi, putApi, deleteApi } from "../apis";
 import { APIEndpoints } from "../../constants/constants";
 import { AddQuestionPayload, PagninationPayload, UpdateQuestionPayload } from "../../interfaces/interfaces";
 
@@ -75,6 +76,32 @@ export const updateQuestionAction = createAsyncThunk(
                 {
                     return response.data;
                 }
+            } else {
+                throw Error(response?.data?.message);
+            }
+        } catch (error: any) {
+            if (!error.response) {
+                throw error;
+            }
+            return rejectWithValue(error?.response?.data);
+        }
+    }
+);
+
+/**
+ * Delete one or multiple questions by ID(s)
+ *
+ * @param questionIds - Array of question IDs to delete
+ */
+export const deleteQuestionAction = createAsyncThunk(
+    "deleteQuestion",
+    async (questionIds: string[], { rejectWithValue }) => {
+        try {
+            // Send IDs in request body
+            const payload = { questionIds };
+            const response = await deleteApi(APIEndpoints.DeleteQuestion, payload);
+            if (response?.data?.statusCode === 200) {
+                return response.data;
             } else {
                 throw Error(response?.data?.message);
             }
