@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import { deleteApi, getApi, postApi } from "../apis";
 import { APIEndpoints } from "../../constants/constants";
@@ -5,9 +6,9 @@ import { GetUserResultsPayload, GetUsersPayload } from "../../interfaces/interfa
 
 export const getUserProfileAction = createAsyncThunk(
     "GetUserProfile",
-    async (data: any, { rejectWithValue }) => {
+    async (userId: string, { rejectWithValue }) => {
         try {
-            const response = await getApi(APIEndpoints.GetUserProfile + `?id=${data}`);
+            const response = await getApi(APIEndpoints.GetUserProfile + `?id=${userId}`);
             if (response?.data?.statusCode === 200) {
                 {
                     return response.data;
@@ -80,7 +81,6 @@ export const getUserResultByIdAction = createAsyncThunk(
 )
 
 
-/*Get User Results by Id */
 export const getUsersAction = createAsyncThunk(
     "GetUsers",
     async (payload: GetUsersPayload, { rejectWithValue }) => {

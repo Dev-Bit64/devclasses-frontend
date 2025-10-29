@@ -101,7 +101,7 @@ const QuizDetailsPage: React.FC = () => {
      * - Handles errors with user-friendly messages
      */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const handleSubmit = async (values: any) => {
+    const handleSubmit = async (_values: any) => {
         setLoading(true);
 
         try {

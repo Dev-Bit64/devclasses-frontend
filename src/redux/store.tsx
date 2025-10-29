@@ -6,9 +6,6 @@ import dashboardSlice from "./slice/dashboardSlice";
 import subjectSlice from "./slice/subjectSlice";
 import examSlice from "./slice/examSlice";
 
-// import profileSlice from "./slice/profileSlice";
-// import OrganisationSlice from "./slice/organisationSlice";
-
 const store = configureStore({
     reducer: {
         auth: auth.reducer,

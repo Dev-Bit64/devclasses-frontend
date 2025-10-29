@@ -5,13 +5,12 @@ import { useDispatch, useSelector } from 'react-redux';
 import {
   BookOutlined,
   FileTextOutlined,
-  CalendarOutlined,
   TrophyOutlined,
   UserOutlined,
   QuestionCircleOutlined,
   BarChartOutlined,
 } from '@ant-design/icons';
-import { UserSvg } from '../../../utils/svg';
+// import { UserSvg } from '../../../utils/svg';
 import { getDasboardDetailsAction } from '../../../redux/action/dasboardAction';
 import { RootState } from '../../../redux/store';
 import { AdminDashboardData, StudentDashboardData } from '../../../interfaces/interfaces';
@@ -20,7 +19,7 @@ const { Title, Text } = Typography;
 
 // Type guard functions to check dashboard data type
 const isAdminDashboardData = (data: any): data is AdminDashboardData => {
-  return data && 'totalUsersInSystem' in data;
+  return data && 'totalStudentsInSystem' in data;
 };
 
 const isStudentDashboardData = (data: any): data is StudentDashboardData => {
@@ -42,7 +41,7 @@ const DashboardContent: React.FC = () => {
 
     // Generate admin dashboard cards from API data
     const getAdminDashboardCards = () => {
-        // if (!isAdminDashboardData(dashboardDetails)) return [];
+        if (!isAdminDashboardData(dashboardDetails)) return [];
         
         return [
             {

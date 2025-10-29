@@ -1,95 +1,404 @@
+/* ============================================
+   Users Page Container - Main Styles
+   ============================================ */
 .users-page-container {
-  padding: 24px 16px;
-  min-height: 100vh;
+  padding: 16px 12px;
+  height: 100vh;
   background: transparent;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 
+  /* Page title styling */
   .welcome-title {
-    font-size: 2rem;
+    font-size: 1.8rem;
     font-weight: 700;
-    margin-bottom: 1.5rem;
+    margin-bottom: 12px;
     color: #222;
+    flex-shrink: 0;
   }
 
+  /* Filter card with gradient background */
   .users-filter-card {
     background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-    border-radius: 16px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-    margin-bottom: 24px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    margin-bottom: 12px;
+    padding: 12px;
+    flex-shrink: 0;
+
+    /* Input and select styling */
     .ant-input-affix-wrapper, .ant-select-selector {
       border-radius: 8px !important;
-      font-size: 1rem;
+      font-size: 0.95rem;
+    }
+
+    /* Search input responsive styling */
+    .search-input {
+      width: 100%;
+      font-size: 0.95rem;
+
+      &.ant-input-affix-wrapper {
+        width: 100%;
+      }
     }
   }
 
-  // Search button styling to match Subjects page
+  /* Search section container - keeps search input and button side by side */
+  .search-section {
+    width: 100%;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+
+  /* Search button with gradient and hover effects */
   .search-button {
-    height: 36px;
+    height: 32px;
     border-radius: 6px;
     font-weight: 600;
-    font-size: 13px;
+    font-size: 12px;
     background: linear-gradient(135deg, #1890ff 0%, #52c41a 100%);
     border: none;
     transition: all 0.3s ease;
-    padding: 0 14px;
+    padding: 0 12px;
     white-space: nowrap;
-    line-height: 34px;
+    line-height: 30px;
 
-    &:hover {
+    /* Hover effect for enabled state */
+    &:hover:not(:disabled) {
       transform: translateY(-2px);
       box-shadow: 0 8px 20px rgba(24, 144, 255, 0.3);
     }
 
+    /* Disabled state styling */
     &:disabled {
       background: #f5f5f5;
       color: #bfbfbf;
       transform: none;
       box-shadow: none;
+      cursor: not-allowed;
     }
   }
 
+  /* Table wrapper styling - Fixed height with internal scroll */
   .users-table-wrapper {
     background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-    padding: 16px;
-    overflow-x: auto;
-    max-width: 100vw;
+    border-radius: 10px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.04);
+    padding: 10px;
+    overflow: hidden;
+    max-width: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+
+    /* Table font size */
+    .ant-table {
+      font-size: 13px;
+      overflow: auto;
+      flex: 1;
+    }
+
+    /* Ant table wrapper - allow internal scroll */
+    .ant-table-wrapper {
+      overflow: auto;
+      flex: 1;
+    }
   }
 }
 
-@media (max-width: 1024px) {
+/* ============================================
+   Large Desktops (1440px and above)
+   ============================================ */
+@media (min-width: 1440px) {
   .users-page-container {
-    padding: 16px 4px;
-    .users-filter-card {
-      margin-bottom: 16px;
-      .ant-input-affix-wrapper, .ant-select-selector {
-        font-size: 0.95rem;
-      }
-    }
-    .users-table-wrapper {
-      padding: 4px;
-      border-radius: 8px;
-    }
+    padding: 16px 20px;
+    height: 100vh;
+    overflow: hidden;
+
     .welcome-title {
-      font-size: 1.3rem;
-      margin-bottom: 1rem;
+      font-size: 1.8rem;
+      margin-bottom: 12px;
     }
-  }
-}
 
-@media (max-width: 600px) {
-  .users-page-container {
-    padding: 8px 0;
     .users-filter-card {
+      margin-bottom: 12px;
+      padding: 12px 14px;
+      flex-shrink: 0;
+
       .ant-input-affix-wrapper, .ant-select-selector {
         font-size: 0.9rem;
       }
+
+      .search-button {
+        font-size: 11px;
+        padding: 0 12px;
+        height: 30px;
+        line-height: 28px;
+      }
     }
+
     .users-table-wrapper {
-      padding: 0;
-    }
-    .welcome-title {
-      font-size: 1.1rem;
+      padding: 10px;
+      flex: 1;
+      overflow: hidden;
+
+      .ant-table {
+        font-size: 13px;
+      }
     }
   }
-} 
+}
+
+/* ============================================
+   Medium Desktops (1024px to 1439px)
+   ============================================ */
+@media (min-width: 1024px) and (max-width: 1439px) {
+  .users-page-container {
+    padding: 14px 14px;
+    height: 100vh;
+    overflow: hidden;
+
+    .welcome-title {
+      font-size: 1.6rem;
+      margin-bottom: 10px;
+    }
+
+    .users-filter-card {
+      margin-bottom: 10px;
+      padding: 11px 12px;
+      flex-shrink: 0;
+
+      .ant-input-affix-wrapper, .ant-select-selector {
+        font-size: 0.85rem;
+      }
+
+      .search-button {
+        font-size: 10px;
+        padding: 0 10px;
+        height: 28px;
+        line-height: 26px;
+      }
+    }
+
+    .users-table-wrapper {
+      padding: 10px;
+      flex: 1;
+      overflow: hidden;
+
+      .ant-table {
+        font-size: 12px;
+      }
+    }
+  }
+}
+
+/* ============================================
+   Tablets (768px to 1023px)
+   ============================================ */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .users-page-container {
+    padding: 12px 10px;
+    height: 100vh;
+    overflow: hidden;
+
+    .welcome-title {
+      font-size: 1.3rem;
+      margin-bottom: 8px;
+    }
+
+    .users-filter-card {
+      margin-bottom: 10px;
+      padding: 10px;
+      flex-shrink: 0;
+
+      .ant-input-affix-wrapper, .ant-select-selector {
+        font-size: 0.8rem;
+      }
+
+      .search-button {
+        font-size: 9px;
+        padding: 0 8px;
+        height: 28px;
+        line-height: 26px;
+      }
+
+      .search-input {
+        font-size: 0.8rem;
+      }
+    }
+
+    .users-table-wrapper {
+      padding: 9px;
+      flex: 1;
+      overflow: hidden;
+
+      .ant-table {
+        font-size: 11px;
+      }
+
+      .ant-table-cell {
+        padding: 8px 5px !important;
+      }
+    }
+  }
+}
+
+/* ============================================
+   Small Tablets (600px to 767px)
+   ============================================ */
+@media (min-width: 600px) and (max-width: 767px) {
+  .users-page-container {
+    padding: 10px 8px;
+    height: 100vh;
+    overflow: hidden;
+
+    .welcome-title {
+      font-size: 1.1rem;
+      margin-bottom: 7px;
+    }
+
+    .users-filter-card {
+      margin-bottom: 8px;
+      padding: 8px;
+      flex-shrink: 0;
+
+      .ant-input-affix-wrapper, .ant-select-selector {
+        font-size: 0.75rem;
+      }
+
+      .search-button {
+        font-size: 9px;
+        padding: 0 6px;
+        height: 26px;
+        line-height: 24px;
+      }
+
+      .search-input {
+        font-size: 0.75rem;
+      }
+    }
+
+    .users-table-wrapper {
+      padding: 8px;
+      flex: 1;
+      overflow: hidden;
+
+      .ant-table {
+        font-size: 10px;
+        overflow: auto;
+      }
+
+      .ant-table-cell {
+        padding: 6px 3px !important;
+      }
+    }
+  }
+}
+
+/* ============================================
+   Mobile Phones (480px to 599px)
+   ============================================ */
+@media (min-width: 480px) and (max-width: 599px) {
+  .users-page-container {
+    padding: 8px 6px;
+    height: 100vh;
+    overflow: hidden;
+
+    .welcome-title {
+      font-size: 0.95rem;
+      margin-bottom: 6px;
+    }
+
+    .users-filter-card {
+      margin-bottom: 7px;
+      padding: 7px;
+      flex-shrink: 0;
+
+      .ant-input-affix-wrapper, .ant-select-selector {
+        font-size: 0.7rem;
+      }
+
+      .search-button {
+        font-size: 8px;
+        padding: 0 5px;
+        height: 24px;
+        line-height: 22px;
+      }
+
+      .search-input {
+        font-size: 0.7rem;
+      }
+    }
+
+    .users-table-wrapper {
+      padding: 7px;
+      flex: 1;
+      overflow: hidden;
+
+      .ant-table {
+        font-size: 9px;
+        overflow: auto;
+      }
+
+      .ant-table-cell {
+        padding: 5px 2px !important;
+      }
+    }
+  }
+}
+
+/* ============================================
+   Small Mobile Phones (below 480px)
+   ============================================ */
+@media (max-width: 479px) {
+  .users-page-container {
+    padding: 6px 4px;
+    height: 100vh;
+    overflow: hidden;
+
+    .welcome-title {
+      font-size: 0.85rem;
+      margin-bottom: 5px;
+    }
+
+    .users-filter-card {
+      margin-bottom: 6px;
+      padding: 6px;
+      flex-shrink: 0;
+
+      .ant-input-affix-wrapper, .ant-select-selector {
+        font-size: 0.65rem;
+      }
+
+      .search-button {
+        font-size: 7px;
+        padding: 0 4px;
+        height: 22px;
+        line-height: 20px;
+      }
+
+      .search-input {
+        font-size: 0.65rem;
+      }
+    }
+
+    .users-table-wrapper {
+      padding: 6px;
+      flex: 1;
+      overflow: hidden;
+
+      .ant-table {
+        font-size: 8px;
+        overflow: auto;
+      }
+
+      .ant-table-cell {
+        padding: 4px 2px !important;
+      }
+    }
+  }
+}

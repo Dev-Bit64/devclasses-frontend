@@ -1,5 +1,5 @@
 import React from "react";
-import { Row, Col, Form, Input, Button, Select } from "antd";
+import { Row, Col, Form, Input, Button } from "antd";
 import {
     UserOutlined,
     LockOutlined,
@@ -16,15 +16,42 @@ import { AppDispatch } from "../../../redux/store";
 import { toastText } from "../../../utils/toast";
 import { useNavigate } from "react-router-dom";
 import { registerAction } from "../../../redux/action/authAction";
+import CustomDropdown from "../../ImportModal/CustomDropdown";
 
 
 const RegistrationForm: React.FC<RegisterFormProps> = (props) => {
 
     const { setIsLogin } = props;
     const [isLoading, setIsLoading] = useState(false);
+    const [selectedBoard, setSelectedBoard] = useState("");
+    const [selectedStandard, setSelectedStandard] = useState("");
 
     const dispatch = useDispatch<AppDispatch>();
     const navigate = useNavigate();
+    const [form] = Form.useForm();
+
+    // Board and Standard options
+    const boardOptions = [
+        { value: 'CBSE', label: 'CBSE' },
+        { value: 'GSEB', label: 'GSEB' },
+    ];
+
+    const standardOptions = [
+        { value: '11th', label: '11th' },
+        { value: '12th', label: '12th' },
+    ];
+
+    // Handle board change
+    const handleBoardChange = (value: string) => {
+        setSelectedBoard(value);
+        form.setFieldsValue({ board: value });
+    };
+
+    // Handle standard change
+    const handleStandardChange = (value: string) => {
+        setSelectedStandard(value);
+        form.setFieldsValue({ standard: value });
+    };
 
     const onFinish = (values: any) => {
         const { firstName, lastName, email, password, board, standard } = values;
@@ -61,6 +88,7 @@ const RegistrationForm: React.FC<RegisterFormProps> = (props) => {
             {/* <h2 className={styles["login-form__title"]}>Register</h2> */}
 
             <Form
+                form={form}
                 name="registration"
                 onFinish={onFinish}
                 layout="vertical"
@@ -105,14 +133,12 @@ const RegistrationForm: React.FC<RegisterFormProps> = (props) => {
                             label={<span><BookOutlined /> Board</span>}
                             rules={[{ required: true, message: "Please select your board!" }]}
                         >
-                            <Select
+                            <CustomDropdown
+                                options={boardOptions}
+                                value={selectedBoard}
+                                onChange={handleBoardChange}
                                 placeholder="Select board"
-                                optionFilterProp="label"
-                                onChange={() => {}}
-                                options={[
-                                    { value: 'CBSE', label: 'CBSE' },
-                                    { value: 'GSEB', label: 'GSEB' },
-                                ]}
+                                size="middle"
                             />
                         </Form.Item>
                     </Col>
@@ -122,14 +148,12 @@ const RegistrationForm: React.FC<RegisterFormProps> = (props) => {
                             label={<span><BookOutlined /> Standard</span>}
                             rules={[{ required: true, message: "Please select your standard!" }]}
                         >
-                            <Select
+                            <CustomDropdown
+                                options={standardOptions}
+                                value={selectedStandard}
+                                onChange={handleStandardChange}
                                 placeholder="Select standard"
-                                optionFilterProp="label"
-                                onChange={() => {}}
-                                options={[
-                                    { value: '11th', label: '11th' },
-                                    { value: '12th', label: '12th' },
-                                ]}
+                                size="middle"
                             />
                         </Form.Item>
                     </Col>

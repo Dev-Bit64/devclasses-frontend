@@ -13,6 +13,7 @@ import TestPage from "../pages/Test";
 import UsersPage from "../pages/Users";
 import QuestionsPage from "../pages/Questions";
 import SubjectsPage from "../pages/Subjects";
+import ResetPasswordPage from "../pages/ResetPassword";
 
 const router = createBrowserRouter([
     {
@@ -115,6 +116,17 @@ const router = createBrowserRouter([
     //     path: "/login",
     //     element: <Login />,
     // },
+
+    /**
+     * Reset Password Route
+     * Accessible via /reset-password?token=<reset_token>
+     * Allows users to reset their password using a token from email
+     */
+    {
+        path: "/reset-password",
+        element: <ResetPasswordPage />,
+    },
+
     {
         path: "/",
         element: <LandingPage />,

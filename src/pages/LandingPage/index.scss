@@ -1023,6 +1023,15 @@
                     font-size: 16px;
                 }
 
+                // Custom dropdown styling to match other inputs
+                .custom-dropdown {
+                    .custom-dropdown-selector {
+                        height: 52px;
+                        min-height: 52px;
+                        font-size: 16px;
+                    }
+                }
+
                 .ant-btn-primary {
                     height: 56px;
                     font-size: 18px;

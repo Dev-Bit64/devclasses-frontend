@@ -46,6 +46,7 @@ export interface InitialState {
     updatedSubject?: any;
     examSubjectsList?: any
     examQuestions?: any;
+    userLists?: any;
 }
 
 export interface PagninationPayload {

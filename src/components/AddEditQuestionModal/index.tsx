@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Modal, Form, Input, Select, Row, Col, Button, message } from 'antd';
 import { useDispatch, useSelector } from 'react-redux';
 import { addQuestionAction } from '../../redux/action/questionAction';

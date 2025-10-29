@@ -87,7 +87,7 @@ const TestPage: React.FC = () => {
    * Stores the selected option index for the current question
    */
   const handleAnswerChange = (value: number) => {
-    const questionKey = currentQuestion._id || currentQuestion.id;
+    const questionKey:any = currentQuestion._id || currentQuestion.id;
     setSelectedAnswers(prev => ({
       ...prev,
       [questionKey]: value
@@ -193,7 +193,7 @@ const TestPage: React.FC = () => {
 
             <div className="options-container">
               <Radio.Group
-                value={selectedAnswers[currentQuestionKey]}
+                value={currentQuestionKey ? selectedAnswers[currentQuestionKey] : undefined}
                 onChange={(e) => handleAnswerChange(e.target.value)}
                 className="quiz-radio-group"
               >
@@ -229,7 +229,7 @@ const TestPage: React.FC = () => {
           {/* Question indicator dots - shows progress and answered status */}
           <div className="question-indicator">
             {questions.map((question, index) => {
-              const questionKey = question._id || question.id;
+              const questionKey:any = question._id || question.id;
               return (
                 <div
                   key={index}

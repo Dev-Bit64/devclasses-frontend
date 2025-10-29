@@ -9,7 +9,6 @@ import {
   Form, 
   Input, 
   message, 
-  Avatar, 
   Menu,
   Drawer,
   List,
@@ -23,10 +22,6 @@ import {
   PhoneOutlined,
   MailOutlined,
   EnvironmentOutlined,
-  FacebookOutlined,
-  TwitterOutlined,
-  InstagramOutlined,
-  LinkedinOutlined,
   MenuOutlined,
   RocketOutlined,
   BarChartOutlined,
@@ -101,8 +96,6 @@ const LandingPage = () => {
   const navItems = [
     { key: 'home', label: 'Home', href: '#home' },
     { key: 'features', label: 'Why Us', href: '#features' },
-    { key: 'courses', label: 'Courses', href: '#courses' },
-    { key: 'testimonials', label: 'Testimonials', href: '#testimonials' },
     { key: 'contact', label: 'Contact', href: '#contact' },
   ];
 
@@ -129,56 +122,6 @@ const LandingPage = () => {
     }
   ];
 
-  const courses = [
-    {
-      title: 'Accountancy',
-      description: 'Master the fundamentals of accounting principles, financial statements, and bookkeeping.',
-      image: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60'
-    },
-    {
-      title: 'Business Studies',
-      description: 'Learn about business organizations, management principles, and business environment.',
-      image: 'https://images.unsplash.com/photo-1542744173-05336fcc7ad4?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60'
-    },
-    {
-      title: 'Economics',
-      description: 'Understand micro and macroeconomics concepts, Indian economy, and economic developments.',
-      image: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60'
-    },
-    {
-      title: 'Mathematics for Commerce',
-      description: 'Develop strong mathematical skills required for commerce applications and competitive exams.',
-      image: 'https://images.unsplash.com/photo-1509228468518-180dd4864904?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60'
-    }
-  ];
-
-  const testimonials = [
-    {
-      name: 'Priya Sharma',
-      avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
-      quote: 'CommercePro Academy helped me secure 95% in my 12th board exams. The faculty is exceptional and their study material is comprehensive.',
-      course: 'State Board Student'
-    },
-    {
-      name: 'Rahul Verma',
-      avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
-      quote: 'The personalized attention and exam-oriented approach at CommercePro Academy made complex subjects easy to understand.',
-      course: 'CBSE Student'
-    },
-    {
-      name: 'Sneha Patel',
-      avatar: 'https://randomuser.me/api/portraits/women/68.jpg',
-      quote: 'Thanks to CommercePro Academy, I not only excelled in my exams but also developed a deep understanding of commerce concepts.',
-      course: 'State Board Student'
-    }
-  ];
-
-  const stats = [
-    { title: 'Expert Teachers', value: 25, suffix: '+' },
-    { title: 'Students Trained', value: 5000, suffix: '+' },
-    { title: 'Success Rate', value: 98, suffix: '%' },
-    { title: 'Years of Excellence', value: 15, suffix: '+' }
-  ];
 
   const commerceImageUrl = "https://img.freepik.com/free-vector/financial-advisor-concept-illustration_114360-20542.jpg?ga=GA1.1.2105316451.1746551452&semt=ais_hybrid&w=740";
   const fallbackImageUrl = "https://img.freepik.com/free-vector/financial-data-analysis-accounting-banner_107791-11871.jpg?w=1380&t=st=1713880600~exp=1713881200~hmac=9b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7";
@@ -296,7 +239,7 @@ const LandingPage = () => {
                 >
                   Comprehensive coaching for commerce students. Expert guidance, targeted preparation, and proven success strategies for board exams and competitive tests.
                 </Paragraph>
-                <div className="hero-button" style={{ opacity: 0 }}>
+                {/* <div className="hero-button" style={{ opacity: 0 }}>
                   <Button 
                     type="primary" 
                     size="large" 
@@ -325,7 +268,7 @@ const LandingPage = () => {
                   >
                     Learn More
                   </Button>
-                </div>
+                </div> */}
               </Col>
               <Col xs={24} md={12} className="hero-image" style={{ display: isMobile ? 'none' : 'block' }}>
                 {!imageError ? (
@@ -361,7 +304,7 @@ const LandingPage = () => {
             <Row gutter={[32, 32]}>
               {features.map((feature, index) => (
                 <Col xs={24} sm={12} md={6} key={index} className={`slide-up delay-${index + 1}`}>
-                  <Card className="feature-card" variant="filled">
+                  <Card className="feature-card" variant="outlined">
                     <div className="feature-icon">{feature.icon}</div>
                     <Meta
                       title={<Title level={4} style={{ textAlign: 'center', marginBottom: '15px' }}>{feature.title}</Title>}
@@ -374,7 +317,7 @@ const LandingPage = () => {
           </div>
         </section>
         
-        <section className="stats-section">
+        {/* <section className="stats-section">
           <div className="container">
             <Row gutter={[32, 32]}>
               {stats.map((stat, index) => (
@@ -387,9 +330,9 @@ const LandingPage = () => {
               ))}
             </Row>
           </div>
-        </section>
+        </section> */}
 
-        <section id="courses" className="courses-section">
+        {/* <section id="courses" className="courses-section">
           <div className="container">
             <Title level={2} className="section-title slide-up">
               Our Specialized Courses
@@ -421,7 +364,7 @@ const LandingPage = () => {
               </Button>
             </div>
           </div>
-        </section>
+        </section> */}
 
         <section className="features-section" style={{ background: '#fff' }}>
           <div className="container">
@@ -482,7 +425,7 @@ const LandingPage = () => {
           </div>
         </section>
 
-        <section id="testimonials" className="testimonials-section">
+        {/* <section id="testimonials" className="testimonials-section">
           <div className="container">
             <Title level={2} className="section-title slide-up">
               Student Testimonials
@@ -508,7 +451,7 @@ const LandingPage = () => {
               ))}
             </Row>
           </div>
-        </section>
+        </section> */}
 
         <section id="contact" className="contact-section">
           <div className="container">
@@ -539,7 +482,7 @@ const LandingPage = () => {
                     </div>
                     <div className="text">
                       <h4 className='contact-info-header'>Email</h4>
-                      <p>info@commerceproacademy.com</p>
+                      <p>info@devclasses.in</p>
                     </div>
                   </div>
                   
@@ -549,11 +492,11 @@ const LandingPage = () => {
                     </div>
                     <div className="text">
                       <h4 className='contact-info-header'>Address</h4>
-                      <p>123 Education Lane, Academic District<br />Mumbai, Maharashtra 400001</p>
+                      <p>Dev Classes, Opp Gyanjyot Travels, Nr Prabhu Oil Mill, Kamlabaug<br />Porbandar, Gujarat 360575</p>
                     </div>
                   </div>
                   
-                  <div style={{ marginTop: '30px' }}>
+                  {/* <div style={{ marginTop: '30px' }}>
                     <Title level={5} style={{ marginBottom: '15px' }}>
                       Follow Us
                     </Title>
@@ -563,7 +506,7 @@ const LandingPage = () => {
                       <a href="#"><InstagramOutlined /></a>
                       <a href="#"><LinkedinOutlined /></a>
                     </div>
-                  </div>
+                  </div> */}
                 </div>
               </Col>
               

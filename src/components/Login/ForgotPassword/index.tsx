@@ -1,15 +1,30 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { ForgotPasswordFormProps } from "./types";
-import { Row, Col, Form, Input, Button, message } from "antd";
+import { Row, Col, Form, Input, Button } from "antd";
 import React from "react";
+import { useDispatch } from "react-redux";
+import { AppDispatch } from "../../../redux/store";
+import { forgotPasswordMailAction } from "../../../redux/action/authAction";
 import styles from "./index.module.scss";
 
 const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = (props) => {
     const { setIsForgotPassword } = props;
+    const dispatch = useDispatch<AppDispatch>();
 
-    const onFinish = (values: any) => {
-        console.log("Received values:", values);
-        // TODO: Implement forgot password functionality
-        message.success('Password reset link sent to your email!');
+    /**
+     * Handle form submission for forgot password
+     * Dispatches forgotPasswordMailAction with email payload
+     * Toast notifications are handled by Redux slice based on response status
+     *
+     * @param values - Form values containing email
+     */
+    const onFinish = async (values: any) => {
+        try {
+            // Dispatch the forgot password mail action with email
+            await dispatch(forgotPasswordMailAction(values.email));
+        } catch (error) {
+            console.error("Error sending forgot password email:", error);
+        }
     };
 
     return (
@@ -45,10 +60,6 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = (props) => {
             </Form>
         </div>
     );
-
-    return (
-        <></>
-    )
 }
 
 export default ForgotPasswordForm;

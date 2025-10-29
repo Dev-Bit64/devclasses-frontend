@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Modal, Table, Button, message, Space, Typography, Row, Col } from 'antd';
-import { FilePdfOutlined, DownloadOutlined } from '@ant-design/icons';
+import { Modal, Table, Button, message, Typography, Row, Col } from 'antd';
+import { FilePdfOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import './index.scss';
 
@@ -23,7 +23,7 @@ interface UserResultsModalProps {
   visible: boolean;
   onClose: () => void;
   userName: string;
-  userId: number;
+  userId: string | number;
 }
 
 // Mock data for demonstration - replace with actual API call
@@ -84,7 +84,6 @@ const UserResultsModal: React.FC<UserResultsModalProps> = ({
   visible,
   onClose,
   userName,
-  userId
 }) => {
   const [loading, setLoading] = useState(false);
 

@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createSlice } from "@reduxjs/toolkit";
 import { toastText } from "../../utils/toast";
-import { loginAction, registerAction, logoutAction } from "../action/authAction";
+import { loginAction, registerAction, logoutAction, forgotPasswordMailAction, resetPasswordAction } from "../action/authAction";
 import { InitialState } from "../../interfaces/interfaces";
 
 
@@ -61,6 +61,44 @@ const AuthSlice = createSlice({
       state.isLoading = false;
       state.error = action.payload;
       toastText(action?.payload?.message, "error");
+    });
+
+    // Handle forgotPasswordMailAction - send password reset email
+    builder.addCase(forgotPasswordMailAction.pending, (state) => {
+      state.isLoading = true;
+      state.error = null;
+    });
+    builder.addCase(forgotPasswordMailAction.fulfilled, (state, action) => {
+      state.isLoading = false;
+      state.message = action?.payload?.message;
+      // Show success toast notification
+      toastText(action?.payload?.message || "Password reset email sent successfully.", "success");
+    });
+    builder.addCase(forgotPasswordMailAction.rejected, (state, action: any) => {
+      state.isLoading = false;
+      state.error = action.payload;
+      state.message = action?.payload?.message;
+      // Show error toast notification
+      toastText(action?.payload?.message || "Failed to send password reset email. Please try again.", "error");
+    });
+
+    // Handle resetPasswordAction - reset user password
+    builder.addCase(resetPasswordAction.pending, (state) => {
+      state.isLoading = true;
+      state.error = null;
+    });
+    builder.addCase(resetPasswordAction.fulfilled, (state, action) => {
+      state.isLoading = false;
+      state.message = action?.payload?.message;
+      // Show success toast notification
+      toastText(action?.payload?.message || "Password reset successfully.", "success");
+    });
+    builder.addCase(resetPasswordAction.rejected, (state, action: any) => {
+      state.isLoading = false;
+      state.error = action.payload;
+      state.message = action?.payload?.message;
+      // Show error toast notification
+      toastText(action?.payload?.message || "Failed to reset password. Please try again.", "error");
     });
   },
 });

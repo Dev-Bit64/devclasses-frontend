@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 // import { useDispatch } from "react-redux";
 // import { AppDispatch } from "../../../redux/store";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -13,43 +12,43 @@ export const AuthLayout = () => {
 
     // // To change the title.
     const { pathname } = useLocation();
-    // useEffect(() => {
-    //     const token = localStorage.getItem("accessToken");
-    //     const check = window.location.pathname.split("/").reverse();
-    //     const url = check.filter(
-    //         (item: any) =>
-    //             item !== "localhost:5173" && item !== "" && item !== "http:"
-    //     );
-    //     if (url.length !== 0) {
-    //         if (url.length < 3) {
-    //             if (url.length < 2) {
-    //                 document.title = `${capitalizeFirstLetter(url[0]) + " | " + "Dev Classes"
-    //                     }`;
-    //             } else {
-    //                 document.title = `${capitalizeFirstLetter(url[0]) +
-    //                     " | " +
-    //                     capitalizeFirstLetter(url[1]) +
-    //                     " | " +
-    //                     "Dev Classes"
-    //                     }`;
-    //             }
-    //         } else {
-    //             document.title = `${capitalizeFirstLetter(url[1]) +
-    //                 " | " +
-    //                 capitalizeFirstLetter(url[0]) +
-    //                 " | " +
-    //                 "Dev Classes"
-    //                 }`;
-    //         }
-    //     } else {
-    //         document.title = `Dashboard | Dev Classes`;
-    //     }
-    //     if (!token) {
-    //         if(!path.includes("/")) {
-    //             navigate("/");
-    //         }
-    //     }
-    // }, [pathname]);
+    useEffect(() => {
+        const token = localStorage.getItem("accessToken");
+        const check = window.location.pathname.split("/").reverse();
+        const url = check.filter(
+            (item: any) =>
+                item !== "localhost:5173" && item !== "" && item !== "http:"
+        );
+        if (url.length !== 0) {
+            if (url.length < 3) {
+                if (url.length < 2) {
+                    document.title = `${capitalizeFirstLetter(url[0]) + " | " + "Dev Classes"
+                        }`;
+                } else {
+                    document.title = `${capitalizeFirstLetter(url[0]) +
+                        " | " +
+                        capitalizeFirstLetter(url[1]) +
+                        " | " +
+                        "Dev Classes"
+                        }`;
+                }
+            } else {
+                document.title = `${capitalizeFirstLetter(url[1]) +
+                    " | " +
+                    capitalizeFirstLetter(url[0]) +
+                    " | " +
+                    "Dev Classes"
+                    }`;
+            }
+        } else {
+            document.title = `Dashboard | Dev Classes`;
+        }
+        if (!token) {
+            if(!path.includes("/")) {
+                navigate("/");
+            }
+        }
+    }, [pathname]);
 
     // const path = window.location.pathname;
     // useEffect(() => {

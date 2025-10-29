@@ -13,4 +13,5 @@ export default defineConfig({
       brotliSize: true,
     })
   ],
+  assetsInclude: ['**/*.PNG', '**/*.png'],
 })

@@ -61,12 +61,14 @@ export enum APIEndpoints {
   LOGIN = "/auth/login",
   LOGOUT = "/auth/logout",
   REGISTER = "/auth/register",
+  ForgotPasswordMail = "/auth/sendForgotPassEmail", 
+  ResetPassword = "/auth/resetPassword",
 
-  QUIZ_LIST = "/quiz/list",
-  QUIZ_DETAILS = "/quiz/details",
-  SUBMIT_QUIZ = "/quiz/submit",
+  // QUIZ_LIST = "/quiz/list",
+  // QUIZ_DETAILS = "/quiz/details",
+  // SUBMIT_QUIZ = "/quiz/submit",
 
-  RESULTS = "/results/list",
+  // RESULTS = "/results/list",
 
   //Questions
   GetQuestions = "/questions/getQuestions",
@@ -76,7 +78,7 @@ export enum APIEndpoints {
   ImportQuestions = "/questions/importQuestions",
 
   //Users
-  GetUsers = "/user/getUsers",
+  GetUsers = "/user/getAllUsers",
   DeleteUser = "/user/deleteUser",
   GetUserResults = "/user/results",
   UpdateUserProfile = "/user/updateUser",

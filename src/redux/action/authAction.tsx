@@ -68,3 +68,48 @@ export const registerAction = createAsyncThunk(
         }
     }
 );
+
+export const forgotPasswordMailAction = createAsyncThunk(
+    "ForgotPasswordMail",
+    async (payload: string, { rejectWithValue }) => {
+        try {
+            const response = await postApi(APIEndpoints.ForgotPasswordMail, payload);
+            if (response?.data?.statusCode === 200) {
+                return response.data;
+            } else {
+                throw Error(response?.data?.message);
+            }
+        } catch (error: any) {
+            if (!error.response) {
+                throw error;
+            }
+            return rejectWithValue(error?.response?.data);
+        }
+    }
+);
+
+/**
+ * Reset Password Action
+ * Handles password reset functionality by sending new password to the backend
+ *
+ * @param payload - Object containing token and new password
+ * @returns Response data on success or error message on failure
+ */
+export const resetPasswordAction = createAsyncThunk(
+    "ResetPassword",
+    async (payload: any, { rejectWithValue }) => {
+        try {
+            const response = await postApi(APIEndpoints.ResetPassword, payload);
+            if (response?.data?.statusCode === 200) {
+                return response.data;
+            } else {
+                throw Error(response?.data?.message);
+            }
+        } catch (error: any) {
+            if (!error.response) {
+                throw error;
+            }
+            return rejectWithValue(error?.response?.data);
+        }
+    }
+);

@@ -1,93 +1,221 @@
 @import '../../scss/mixin.scss';
 
+/**
+ * Login Layout Container
+ * Redesigned to show image inside form container
+ * Centered layout with gradient background
+ * Fully responsive for all screen sizes
+ * Optimized form sizing with reduced height and increased width for larger screens
+ */
 .login {
-  height: 100vh;
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 1rem;
+  overflow-x: hidden;
 
-  &__wrapper {
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-
-  &__details {
-    flex: 1;
-    max-width: 57.4rem;
-    margin: 0 auto;
-    padding: 2rem;
-
-    &--logo {
-      height: auto;
-      width: 100%;
-      text-align: center;
-      margin: 0 auto 2rem;
-
-      & > img {
-        width: 100%;
-        max-width: 28rem;
-        height: auto;
-      }
-    }
-
-    &--body {
-      padding: 0 1rem;
-    }
-  }
-
+  /**
+   * Image Section - Now hidden, will be inside form
+   * Kept for backward compatibility
+   */
   &__layout {
-    flex: 1;
-    background-color: #90D5FF;
-    display: flex;
-    height: 100%;
-    align-items: center;
-    justify-content: center;
+    display: none;
+    flex: 0;
+    width: 0;
+    height: 0;
 
+    /**
+     * Image styling
+     * Hidden as image is now inside form container
+     */
     &--image {
-      max-width: 100%;
-      width: 100%;
-      height: auto;
-      object-fit: cover;
-    }
-  }
-
-  // 🔽 Mobile screens
-  @media (max-width: 768px) {
-    flex-direction: column;
-
-    &__layout {
       display: none;
     }
+  }
+
+  /**
+   * Form/Details Section
+   * Centered containerized form with image inside
+   * Responsive width based on screen size
+   * Optimized max-width to prevent oversizing
+   * No scrolling - content fits within viewport
+   */
+  &__details {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: 480px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    overflow: visible;
+    background-color: transparent;
+    height: auto;
+    max-height: none;
+
+    /**
+     * Form body container
+     * Containerized card style with shadow and border radius
+     * Contains image and form fields
+     * Optimized padding and spacing to reduce height
+     */
+    &--body {
+      padding: 1.25rem;
+      width: 100%;
+      max-width: 100%;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #ffffff;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      max-height: calc(100vh - 2rem);
+      overflow-y: auto;
+    }
+  }
+
+  /**
+   * Mobile screens (< 576px)
+   * Full-width form with reduced padding
+   * Optimized for small devices
+   */
+  @media (max-width: 575px) {
+    padding: 0.5rem;
 
     &__details {
-      width: 100%;
-      padding: 1.5rem 1rem;
+      max-width: 100%;
 
-      &--logo {
-        margin-bottom: 2rem;
-
-        & > img {
-          max-width: 20rem;
-        }
+      &--body {
+        padding: 1.25rem;
+        border-radius: 16px;
       }
     }
   }
 
-  // 🔽 Tablets
-  @media (max-width: 1024px) {
+  /**
+   * Small tablets (576px - 768px)
+   * Increased form width
+   * Better spacing for medium devices
+   */
+  @media (min-width: 576px) and (max-width: 768px) {
+    padding: 0.75rem;
+
     &__details {
-      padding: 2rem;
-    }
+      max-width: 480px;
 
-    &__layout--image {
+      &--body {
+        padding: 1.5rem;
+        border-radius: 18px;
+      }
+    }
+  }
+
+  /**
+   * Tablets (769px - 1024px)
+   * Increased form width for better appearance
+   * Optimized spacing
+   */
+  @media (min-width: 769px) and (max-width: 1024px) {
+    padding: 1rem;
+
+    &__details {
+      max-width: 550px;
+
+      &--body {
+        padding: 1.5rem;
+        border-radius: 20px;
+      }
+    }
+  }
+
+  /**
+   * Small laptops (1025px - 1440px)
+   * Larger form container for better visual balance
+   * Increased width on larger screens
+   */
+  @media (min-width: 1025px) and (max-width: 1440px) {
+    padding: 1rem;
+
+    &__details {
+      max-width: 600px;
+
+      &--body {
+        padding: 1.5rem;
+        border-radius: 20px;
+      }
+    }
+  }
+
+  /**
+   * Large screens (> 1440px)
+   * Maximum form width for optimal appearance
+   * Increased width to utilize screen space better
+   */
+  @media (min-width: 1441px) {
+    padding: 1.5rem;
+
+    &__details {
+      max-width: 650px;
+
+      &--body {
+        padding: 1.5rem;
+        border-radius: 20px;
+      }
+    }
+  }
+
+  /**
+   * iPad Pro (12.9-inch) and iPad Air (11-inch)
+   * Both portrait and landscape orientations
+   * Reduce padding to maximize form width
+   */
+  @media (min-width: 1024px) and (max-width: 1366px) {
+    padding: 0.25rem;
+
+    &__details {
       max-width: 90%;
+
+      &--body {
+        padding: 1.5rem;
+        border-radius: 20px;
+      }
     }
   }
 
-  // 🔽 Small laptops
-  @media (max-width: 1440px) {
-    &__layout--image {
-      max-width: 100%;
+  /**
+   * Surface 7 and similar 2-in-1 devices
+   * Landscape orientation - 912px width
+   * Reduce padding for better form visibility
+   */
+  @media (min-width: 900px) and (max-width: 1023px) {
+    padding: 0.25rem;
+
+    &__details {
+      max-width: 85%;
+
+      &--body {
+        padding: 1.5rem;
+        border-radius: 20px;
+      }
     }
   }
+}
+
+/**
+ * Logo text styling for mobile
+ */
+.logo-text {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1677ff;
+  letter-spacing: -0.5px;
 }
