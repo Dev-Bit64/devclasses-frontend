@@ -20,14 +20,9 @@ const UserMenu: React.FC = () => {
             label: 'Edit Profile',
             onClick: () => navigate('/profile'),
         },
-        {
-            key: 'settings',
-            icon: <SettingOutlined />,
-            label: 'Settings',
-        },
-        {
-            type: 'divider' as const,
-        },
+        // {
+        //     type: 'divider' as const,
+        // },
         {
             key: 'logout',
             icon: <LogoutOutlined />,

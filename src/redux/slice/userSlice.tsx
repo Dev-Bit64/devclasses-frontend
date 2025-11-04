@@ -45,7 +45,7 @@ const UserSlice = createSlice({
             state.isLoading = false;
             state.userLists = action?.payload?.data || [];
             state.message = action?.payload?.message;
-            toastText(action?.payload?.message, "success");
+            // toastText(action?.payload?.message, "success");
         });
         builder.addCase(getUsersAction.rejected, (state, action: any) => {
             state.isLoading = false;

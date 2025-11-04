@@ -49,7 +49,7 @@ const STANDARD_OPTIONS = [
 // Interface for Chapter data
 interface Chapter {
   key: string;
-  id: number;
+  id: string;
   no: number;
   chapterName: string;
 }
@@ -60,7 +60,7 @@ interface Chapter {
  */
 interface Subject {
   key: string;
-  id: number;
+  id: string;
   no: number;
   subjectName: string;
   board: string;
@@ -126,7 +126,8 @@ const SubjectsPage: React.FC = () => {
         // Apply search filter - only if search query is provided
         if (searchQuery.trim()) {
           filteredData = filteredData.filter((subject: any) =>
-            subject.subjectName.toLowerCase().includes(searchQuery.toLowerCase())
+            // API may return 'subname' or 'subjectName' depending on backend
+            (subject.subname || subject.subjectName || '').toLowerCase().includes(searchQuery.toLowerCase())
           );
         }
 
@@ -143,12 +144,18 @@ const SubjectsPage: React.FC = () => {
         // Transform API data to match Subject interface
         const transformedData: Subject[] = filteredData.map((item: any, index: number) => ({
           key: item.id?.toString() || index.toString(),
-          id: item.id || index,
+          id: item.id?.toString() || index.toString(),
           no: index + 1,
-          subjectName: item.subjectName,
+          // Prefer API 'subname' but fall back to 'subjectName' if present
+          subjectName: item.subname || item.subjectName || '',
           board: item.board,
           standard: item.standard || '',
-          chapters: item.chapters || [],
+          chapters: (item.chapters || []).map((ch: any, chIndex: number) => ({
+            key: ch.id?.toString() || `${item.id?.toString() || index.toString()}-ch-${chIndex}`,
+            id: ch.id?.toString() || chIndex.toString(),
+            no: chIndex + 1,
+            chapterName: ch.name || ch.chapterName || '',
+          })),
         }));
 
         setSubjects(transformedData);
@@ -412,7 +419,7 @@ const SubjectsPage: React.FC = () => {
       if (subject.key === selectedSubjectKey) {
         const newChapter = {
           key: `${subject.key}-${Date.now()}`,
-          id: subject.chapters.length + 1,
+          id: (subject.chapters.length + 1).toString(),
           no: subject.chapters.length + 1,
           chapterName,
         };
