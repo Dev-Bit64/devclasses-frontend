@@ -116,6 +116,17 @@
                     color: #1890ff;
                 }
             }
+            // Ensure titles inside feature cards do not get clipped/truncated
+            // Make wrapping and overflow behavior explicit and scoped only to the meta title
+            .ant-card-meta-title,
+            .ant-card-meta-title h4,
+            .ant-card-meta-title .ant-typography {
+                white-space: normal !important;
+                overflow: visible !important;
+                text-overflow: clip !important;
+                line-height: 1.25;
+                word-break: break-word;
+            }
         }
     }
 

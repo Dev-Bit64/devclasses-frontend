@@ -89,6 +89,7 @@ export enum APIEndpoints {
   AddSubject = "/subject/addSubject",
   UpdateSubject = "/subject/updateSubject",
   DeleteSubject = "/subject/deleteSubject",
+  GetSubjectsForDD = "/subject/getSubjectsForDD",
 
   //Chapters
   AddChapter = "/subject/addChapter",

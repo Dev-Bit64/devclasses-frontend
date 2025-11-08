@@ -4,7 +4,7 @@ import { Modal, Upload, Button, Typography, Alert, Space, Form, Row, Col } from 
 import { InboxOutlined, FileExcelOutlined, CloseOutlined } from '@ant-design/icons';
 import type { UploadProps, UploadFile } from 'antd';
 import { useDispatch, useSelector } from 'react-redux';
-import { getSubjectsAction, getchaptersBySubjectIdAction } from '../../redux/action/subjectAction';
+import { getSubjectsForDDAction, getchaptersBySubjectIdAction } from '../../redux/action/subjectAction';
 import { RootState, AppDispatch } from '../../redux/store';
 import CustomDropdown from './CustomDropdown';
 import './index.scss';
@@ -36,7 +36,7 @@ const ImportModal: React.FC<ImportModalProps> = ({ visible, onClose, onImport })
   const dispatch = useDispatch<AppDispatch>();
 
   // Redux selectors for subjects and chapters
-  const { subjectLists, chapterLists } = useSelector((state: RootState) => state.subject);
+  const { subjectDropdownList, chapterLists } = useSelector((state: RootState) => state.subject);
 
   // File upload state
   const [fileList, setFileList] = useState<UploadFile[]>([]);
@@ -66,20 +66,20 @@ const ImportModal: React.FC<ImportModalProps> = ({ visible, onClose, onImport })
    */
   useEffect(() => {
     if (visible) {
-      dispatch(getSubjectsAction({}));
+      dispatch(getSubjectsForDDAction());
     }
   }, [visible, dispatch]);
 
   /**
    * Convert API subject data to dropdown options format
-   * - Maps subjectLists from Redux to DropdownOption format
+   * - Maps subjectDropdownList from Redux to DropdownOption format
    * - Returns empty array if no subjects available
    */
   const getSubjectOptions = (): DropdownOption[] => {
-    if (!Array.isArray(subjectLists)) return [];
-    return subjectLists.map((subject: any) => ({
+    if (!Array.isArray(subjectDropdownList)) return [];
+    return subjectDropdownList.map((subject: any) => ({
       value: subject.id,
-      label: subject.subjectName,
+      label: subject.subname,
     }));
   };
 
@@ -92,7 +92,7 @@ const ImportModal: React.FC<ImportModalProps> = ({ visible, onClose, onImport })
     if (!Array.isArray(chapterLists)) return [];
     return chapterLists.map((chapter: any) => ({
       value: chapter.id,
-      label: chapter.chapterName,
+      label: chapter.name,
     }));
   };
 

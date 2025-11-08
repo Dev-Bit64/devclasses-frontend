@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Dropdown, Avatar } from 'antd';
-import { UserOutlined, SettingOutlined, LogoutOutlined } from '@ant-design/icons';
+import { UserOutlined, LogoutOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { handleLogout } from '../../../utils/auth';
 

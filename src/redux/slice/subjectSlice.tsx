@@ -3,7 +3,7 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { toastText } from "../../utils/toast";
 import { InitialState } from "../../interfaces/interfaces";
-import { addChapterAction, addSubjectAction, deleteChapterByIdAction, deleteMultipleChaptersAction, deleteSubjectAction, getchaptersBySubjectIdAction, getSubjectsAction, updateChapterAction, updateSubjectAction } from "../action/subjectAction";
+import { addChapterAction, addSubjectAction, deleteChapterByIdAction, deleteMultipleChaptersAction, deleteSubjectAction, getchaptersBySubjectIdAction, getSubjectsAction, getSubjectsForDDAction, updateChapterAction, updateSubjectAction } from "../action/subjectAction";
 
 
 const initialState: InitialState = {
@@ -15,6 +15,7 @@ const initialState: InitialState = {
     chapterLists: [],
     updatedSubject: null,
     updatedChapter: null,
+    subjectDropdownList: [],
 };
 
 const subjectSlice = createSlice({
@@ -239,6 +240,23 @@ const subjectSlice = createSlice({
                 state.error = action.payload;
                 state.message = action?.payload?.message;
                 toastText(action?.payload?.message, "error");
+            });
+
+        builder
+            .addCase(getSubjectsForDDAction.pending, (state) => {
+                state.isLoading = true;
+                state.error = null;
+            })
+            .addCase(getSubjectsForDDAction.fulfilled, (state, action) => {
+                state.isLoading = false;
+                state.subjectDropdownList = action?.payload?.data;
+                state.message = action?.payload?.message;
+            })
+            .addCase(getSubjectsForDDAction.rejected, (state, action: any) => {
+                state.isLoading = false;
+                state.error = action.payload;
+                state.message = action?.payload?.message;
+                toastText(action?.payload?.message || 'Failed to fetch Subejcts', "error");
             });
     },
 });

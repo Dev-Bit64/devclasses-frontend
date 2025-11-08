@@ -194,3 +194,24 @@ export const getchaptersBySubjectIdAction = createAsyncThunk(
         }
     }
 )
+
+export const getSubjectsForDDAction = createAsyncThunk(
+    "GetSubjectsForDD",
+    async (_, { rejectWithValue }) => {
+        try {
+            const response = await getApi(APIEndpoints.GetSubjectsForDD);
+            if (response?.data?.statusCode === 200) {
+                {
+                    return response.data;
+                }
+            } else {
+                throw Error(response?.data?.message);
+            }
+        } catch (error: any) {
+            if (!error.response) {
+                throw error;
+            }
+            return rejectWithValue(error?.response?.data);
+        }
+    }
+)

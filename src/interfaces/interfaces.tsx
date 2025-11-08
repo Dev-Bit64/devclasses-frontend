@@ -47,6 +47,7 @@ export interface InitialState {
     examSubjectsList?: any
     examQuestions?: any;
     userLists?: any;
+    subjectDropdownList?: any;
 }
 
 export interface PagninationPayload {

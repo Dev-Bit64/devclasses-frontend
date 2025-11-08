@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { DownOutlined } from '@ant-design/icons';
 import './CustomDropdown.scss';
+import type { SelectProps } from 'antd';
 
 // Dropdown option type
 export interface DropdownOption {
@@ -8,14 +9,8 @@ export interface DropdownOption {
   label: string;
 }
 
-interface CustomDropdownProps {
-  options: DropdownOption[];
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  disabled?: boolean;
-  className?: string;
-  size?: 'large' | 'middle' | 'small';
+interface CustomDropdownProps extends Omit<SelectProps<any>, 'options'> {
+  options?: DropdownOption[];
 }
 
 /**
@@ -25,13 +20,15 @@ interface CustomDropdownProps {
  * - Styled to match Ant Design
  */
 const CustomDropdown: React.FC<CustomDropdownProps> = ({
-  options,
+  options = [],
   value,
   onChange,
   placeholder = 'Select',
   disabled = false,
   className = '',
   size = 'middle',
+  dropdownStyle,
+  style,
 }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -52,6 +49,7 @@ const CustomDropdown: React.FC<CustomDropdownProps> = ({
   }, [open]);
 
   /**
+  /**
    * Handle option selection
    * - Calls onChange callback with selected value
    * - Closes dropdown immediately after selection
@@ -62,11 +60,11 @@ const CustomDropdown: React.FC<CustomDropdownProps> = ({
     if (event) {
       event.stopPropagation();
     }
-    onChange(optionValue);
+    // Only call onChange if it's provided
+    onChange?.(optionValue);
     // Close dropdown after selection
     setOpen(false);
   };
-
   // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (disabled) return;
@@ -77,6 +75,15 @@ const CustomDropdown: React.FC<CustomDropdownProps> = ({
   // Get selected label
   const selectedLabel = options.find(opt => opt.value === value)?.label;
 
+  // ensure the dropdown options area stays inside its panel and becomes scrollable
+  const mergedDropdownStyle: React.CSSProperties = {
+    maxHeight: 260,
+    overflowY: 'auto',
+    overflowX: 'hidden',
+    // keep any custom styles passed in without breaking layout
+    ...(dropdownStyle as React.CSSProperties || {}),
+  };
+
   return (
     <div
       className={`custom-dropdown ${open ? 'open' : ''} ${disabled ? 'disabled' : ''} ${className} custom-dropdown-${size}`}
@@ -86,6 +93,7 @@ const CustomDropdown: React.FC<CustomDropdownProps> = ({
       onKeyDown={handleKeyDown}
       aria-haspopup="listbox"
       aria-expanded={open}
+      style={style}
     >
       <div className="custom-dropdown-selector">
         <span className={`custom-dropdown-value ${!selectedLabel ? 'placeholder' : ''}`}>
@@ -94,7 +102,8 @@ const CustomDropdown: React.FC<CustomDropdownProps> = ({
         <DownOutlined className="custom-dropdown-arrow" />
       </div>
       {open && (
-        <div className="custom-dropdown-list" role="listbox">
+        // apply mergedDropdownStyle here so long lists get an internal scrollbar
+        <div className="custom-dropdown-list" role="listbox" style={mergedDropdownStyle}>
           {options.length === 0 ? (
             <div className="custom-dropdown-option disabled">No options</div>
           ) : (

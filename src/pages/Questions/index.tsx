@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useCallback } from 'react';
-import { Button, Table, Modal, Form, Input, Select, Row, Col, Space, Popconfirm, Tooltip, message } from 'antd';
+import { Button, Table, Modal, Form, Input, Select, Row, Col, Space, Popconfirm, Tooltip, message, Radio } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, ImportOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { getQuestionsAction, addQuestionAction, updateQuestionAction, deleteQuestionAction } from '../../redux/action/questionAction';
-import { getSubjectsAction, getchaptersBySubjectIdAction } from '../../redux/action/subjectAction';
+import {  getSubjectsForDDAction, getchaptersBySubjectIdAction } from '../../redux/action/subjectAction';
 import { RootState, AppDispatch } from '../../redux/store';
 import { AddQuestionPayload, UpdateQuestionPayload } from '../../interfaces/interfaces';
 import ImportModal from '../../components/ImportModal';
@@ -25,25 +25,21 @@ const STANDARD_OPTIONS = [
   { label: '12th', value: '12th' },
 ];
 
-// Correct answer options for question form
-const CORRECT_ANSWER_OPTIONS = [
-  { label: 'Option A', value: 'A' },
-  { label: 'Option B', value: 'B' },
-  { label: 'Option C', value: 'C' },
-  { label: 'Option D', value: 'D' },
-];
-
 const DEFAULT_PAGE_SIZE = 20;
 
 const QuestionsPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
 
   // Redux selectors for questions and subjects
-  const { data, isLoading } = useSelector((state: RootState) => state.questions);
-  const { subjectLists, chapterLists } = useSelector((state: RootState) => state.subject);
+  const { questionLists, isLoading } = useSelector((state: RootState) => state.questions);
+  const { subjectDropdownList, chapterLists } = useSelector((state: RootState) => state.subject);
 
-  const questions = Array.isArray(data?.data) ? data.data : [];
-  const total = data?.total || 0;
+  
+  const questions = Array.isArray(questionLists?.questions) ? questionLists.questions : [];
+
+  
+
+  const total = questionLists?.totalRecords || 0;
 
   // Modal and form state
   const [modalVisible, setModalVisible] = useState(false);
@@ -78,13 +74,12 @@ const QuestionsPage: React.FC = () => {
    * - Used to populate the subject dropdown in the form
    */
   useEffect(() => {
-    dispatch(getSubjectsAction({}));
+    dispatch(getSubjectsForDDAction());
   }, [dispatch]);
 
   /**
    * Fetch questions based on current filters and pagination
-   * - Called when page, search, sort field, or sort order changes
-   * - Includes filter parameters for board, standard, subject, and chapter
+   * - Called when page, search, sort field, sort order or any filter changes
    */
   const fetchQuestions = useCallback(() => {
     dispatch(getQuestionsAction({
@@ -93,8 +88,12 @@ const QuestionsPage: React.FC = () => {
       search: searchText,
       sortField: sortField,
       sortOrder,
+      board: filterBoard,
+      standard: filterStandard,
+      subject: filterSubject,
+      chapter: filterChapter,
     }));
-  }, [dispatch, page, searchText, sortField, sortOrder]);
+  }, [dispatch, page, searchText, sortField, sortOrder, filterBoard, filterStandard, filterSubject, filterChapter]);
 
   useEffect(() => {
     fetchQuestions();
@@ -160,51 +159,7 @@ const QuestionsPage: React.FC = () => {
     }
   };
 
-  /**
-   * Handle Board filter change
-   * - Updates board filter state
-   * - Resets pagination to page 1
-   * - Triggers API call to fetch filtered questions
-   */
-  const handleBoardChange = (value: string) => {
-    const newBoard = value || undefined;
-    setFilterBoard(newBoard);
-    setPage(1);
-    dispatch(getQuestionsAction({
-      page: 1,
-      limit: DEFAULT_PAGE_SIZE,
-      board: newBoard,
-      standard: filterStandard,
-      subject: filterSubject,
-      chapter: filterChapter,
-      search: searchText,
-      sortField: sortField,
-      sortOrder,
-    }));
-  };
-
-  /**
-   * Handle Standard filter change
-   * - Updates standard filter state
-   * - Resets pagination to page 1
-   * - Triggers API call to fetch filtered questions
-   */
-  const handleStandardChange = (value: string) => {
-    const newStandard = value || undefined;
-    setFilterStandard(newStandard);
-    setPage(1);
-    dispatch(getQuestionsAction({
-      page: 1,
-      limit: DEFAULT_PAGE_SIZE,
-      board: filterBoard,
-      standard: newStandard,
-      subject: filterSubject,
-      chapter: filterChapter,
-      search: searchText,
-      sortField: sortField,
-      sortOrder,
-    }));
-  };
+ 
 
   /**
    * Handle Subject filter change (for filter dropdown)
@@ -212,7 +167,7 @@ const QuestionsPage: React.FC = () => {
    * - Fetches chapters for the selected subject from the API
    * - Clears chapter filter when subject changes
    * - Resets pagination to page 1
-   * - Triggers API call to fetch filtered questions
+   * - Triggers API call to fetch filtered questions (via fetchQuestions effect)
    */
   const handleFilterSubjectChange = (value: string) => {
     const newSubject = value || undefined;
@@ -225,40 +180,20 @@ const QuestionsPage: React.FC = () => {
       dispatch(getchaptersBySubjectIdAction(newSubject));
     }
 
-    dispatch(getQuestionsAction({
-      page: 1,
-      limit: DEFAULT_PAGE_SIZE,
-      board: filterBoard,
-      standard: filterStandard,
-      subject: newSubject,
-      chapter: undefined,
-      search: searchText,
-      sortField: sortField,
-      sortOrder,
-    }));
+    // fetchQuestions effect will run because filterSubject / page changed
   };
 
   /**
    * Handle Chapter filter change
    * - Updates chapter filter state
    * - Resets pagination to page 1
-   * - Triggers API call to fetch filtered questions
+   * - Triggers API call to fetch filtered questions (via fetchQuestions effect)
    */
   const handleChapterChange = (value: string) => {
     const newChapter = value || undefined;
     setFilterChapter(newChapter);
     setPage(1);
-    dispatch(getQuestionsAction({
-      page: 1,
-      limit: DEFAULT_PAGE_SIZE,
-      board: filterBoard,
-      standard: filterStandard,
-      subject: filterSubject,
-      chapter: newChapter,
-      search: searchText,
-      sortField: sortField,
-      sortOrder,
-    }));
+    // fetchQuestions effect will run
   };
 
   /**
@@ -273,8 +208,8 @@ const QuestionsPage: React.FC = () => {
     form.resetFields();
 
     // Set default subject to the first subject in the list if available
-    if (Array.isArray(subjectLists) && subjectLists.length > 0) {
-      const firstSubjectId = subjectLists[0].id;
+    if (Array.isArray(subjectDropdownList) && subjectDropdownList.length > 0) {
+      const firstSubjectId = subjectDropdownList[0].id;
       setSelectedSubject(firstSubjectId);
       setSelectedSubjectId(firstSubjectId);
 
@@ -303,7 +238,7 @@ const QuestionsPage: React.FC = () => {
       fetchQuestions();
     } catch (error) {
       message.error('Failed to import questions. Please try again.');
-      console.error('Import error:', error);
+      // console.error('Import error:', error);
     }
   };
 
@@ -491,11 +426,29 @@ const QuestionsPage: React.FC = () => {
     }
   };
 
-  const handleTableChange = (pagination: any, _filters: any, sorter: any) => {
+  const handleTableChange = (pagination: any, filters: any, sorter: any) => {
+    // Pagination from table (keep current page)
     setPage(pagination.current);
+
+    // Server-side sort handling
     if (sorter && sorter.field) {
       setSortField(sorter.field);
       setSortOrder(sorter.order === 'descend' ? 'desc' : 'asc');
+    }
+
+    // Read column filters (AntD supplies arrays)
+    const boardFilter = Array.isArray(filters.board) && filters.board.length > 0 ? String(filters.board[0]) : undefined;
+    const standardFilter = Array.isArray(filters.standard) && filters.standard.length > 0 ? String(filters.standard[0]) : undefined;
+
+    // Update local filter state (only if changed)
+    setFilterBoard(prev => (prev !== boardFilter ? boardFilter : prev));
+    setFilterStandard(prev => (prev !== standardFilter ? standardFilter : prev));
+
+    // If any column filter actually changed (including cleared -> undefined),
+    // reset to first page. Do NOT dispatch here — fetchQuestions effect will run once
+    // because state updates are batched.
+    if (boardFilter !== filterBoard || standardFilter !== filterStandard) {
+      setPage(1);
     }
   };
 
@@ -515,6 +468,58 @@ const QuestionsPage: React.FC = () => {
       key: 'board',
       width: 100,
       responsive: ['md'] as Breakpoint[],
+      // custom filter dropdown: single-select radio (vertical) like Standard
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: any) => {
+        // selectedKeys may be an array; we only allow single selection here
+        const current = Array.isArray(selectedKeys) && selectedKeys.length > 0 ? selectedKeys[0] : undefined;
+        return (
+          <div style={{ padding: 8 }}>
+            <Radio.Group
+              onChange={(e) => {
+                setSelectedKeys(e.target ? [e.target.value] : []);
+              }}
+              value={current}
+            >
+              {BOARD_OPTIONS.map(o => (
+                <Radio key={o.value} value={o.value} style={{ display: 'block', marginBottom: 6 }}>
+                  {o.label}
+                </Radio>
+              ))}
+            </Radio.Group>
+            <div style={{ marginTop: 8, textAlign: 'right' }}>
+              <Button
+                size="small"
+                onClick={() => {
+                  // Clear filters and close dropdown — Table.onChange will be called by confirm
+                  clearFilters && clearFilters();
+                  confirm && confirm();
+                }}
+                style={{ marginRight: 8 }}
+              >
+                Reset
+              </Button>
+              <Button
+                type="primary"
+                size="small"
+                onClick={() => {
+                  // Close dropdown and let Table.onChange update state and trigger API once
+                  confirm && confirm();
+                }}
+              >
+                Apply
+              </Button>
+            </div>
+          </div>
+        );
+      },
+      // show the active filter in column header
+      filteredValue: filterBoard ? [filterBoard] : undefined,
+      // optional client-side filter fallback
+      onFilter: (value: any, record: any) => {
+        const rec = record.board ?? record;
+        if (!rec) return false;
+        return String(rec).toLowerCase() === String(value).toLowerCase();
+      },
     },
     {
       title: 'Standard',
@@ -522,12 +527,77 @@ const QuestionsPage: React.FC = () => {
       key: 'standard',
       width: 100,
       responsive: ['md'] as Breakpoint[],
+      render: (val: any, record: any) => {
+        const std = record.standard ?? val;
+        if (!std) return '';
+        if (typeof std === 'string') return std;
+        return std.name || std.label || std.value || '';
+      },
+      // custom filter dropdown with radio (single-select). Do NOT dispatch here.
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: any) => {
+        const current = Array.isArray(selectedKeys) && selectedKeys.length > 0 ? selectedKeys[0] : undefined;
+        return (
+          <div style={{ padding: 8 }}>
+            <Radio.Group
+              onChange={(e) => {
+                setSelectedKeys(e.target ? [e.target.value] : []);
+              }}
+              value={current}
+            >
+              {STANDARD_OPTIONS.map(o => (
+                <Radio key={o.value} value={o.value} style={{ display: 'block', marginBottom: 6 }}>
+                  {o.label}
+                </Radio>
+              ))}
+            </Radio.Group>
+            <div style={{ marginTop: 8, textAlign: 'right' }}>
+              <Button
+                size="small"
+                onClick={() => {
+                  // Clear filters and close dropdown — Table.onChange will be invoked by confirm
+                  clearFilters && clearFilters();
+                  confirm && confirm();
+                }}
+                style={{ marginRight: 8 }}
+              >
+                Reset
+              </Button>
+              <Button
+                type="primary"
+                size="small"
+                onClick={() => {
+                  // Close dropdown and let Table.onChange handle updating state + API
+                  confirm && confirm();
+                }}
+              >
+                Apply
+              </Button>
+            </div>
+          </div>
+        );
+      },
+      filteredValue: filterStandard ? [filterStandard] : undefined,
+      filterMultiple: false,
+      onFilter: (value: any, record: any) => {
+        const std = record.standard ?? record;
+        if (!std) return false;
+        if (typeof std === 'string') return String(std).toLowerCase() === String(value).toLowerCase();
+        const v = std.name || std.label || std.value;
+        return String(v).toLowerCase() === String(value).toLowerCase();
+      },
     },
     {
       title: 'Subject',
       dataIndex: 'subject',
       key: 'subject',
       width: 120,
+      render: (val: any, record: any) => {
+        const sub = record.subject ?? val;
+        if (!sub) return '';
+        if (typeof sub === 'string') return sub;
+        // support multiple possible keys returned from API
+        return sub.subjectName || sub.subname || sub.name || sub.label || '';
+      },
     },
     {
       title: 'Chapter',
@@ -535,18 +605,27 @@ const QuestionsPage: React.FC = () => {
       key: 'chapter',
       width: 120,
       responsive: ['lg'] as Breakpoint[],
+      render: (val: any, record: any) => {
+        const ch = record.chapter ?? val;
+        if (!ch) return '';
+        if (typeof ch === 'string') return ch;
+        return ch.chapterName || ch.name || ch.label || '';
+      },
     },
     {
       title: 'Question',
       dataIndex: 'question',
       key: 'question',
-      width: 200,
+      width: 400,
       ellipsis: {
         showTitle: false,
       },
       render: (text: string) => (
         <Tooltip title={text}>
-          {text}
+          <div style={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
+            {text}
+          </div>
+          {/* {text} */}
         </Tooltip>
       ),
     },
@@ -554,14 +633,17 @@ const QuestionsPage: React.FC = () => {
       title: 'Option A',
       dataIndex: 'optionA',
       key: 'optionA',
-      width: 150,
+      width: 300,
       responsive: ['lg'] as Breakpoint[],
       ellipsis: {
         showTitle: false,
       },
       render: (text: string) => (
         <Tooltip title={text}>
-          {text}
+          <div style={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
+            {text}
+          </div>
+          {/* {text} */}
         </Tooltip>
       ),
     },
@@ -569,14 +651,17 @@ const QuestionsPage: React.FC = () => {
       title: 'Option B',
       dataIndex: 'optionB',
       key: 'optionB',
-      width: 150,
+      width: 300,
       responsive: ['lg'] as Breakpoint[],
       ellipsis: {
         showTitle: false,
       },
       render: (text: string) => (
         <Tooltip title={text}>
-          {text}
+          <div style={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
+            {text}
+          </div>
+          {/* {text} */}
         </Tooltip>
       ),
     },
@@ -584,14 +669,17 @@ const QuestionsPage: React.FC = () => {
       title: 'Option C',
       dataIndex: 'optionC',
       key: 'optionC',
-      width: 150,
+      width: 300,
       responsive: ['lg'] as Breakpoint[],
       ellipsis: {
         showTitle: false,
       },
       render: (text: string) => (
         <Tooltip title={text}>
-          {text}
+          <div style={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
+            {text}
+          </div>
+          {/* {text} */}
         </Tooltip>
       ),
     },
@@ -599,14 +687,17 @@ const QuestionsPage: React.FC = () => {
       title: 'Option D',
       dataIndex: 'optionD',
       key: 'optionD',
-      width: 150,
+      width: 300,
       responsive: ['lg'] as Breakpoint[],
       ellipsis: {
         showTitle: false,
       },
       render: (text: string) => (
         <Tooltip title={text}>
-          {text}
+          <div style={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
+            {text}
+          </div>
+          {/* {text} */}
         </Tooltip>
       ),
     },
@@ -614,8 +705,24 @@ const QuestionsPage: React.FC = () => {
       title: 'Correct Answer',
       dataIndex: 'correctAnswer',
       key: 'correctAnswer',
-      width: 120,
-      render: (val: string) => `Option ${val}`,
+      width: 300,
+      render: (val: any, record: any) => {
+        // val may be 'optionC' or just 'C' — handle both
+        let key = '';
+        if (!val) return '';
+        if (typeof val === 'string' && val.toLowerCase().startsWith('option')) {
+          key = val;
+        } else {
+          // single letter like 'A'|'B'|'C'|'D'
+          key = `option${String(val)}`;
+        }
+        const answer = record[key] || record[key.toLowerCase()] || '';
+        return (
+          <div style={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
+            {answer}
+          </div>
+        );
+      },
     },
     {
       title: 'Actions',
@@ -624,7 +731,7 @@ const QuestionsPage: React.FC = () => {
       width: 100,
       render: (_: any, record: any) => (
         <Space>
-          <Button icon={<EditOutlined />} onClick={() => handleEdit(record)} size="small" />
+          <Button style={{marginRight: '10px'}} icon={<EditOutlined />} onClick={() => handleEdit(record)} size="small" />
           <Popconfirm
             title="Delete this question?"
             description="This action cannot be undone."
@@ -667,7 +774,7 @@ const QuestionsPage: React.FC = () => {
         marginBottom: '18px',
         flexWrap: 'wrap'
       }}>
-        {/* Filters Section - Responsive custom dropdowns for Board, Standard, Subject, and Chapter */}
+        {/* Filters Section - Subject and Chapter only (Board & Standard filters moved into table columns) */}
         <div className="filters-section" style={{
           display: 'flex',
           flexWrap: 'wrap',
@@ -676,35 +783,14 @@ const QuestionsPage: React.FC = () => {
           flex: '1',
           minWidth: 'fit-content'
         }}>
-          {/* Board Filter Dropdown - Triggers API call on change */}
-          <div className="filter-dropdown-wrapper">
-            <CustomDropdown
-              options={BOARD_OPTIONS}
-              value={filterBoard || ''}
-              onChange={handleBoardChange}
-              placeholder="Board"
-              size="middle"
-            />
-          </div>
-
-          {/* Standard Filter Dropdown - Triggers API call on change */}
-          <div className="filter-dropdown-wrapper">
-            <CustomDropdown
-              options={STANDARD_OPTIONS}
-              value={filterStandard || ''}
-              onChange={handleStandardChange}
-              placeholder="Standard"
-              size="middle"
-            />
-          </div>
 
           {/* Subject Filter Dropdown - Triggers API call on change, clears chapter filter */}
           <div className="filter-dropdown-wrapper">
             <CustomDropdown
               options={
-                Array.isArray(subjectLists)
-                  ? subjectLists.map((subject: any) => ({
-                    label: subject.subjectName,
+                Array.isArray(subjectDropdownList)
+                  ? subjectDropdownList.map((subject: any) => ({
+                    label: subject.subname,
                     value: subject.id,
                   }))
                   : []
@@ -722,7 +808,7 @@ const QuestionsPage: React.FC = () => {
               options={
                 filterSubject && Array.isArray(chapterLists)
                   ? chapterLists.map((chapter: any) => ({
-                    label: chapter.chapterName,
+                    label: chapter.name,
                     value: chapter.id,
                   }))
                   : []
@@ -847,7 +933,7 @@ const QuestionsPage: React.FC = () => {
             board: 'GSEB',
             standard: '11th',
             // Set default subject to first available subject ID
-            subject: Array.isArray(subjectLists) && subjectLists.length > 0 ? subjectLists[0].id : undefined
+            subject: Array.isArray(subjectDropdownList) && subjectDropdownList.length > 0 ? subjectDropdownList[0].id : undefined
           }}
           className="question-form"
         >
@@ -889,8 +975,8 @@ const QuestionsPage: React.FC = () => {
                 >
                   <Select
                     options={
-                      Array.isArray(subjectLists)
-                        ? subjectLists.map((subject: any) => ({
+                      Array.isArray(subjectDropdownList)
+                        ? subjectDropdownList.map((subject: any) => ({
                           label: subject.subjectName,
                           value: subject.id,
                         }))
@@ -1002,7 +1088,14 @@ const QuestionsPage: React.FC = () => {
                   rules={[{ required: true, message: 'Please select correct answer' }]}
                 >
                   <Select
-                    options={CORRECT_ANSWER_OPTIONS}
+                    options={
+                      [
+                        { label: 'Option A', value: 'A' },
+                        { label: 'Option B', value: 'B' },
+                        { label: 'Option C', value: 'C' },
+                        { label: 'Option D', value: 'D' },
+                      ]
+                    }
                     placeholder="Choose correct option"
                     size="large"
                   />
