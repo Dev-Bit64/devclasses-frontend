@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unused-expressions */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button, Table, Modal, Form, Input, Select, Row, Col, Space, Popconfirm, Tooltip, message, Radio } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, ImportOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
@@ -228,20 +229,6 @@ const QuestionsPage: React.FC = () => {
     setImportModalVisible(false);
   };
 
-  const handleImport = async (file: File) => {
-    try {
-      // TODO: Implement actual import logic with API call
-      console.log('Importing file:', file.name);
-      message.success(`Successfully imported questions from ${file.name}`);
-
-      // Refresh the questions list after import
-      fetchQuestions();
-    } catch (error) {
-      message.error('Failed to import questions. Please try again.');
-      // console.error('Import error:', error);
-    }
-  };
-
   /**
    * Handle edit button click
    * - Loads question data into the form
@@ -290,7 +277,8 @@ const QuestionsPage: React.FC = () => {
       // Check if deletion was successful
       if (deleteQuestionAction.fulfilled.match(resultAction)) {
         // Success message is handled by Redux slice toast notification
-        // No additional action needed here
+        // Clear selection after successful delete
+        setSelectedRowKeys([]);
       } else {
         // Error message is handled by Redux slice toast notification
         console.error('Failed to delete question(s):', resultAction.payload);
@@ -461,6 +449,18 @@ const QuestionsPage: React.FC = () => {
    * - Actions: Edit and Delete buttons (fixed right)
    * - Horizontal scroll enabled for proper display on smaller screens
    */
+  /**
+   * Memoized row selection configuration to prevent lag
+   * - Only recreates when selectedRowKeys changes
+   * - Improves performance when selecting multiple rows
+   */
+  const rowSelection = useMemo(() => ({
+    selectedRowKeys,
+    onChange: (keys: React.Key[]) => setSelectedRowKeys(keys),
+    type: 'checkbox' as const,
+    preserveSelectedRowKeys: true,
+  }), [selectedRowKeys]);
+
   const columns = [
     {
       title: 'Board',
@@ -751,6 +751,26 @@ const QuestionsPage: React.FC = () => {
       <div className="questions-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <h1 className="welcome-title" style={{ margin: 0 }}>Questions</h1>
         <Space size="middle">
+          {selectedRowKeys.length > 0 && (
+            <Popconfirm
+              title={`Delete ${selectedRowKeys.length} question${selectedRowKeys.length > 1 ? 's' : ''}?`}
+              description="This action cannot be undone."
+              onConfirm={() => {
+                handleDelete(selectedRowKeys as string[]);
+                setSelectedRowKeys([]);
+              }}
+              okText="Yes"
+              cancelText="No"
+            >
+              <Button
+                danger
+                icon={<DeleteOutlined />}
+                className="bulk-delete-button"
+              >
+                Delete ({selectedRowKeys.length})
+              </Button>
+            </Popconfirm>
+          )}
           <Tooltip title="Import questions from Excel">
             <Button
               icon={<ImportOutlined />}
@@ -886,12 +906,7 @@ const QuestionsPage: React.FC = () => {
           rowKey="id"
           scroll={{ x: 'max-content' }}
           onChange={handleTableChange}
-          // Checkbox selection configuration - maintains table responsiveness
-          rowSelection={{
-            selectedRowKeys,
-            onChange: (keys) => setSelectedRowKeys(keys),
-            type: 'checkbox',
-          }}
+          rowSelection={rowSelection}
         />
       </div>
 
@@ -1145,7 +1160,6 @@ const QuestionsPage: React.FC = () => {
       <ImportModal
         visible={importModalVisible}
         onClose={handleImportModalClose}
-        onImport={handleImport}
       />
     </div>
   );

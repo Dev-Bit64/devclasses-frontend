@@ -75,8 +75,16 @@ body {
       transition: all 0.4s ease;
       cursor: pointer;
       position: relative;
-      overflow: hidden;
-      
+      overflow: visible;
+      padding: 10px 12px;
+
+      img {
+        transition: all 0.3s ease;
+        filter: brightness(1);
+        display: block;
+        margin: 0 auto;
+      }
+
       &::before {
         content: '';
         position: absolute;
@@ -87,17 +95,21 @@ body {
         background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
         transition: left 0.6s ease;
       }
-      
+
       &:hover {
         background: rgba(255, 255, 255, 0.15);
         color: #40a9ff;
         transform: scale(1.02);
-        
+
+        img {
+          filter: brightness(1.1);
+        }
+
         &::before {
           left: 100%;
         }
       }
-      
+
       &:active {
         transform: scale(0.98);
       }
@@ -268,30 +280,25 @@ body {
           padding: 8px 16px;
           border-radius: 25px;
           transition: all 0.3s ease;
-          cursor: pointer;
-          
+
           &:hover {
             background: rgba(255, 255, 255, 0.9);
           }
-          
+
           .user-name {
             font-weight: 500;
             color: #333;
             transition: all 0.3s ease;
             white-space: nowrap;
-            
-            &:hover {
-              color: $primary-color;
-            }
-            
+
             &.mobile-visible {
               display: block;
             }
           }
-          
+
           .user-avatar {
             transition: all 0.3s ease;
-            
+
             &:hover {
               opacity: 0.8;
             }
@@ -482,10 +489,23 @@ body {
   .dashboard-layout {
     .sidebar {
       transform: translateX(-100%);
-      
+
       &.mobile-visible {
         transform: translateX(0);
         animation: enhancedSlideInLeft 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .logo {
+        padding: 12px 16px;
+
+        img {
+          width: 160px !important;
+          max-width: 160px !important;
+          height: auto !important;
+          max-height: 56px !important;
+          display: block !important;
+          margin: 0 auto !important;
+        }
       }
     }
     
@@ -533,6 +553,21 @@ body {
 
 @media (max-width: 480px) {
   .dashboard-layout {
+    .sidebar {
+      .logo {
+        padding: 10px 12px;
+
+        img {
+          width: 140px !important;
+          max-width: 140px !important;
+          height: auto !important;
+          max-height: 52px !important;
+          display: block !important;
+          margin: 0 auto !important;
+        }
+      }
+    }
+
     .main-content {
       .header {
         padding: 0 12px;
@@ -566,6 +601,26 @@ body {
   }
 }
 
+// Extra small mobile screens
+@media (max-width: 360px) {
+  .dashboard-layout {
+    .sidebar {
+      .logo {
+        padding: 8px 10px;
+
+        img {
+          width: 120px !important;
+          max-width: 120px !important;
+          height: auto !important;
+          max-height: 48px !important;
+          display: block !important;
+          margin: 0 auto !important;
+        }
+      }
+    }
+  }
+}
+
 // Enhanced tablet responsive styles for iPad Air and similar
 @media (max-width: 1024px) {
   .dashboard-layout {
@@ -574,6 +629,19 @@ body {
       &.mobile-visible {
         transform: translateX(0);
         animation: enhancedSlideInLeft 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .logo {
+        padding: 12px 16px;
+
+        img {
+          width: 170px !important;
+          max-width: 170px !important;
+          height: auto !important;
+          max-height: 56px !important;
+          display: block !important;
+          margin: 0 auto !important;
+        }
       }
     }
     .main-content {

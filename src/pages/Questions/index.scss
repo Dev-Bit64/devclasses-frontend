@@ -55,6 +55,23 @@
       }
     }
 
+    .bulk-delete-button {
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 16px;
+      background: #fff;
+      color: #ff4d4f;
+      border: 2px solid #ff4d4f;
+      transition: all 0.3s ease;
+
+      &:hover {
+        background: #ff4d4f;
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(255, 77, 79, 0.3);
+      }
+    }
+
     .search-container {
       display: flex;
       align-items: center;
@@ -497,8 +514,8 @@
       }
 
       &.ant-table-row-selected>td {
-        background: #f4eefd !important;
-        border-left: 3px solid #722ed1;
+        background: #e6f7ff !important;
+        border-left: 3px solid #1890ff;
       }
     }
 

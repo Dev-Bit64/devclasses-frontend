@@ -114,11 +114,17 @@ export const deleteQuestionAction = createAsyncThunk(
     }
 );
 
+/**
+ * Import questions from Excel file
+ *
+ * @param payload - FormData containing file and metadata (board, standard, subjectId, chapterId)
+ */
 export const importQuestionsAction = createAsyncThunk(
     "ImportQuestions",
-    async (payload: any, { rejectWithValue }) => {
+    async (payload: FormData, { rejectWithValue }) => {
         try {
-            const response = await postApi(APIEndpoints.ImportQuestions, payload);
+            // Pass true as third parameter to set Content-Type to multipart/form-data
+            const response = await postApi(APIEndpoints.ImportQuestions, payload, true);
             if (response?.data?.statusCode === 200) {
                 {
                     return response.data;

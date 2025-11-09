@@ -48,6 +48,9 @@ export interface InitialState {
     examQuestions?: any;
     userLists?: any;
     subjectDropdownList?: any;
+    totalUsers?: number;
+    currentPage?: number;
+    totalPages?: number;
 }
 
 export interface PagninationPayload {
@@ -68,6 +71,9 @@ export interface GetUserResultsPayload {
     userId: string,
     sortField: string,
     sortOrder: string,
+    subjectId?: string;
+    startDate?: Date;
+    endDate?: Date;
 }
 
 export interface GetUsersPayload {

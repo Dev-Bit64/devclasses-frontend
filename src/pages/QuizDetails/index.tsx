@@ -6,8 +6,8 @@ import { BookOutlined, FileTextOutlined, NumberOutlined } from '@ant-design/icon
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
-import { getSubjectsForDDAction, getchaptersBySubjectIdAction } from '../../redux/action/subjectAction';
-import { getExamQuestionsAction } from '../../redux/action/examAction';
+import { getchaptersBySubjectIdAction } from '../../redux/action/subjectAction';
+import { getExamQuestionsAction, getSubjectsForExamAction } from '../../redux/action/examAction';
 import CustomDropdown, { DropdownOption } from '../../components/ImportModal/CustomDropdown';
 import './index.scss';
 
@@ -16,9 +16,24 @@ const QuizDetailsPage: React.FC = () => {
     const navigate = useNavigate();
     const dispatch = useDispatch();
 
+    // Get user info from localStorage
+    const getUserInfo = () => {
+        try {
+            const userInfo = localStorage.getItem('user');
+            return userInfo ? JSON.parse(userInfo) : null;
+        } catch (error) {
+            console.error('Error parsing userInfo from localStorage:', error);
+            return null;
+        }
+    };
+
+    const userInfo = getUserInfo();
+    const userBoard = userInfo?.board || 'CBSE';
+    const userStandard = userInfo?.standard || '10';
+
     // Redux state selectors
-    const { subjectLists, chapterLists } = useSelector((state: RootState) => state.subject);
-    const { isLoading: examLoading } = useSelector((state: RootState) => state.exam);
+    const { chapterLists } = useSelector((state: RootState) => state.subject);
+    const { isLoading: examLoading, examSubjectsList } = useSelector((state: RootState) => state.exam);
 
     // Local component state
     const [selectedSubject, setSelectedSubject] = useState<string>('');
@@ -39,11 +54,15 @@ const QuizDetailsPage: React.FC = () => {
     /**
      * Fetch subjects on component mount
      * This populates the subject dropdown with data from the API
+     * Uses getSubjectsForExamAction to fetch subjects based on board and standard from localStorage
      */
     useEffect(() => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        dispatch(getSubjectsForDDAction() as any);
-    }, [dispatch]);
+        // Fetch subjects for exam with board and standard from localStorage
+        if (userBoard && userStandard) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            dispatch(getSubjectsForExamAction({ board: userBoard, standard: userStandard }) as any);
+        }
+    }, [dispatch, userBoard, userStandard]);
 
     /**
      * Handle subject selection
@@ -67,7 +86,7 @@ const QuizDetailsPage: React.FC = () => {
 
         // Show success message
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const selectedSubjectLabel = subjectLists.find((s: any) => s._id === value)?.subjectName;
+        const selectedSubjectLabel = examSubjectsList.find((s: any) => s.id === value)?.subname;
         message.success(`${selectedSubjectLabel} selected!`);
     };
 
@@ -97,6 +116,7 @@ const QuizDetailsPage: React.FC = () => {
      * Handle form submission - Generate Exam
      * - Validates all required fields
      * - Calls getExamQuestionsAction API with selected values
+     * - Uses board and standard from localStorage userInfo
      * - Navigates to Test page with exam questions
      * - Handles errors with user-friendly messages
      */
@@ -106,9 +126,10 @@ const QuizDetailsPage: React.FC = () => {
 
         try {
             // Prepare payload for getExamQuestions API
+            // Uses board and standard from localStorage userInfo
             const payload = {
-                board: 'CBSE', // You may need to make this dynamic based on user selection
-                standard: '10', // You may need to make this dynamic based on user selection
+                board: userBoard,
+                standard: userStandard,
                 subject: selectedSubjectId,
                 chapter: selectedChapterId,
                 noOfQuestions: selectedQuestions || 5,
@@ -144,11 +165,15 @@ const QuizDetailsPage: React.FC = () => {
     };
 
     // Convert subjects to dropdown options
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const subjectOptions: DropdownOption[] = subjectLists.map((subject: any) => ({
-        value: subject._id,
-        label: subject.subjectName,
-    }));
+    // Uses examSubjectsList from getSubjectsForExamAction
+    // Ensure examSubjectsList is always an array to prevent .map errors
+    const subjectOptions: DropdownOption[] = Array.isArray(examSubjectsList)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ? examSubjectsList.map((subject: any) => ({
+            value: subject.id,
+            label: subject.subname,
+        }))
+        : [];
 
     // Convert chapters to dropdown options
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

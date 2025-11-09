@@ -3,7 +3,7 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { toastText } from "../../utils/toast";
 import { InitialState } from "../../interfaces/interfaces";
-import { getUserProfileAction, getUsersAction, deleteUserAction } from "../action/userAction";
+import { getUserProfileAction, getUsersAction, deleteUserAction, getUserResultByIdAction } from "../action/userAction";
 
 
 const initialState: InitialState = {
@@ -11,7 +11,10 @@ const initialState: InitialState = {
     error: null,
     data: {},
     message: null,
-    userLists: []
+    userLists: [],
+    totalUsers: 0,
+    currentPage: 1,
+    totalPages: 1
 };
 
 const UserSlice = createSlice({
@@ -43,7 +46,11 @@ const UserSlice = createSlice({
         });
         builder.addCase(getUsersAction.fulfilled, (state, action) => {
             state.isLoading = false;
-            state.userLists = action?.payload?.data || [];
+            // Extract users array and pagination metadata from nested data structure
+            state.userLists = action?.payload?.data?.users || [];
+            state.totalUsers = action?.payload?.data?.totalUsers || 0;
+            state.currentPage = action?.payload?.data?.page || 1;
+            state.totalPages = action?.payload?.data?.totalPages || 1;
             state.message = action?.payload?.message;
             // toastText(action?.payload?.message, "success");
         });
@@ -65,6 +72,23 @@ const UserSlice = createSlice({
             toastText(action?.payload?.message, "success");
         });
         builder.addCase(deleteUserAction.rejected, (state, action: any) => {
+            state.isLoading = false;
+            state.error = action.payload;
+            state.message = action?.payload?.message;
+            toastText(action?.payload?.message, "error");
+        });
+
+        // Handle getUserResultByIdAction - fetch user results
+        builder.addCase(getUserResultByIdAction.pending, (state) => {
+            state.isLoading = true;
+            state.error = null;
+        });
+        builder.addCase(getUserResultByIdAction.fulfilled, (state, action) => {
+            state.isLoading = false;
+            state.data = action?.payload;
+            state.message = action?.payload?.message;
+        });
+        builder.addCase(getUserResultByIdAction.rejected, (state, action: any) => {
             state.isLoading = false;
             state.error = action.payload;
             state.message = action?.payload?.message;

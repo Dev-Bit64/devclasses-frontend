@@ -33,6 +33,7 @@ const examSlice = createSlice({
          * - Stores subjects in examSubjectsList for exam creation
          * - Shows loading state during fetch
          * - Handles errors with toast notifications
+         * - Backend returns { subjects: [...] }, so we access data.subjects
          */
         builder
             .addCase(getSubjectsForExamAction.pending, (state) => {
@@ -41,7 +42,8 @@ const examSlice = createSlice({
             })
             .addCase(getSubjectsForExamAction.fulfilled, (state, action) => {
                 state.isLoading = false;
-                state.examSubjectsList = action?.payload?.data;
+                // Backend returns { subjects: [...] }, so we access data.subjects
+                state.examSubjectsList = action?.payload?.data?.subjects || [];
                 state.message = action?.payload?.message;
             })
             .addCase(getSubjectsForExamAction.rejected, (state, action: any) => {

@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Tooltip, Avatar, Input, Card, message, Popconfirm, Space } from 'antd';
 import { WhatsAppOutlined, EyeOutlined, UserOutlined, SearchOutlined, DeleteOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
@@ -11,13 +12,15 @@ import './index.scss';
 
 interface User {
   key: string;
-  id?: string;
+  id: string;
   name: string;
   email: string;
   testsGiven: number;
   avatar: string;
   standard: string;
   board: string;
+  firstName?: string;
+  lastName?: string;
 }
 
 /**
@@ -37,24 +40,36 @@ const boardFilterOptions = [
 const UsersPage: React.FC = () => {
   // Redux hooks for state management and dispatching actions
   const dispatch = useDispatch<AppDispatch>();
-  const { userLists , isLoading } = useSelector((state: RootState) => state.user);
+  const { userLists = [], isLoading, totalUsers = 0, currentPage = 1 } = useSelector((state: RootState) => state.user);
 
-  console.log('User Lists from Redux:', userLists.users);
-
-  // Normalize user list data coming from API/redux.
-  // Some API responses return an object (e.g. { data: [...], total }) instead of a raw array.
-  // Ant Design's Table expects an array for dataSource. Ensure we always pass an array.
-  const normalizedUserList: any[] = Array.isArray(userLists?.users)
-    ? userLists?.users : []
-  
-
-      console.log('Normalized User List:', normalizedUserList);
+  // Transform API response data to match table structure
+  // API returns: { id, board, email, firstName, lastName, standard }
+  // Table expects: { key, id, name, email, testsGiven, avatar, standard, board }
+  const normalizedUserList: User[] = Array.isArray(userLists)
+    ? userLists.map((user: any) => ({
+        key: user.id,
+        id: user.id,
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        testsGiven: user.testsGiven || 0, // Default to 0 if not provided
+        avatar: user.avatar || '', // Default to empty string if not provided
+        standard: user.standard,
+        board: user.board,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      }))
+    : [];
 
   // Local state for search and column filters
   const [searchInput, setSearchInput] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState(''); // Track the currently applied search
   const [standardFilters, setStandardFilters] = useState<string[]>([]);
   const [boardFilters, setBoardFilters] = useState<string[]>([]);
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+
+  // Pagination state
+  const [page, setPage] = useState<number>(1);
+  const DEFAULT_PAGE_SIZE = 10;
 
   // State for UserResultsModal
   const [resultsModalVisible, setResultsModalVisible] = useState(false);
@@ -62,15 +77,16 @@ const UsersPage: React.FC = () => {
 
   /**
    * Fetch users with current filters and search parameters
-   * Called on component mount and when filters/search change
+   * Called on component mount and when filters/search/pagination change
    * @param searchTerm - Optional search term to override current searchInput
    * @param standard - Optional standard filter value
    * @param board - Optional board filter value
+   * @param pageNum - Optional page number to override current page
    */
-  const fetchUsers = (searchTerm: string = '', standard: string = '', board: string = '') => {
+  const fetchUsers = useCallback((searchTerm: string = '', standard: string = '', board: string = '', pageNum?: number) => {
     const payload = {
-      page: 1,
-      limit: 10,
+      page: pageNum || page,
+      limit: DEFAULT_PAGE_SIZE,
       search: searchTerm,
       sortField: 'firstName',
       sortOrder: 'asc',
@@ -78,24 +94,27 @@ const UsersPage: React.FC = () => {
       standard: standard
     };
     dispatch(getUsersAction(payload));
-  };
+  }, [dispatch, page, DEFAULT_PAGE_SIZE]);
 
   // Fetch users on component mount with empty search and filters
   useEffect(() => {
     fetchUsers();
-  }, [dispatch]);
+  }, [fetchUsers]);
 
   /**
    * Handle search button click
    * Validates that search input has at least 3 characters before fetching
    * Shows warning message if validation fails
+   * Resets pagination to page 1 when searching
    */
   const handleSearch = () => {
     const trimmedSearch = searchInput.trim();
 
     // If search is empty, fetch all users
     if (trimmedSearch.length === 0) {
-      fetchUsers('', standardFilters[0] || '', boardFilters[0] || '');
+      setPage(1);
+      setAppliedSearch('');
+      fetchUsers('', standardFilters[0] || '', boardFilters[0] || '', 1);
       return;
     }
 
@@ -105,8 +124,24 @@ const UsersPage: React.FC = () => {
       return;
     }
 
-    // Fetch users with search term and current filters
-    fetchUsers(trimmedSearch, standardFilters[0] || '', boardFilters[0] || '');
+    // Fetch users with search term and current filters, reset to page 1
+    setPage(1);
+    setAppliedSearch(trimmedSearch);
+    fetchUsers(trimmedSearch, standardFilters[0] || '', boardFilters[0] || '', 1);
+  };
+
+  /**
+   * Handle clearing the search
+   * Resets search input and fetches all users if search was previously applied
+   */
+  const handleClearSearch = () => {
+    setSearchInput('');
+    setAppliedSearch('');
+    setPage(1);
+    // Only fetch if there was a search applied
+    if (appliedSearch) {
+      fetchUsers('', standardFilters[0] || '', boardFilters[0] || '', 1);
+    }
   };
 
 
@@ -139,17 +174,9 @@ const UsersPage: React.FC = () => {
 
       // Check if deletion was successful
       if (deleteUserAction.fulfilled.match(resultAction)) {
-        // Refresh the user list after successful deletion
-        const payload = {
-          page: 1,
-          limit: 10,
-          search: '',
-          sortField: 'name',
-          sortOrder: 'asc',
-          board: '',
-          standard: ''
-        };
-        dispatch(getUsersAction(payload));
+        // Refresh the user list after successful deletion with current filters
+        setPage(1);
+        fetchUsers(searchInput.trim(), standardFilters[0] || '', boardFilters[0] || '', 1);
       }
     } catch (error) {
       console.error('Error deleting user:', error);
@@ -172,18 +199,10 @@ const UsersPage: React.FC = () => {
 
       // Check if deletion was successful
       if (deleteUserAction.fulfilled.match(resultAction)) {
-        // Clear selected rows and refresh the user list
+        // Clear selected rows and refresh the user list with current filters
         setSelectedRowKeys([]);
-        const payload = {
-          page: 1,
-          limit: 10,
-          search: '',
-          sortField: 'name',
-          sortOrder: 'asc',
-          board: '',
-          standard: ''
-        };
-        dispatch(getUsersAction(payload));
+        setPage(1);
+        fetchUsers(searchInput.trim(), standardFilters[0] || '', boardFilters[0] || '', 1);
       }
     } catch (error) {
       console.error('Error deleting users:', error);
@@ -205,9 +224,8 @@ const UsersPage: React.FC = () => {
       dataIndex: 'name',
       key: 'name',
       align: 'left',
-      render: (text: string, record: User) => (
+      render: (text: string, _record: User) => (
         <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Avatar icon={<UserOutlined />} src={record.avatar} />
           {text}
         </span>
       ),
@@ -285,8 +303,9 @@ const UsersPage: React.FC = () => {
                   clearFilters();
                 }
                 setStandardFilters([]);
-                // Fetch users with cleared filter
-                fetchUsers(searchInput.trim(), '', boardFilters[0] || '');
+                setPage(1);
+                // Fetch users with cleared filter, reset to page 1
+                fetchUsers(searchInput.trim(), '', boardFilters[0] || '', 1);
                 // Close the filter dropdown after reset
                 close();
               }}
@@ -363,8 +382,9 @@ const UsersPage: React.FC = () => {
                   clearFilters();
                 }
                 setBoardFilters([]);
-                // Fetch users with cleared filter
-                fetchUsers(searchInput.trim(), standardFilters[0] || '', '');
+                setPage(1);
+                // Fetch users with cleared filter, reset to page 1
+                fetchUsers(searchInput.trim(), standardFilters[0] || '', '', 1);
                 // Close the filter dropdown after reset
                 close();
               }}
@@ -443,31 +463,16 @@ const UsersPage: React.FC = () => {
     <div className="users-page-container animate-fade-in">
       <h1 className="welcome-title" style={{ marginBottom: 24 }}>Users</h1>
 
-      {/* Search Card - Contains search input and button */}
+      {/* Search Card - Contains search input and buttons */}
       <Card className="users-filter-card" style={{ marginBottom: 24, borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-        <div className="search-section" style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: '8px',
-          width: '100%',
-          flexWrap: 'nowrap'
-        }}>
-          {/* Search input and error message container */}
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '4px',
-            flex: 1,
-            minWidth: 0
-          }}>
+        <div className="search-section">
+          {/* Search input container */}
+          <div className="search-input-container">
             <Input
               allowClear
               placeholder="Search by name or email... (min 3 characters)"
               prefix={<SearchOutlined />}
               className="search-input"
-              style={{
-                borderColor: searchInput.length > 0 && searchInput.length < 3 ? '#ff4d4f' : undefined
-              }}
               value={searchInput}
               onChange={e => setSearchInput(e.target.value)}
               onPressEnter={handleSearch}
@@ -475,31 +480,34 @@ const UsersPage: React.FC = () => {
             />
             {/* Error message for search validation */}
             {searchInput.length > 0 && searchInput.length < 3 && (
-              <div style={{
-                color: '#ff4d4f',
-                fontSize: '11px',
-                marginLeft: '4px'
-              }}>
+              <div className="search-error-message">
                 Please enter at least 3 characters to search
               </div>
             )}
           </div>
-          {/* Search button - fixed width, no shrink */}
-          <Button
-            type="primary"
-            icon={<SearchOutlined />}
-            onClick={handleSearch}
-            className="search-button"
-            style={{
-              flexShrink: 0,
-              height: '32px',
-              minWidth: '85px',
-              marginTop: '0px'
-            }}
-            disabled={searchInput.length > 0 && searchInput.length < 3}
-          >
-            Search
-          </Button>
+
+          {/* Search and Clear buttons container */}
+          <div className="search-buttons-container">
+            <Button
+              type="primary"
+              icon={<SearchOutlined />}
+              onClick={handleSearch}
+              className="search-button"
+              disabled={searchInput.length > 0 && searchInput.length < 3}
+            >
+              Search
+            </Button>
+
+            {/* Clear button - only shown when search is applied */}
+            {appliedSearch && (
+              <Button
+                onClick={handleClearSearch}
+                className="clear-search-button"
+              >
+                Clear
+              </Button>
+            )}
+          </div>
         </div>
       </Card>
       {/* Bulk Delete Button - shown when users are selected */}
@@ -532,7 +540,18 @@ const UsersPage: React.FC = () => {
           columns={columns}
           dataSource={normalizedUserList}
           loading={isLoading}
-          pagination={{ pageSize: 8 }}
+          pagination={{
+            current: page,
+            pageSize: DEFAULT_PAGE_SIZE,
+            total: totalUsers,
+            showSizeChanger: false,
+            showQuickJumper: true,
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} users`,
+            onChange: (newPage) => {
+              setPage(newPage);
+              fetchUsers(searchInput.trim(), standardFilters[0] || '', boardFilters[0] || '', newPage);
+            },
+          }}
           bordered
           rowKey="key"
           scroll={{ x: 600 }}
@@ -546,8 +565,10 @@ const UsersPage: React.FC = () => {
             setStandardFilters(standardFilterValues);
             setBoardFilters(boardFilterValues);
 
+            // Reset to page 1 when filters change
+            setPage(1);
             // Fetch users with updated filters and current search term
-            fetchUsers(searchInput.trim(), standardFilterValues[0] || '', boardFilterValues[0] || '');
+            fetchUsers(searchInput.trim(), standardFilterValues[0] || '', boardFilterValues[0] || '', 1);
           }}
           // Checkbox selection configuration - maintains table responsiveness
           rowSelection={{

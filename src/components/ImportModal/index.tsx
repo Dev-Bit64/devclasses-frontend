@@ -5,6 +5,7 @@ import { InboxOutlined, FileExcelOutlined, CloseOutlined } from '@ant-design/ico
 import type { UploadProps, UploadFile } from 'antd';
 import { useDispatch, useSelector } from 'react-redux';
 import { getSubjectsForDDAction, getchaptersBySubjectIdAction } from '../../redux/action/subjectAction';
+import { importQuestionsAction } from '../../redux/action/questionAction';
 import { RootState, AppDispatch } from '../../redux/store';
 import CustomDropdown from './CustomDropdown';
 import './index.scss';
@@ -21,18 +22,9 @@ interface DropdownOption {
 interface ImportModalProps {
   visible: boolean;
   onClose: () => void;
-  onImport: (file: File, importData: ImportData) => void;
 }
 
-// Interface for import data payload
-interface ImportData {
-  standard: string;
-  board: string;
-  subject: string;
-  chapter: string;
-}
-
-const ImportModal: React.FC<ImportModalProps> = ({ visible, onClose, onImport }) => {
+const ImportModal: React.FC<ImportModalProps> = ({ visible, onClose }) => {
   const dispatch = useDispatch<AppDispatch>();
 
   // Redux selectors for subjects and chapters
@@ -148,35 +140,50 @@ const ImportModal: React.FC<ImportModalProps> = ({ visible, onClose, onImport })
   /**
    * Handle the file upload/import process
    * - Validates form fields and file selection
-   * - Prepares import data payload with selected values
-   * - Triggers import callback with file and import data
-   * - Resets form on success
+   * - Prepares FormData payload with file and metadata
+   * - Dispatches importQuestionsAction to upload and import questions
+   * - Closes modal and resets form on success
    */
   const handleUpload = async () => {
     if (!isFormValid()) return;
 
     setUploading(true);
     try {
-      const file = fileList[0].originFileObj as File;
+      // Get the file from fileList - handle both UploadFile and File types
+      const uploadFile = fileList[0];
+      const file = uploadFile.originFileObj || uploadFile as any as File;
 
-      // Prepare import data payload
-      const importData: ImportData = {
-        standard: selectedStandard,
-        board: selectedBoard,
-        subject: selectedSubject,
-        chapter: selectedChapter,
-      };
+      if (!file) {
+        console.error('No file found');
+        setUploading(false);
+        return;
+      }
 
-      // Call the import callback with file and import data
-      onImport(file, importData);
+      // Prepare FormData payload for multipart/form-data request
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('board', selectedBoard);
+      formData.append('standard', selectedStandard);
+      formData.append('subjectId', selectedSubject);
+      formData.append('chapterId', selectedChapter);
 
-      // Reset form to initial state after successful import
-      setFileList([]);
-      setSelectedStandard('');
-      setSelectedBoard('');
-      setSelectedSubject('');
-      setSelectedChapter('');
-      onClose();
+      // Dispatch import action
+      const resultAction = await dispatch(importQuestionsAction(formData));
+
+      // Check if the action was fulfilled successfully
+      if (importQuestionsAction.fulfilled.match(resultAction)) {
+        // Success: Close modal and reset form
+        // Redux slice automatically appends the imported questions to the questions list
+        setFileList([]);
+        setSelectedStandard('');
+        setSelectedBoard('');
+        setSelectedSubject('');
+        setSelectedChapter('');
+        onClose();
+      } else {
+        // Handle API error - error message will be shown by the slice
+        console.error('Failed to import questions:', resultAction.payload);
+      }
     } catch (error) {
       console.error('Import failed:', error);
     } finally {
@@ -218,7 +225,17 @@ const ImportModal: React.FC<ImportModalProps> = ({ visible, onClose, onImport })
         return false;
       }
 
-      setFileList([file]);
+      // Create UploadFile object with originFileObj
+      const uploadFile: UploadFile = {
+        uid: file.uid || `${Date.now()}`,
+        name: file.name,
+        status: 'done',
+        size: file.size,
+        type: file.type,
+        originFileObj: file as any,
+      };
+
+      setFileList([uploadFile]);
       return false; // Prevent automatic upload
     },
     onRemove: () => {

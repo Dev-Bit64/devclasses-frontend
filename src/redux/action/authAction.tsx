@@ -73,7 +73,8 @@ export const forgotPasswordMailAction = createAsyncThunk(
     "ForgotPasswordMail",
     async (payload: string, { rejectWithValue }) => {
         try {
-            const response = await postApi(APIEndpoints.ForgotPasswordMail, payload);
+            // Send email in request body as an object to match backend API expectations
+            const response = await postApi(APIEndpoints.ForgotPasswordMail, { email: payload });
             if (response?.data?.statusCode === 200) {
                 return response.data;
             } else {

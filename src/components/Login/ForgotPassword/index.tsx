@@ -2,14 +2,15 @@
 import { ForgotPasswordFormProps } from "./types";
 import { Row, Col, Form, Input, Button } from "antd";
 import React from "react";
-import { useDispatch } from "react-redux";
-import { AppDispatch } from "../../../redux/store";
+import { useDispatch, useSelector } from "react-redux";
+import { AppDispatch, RootState } from "../../../redux/store";
 import { forgotPasswordMailAction } from "../../../redux/action/authAction";
 import styles from "./index.module.scss";
 
 const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = (props) => {
     const { setIsForgotPassword } = props;
     const dispatch = useDispatch<AppDispatch>();
+    const { isLoading } = useSelector((state: RootState) => state.auth);
 
     /**
      * Handle form submission for forgot password
@@ -49,7 +50,7 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = (props) => {
                 </Row>
 
                 <Form.Item>
-                    <Button type="primary" size="large" htmlType="submit" block>
+                    <Button type="primary" size="large" htmlType="submit" block loading={isLoading}>
                         Submit
                     </Button>
                 </Form.Item>

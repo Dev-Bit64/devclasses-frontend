@@ -1,9 +1,14 @@
-import React, { useState, useMemo } from 'react';
-import { Table, Select, DatePicker, Row, Col, Tooltip as AntdTooltip } from 'antd';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { Table, Select, DatePicker, Row, Col, Tooltip as AntdTooltip, Spin, message } from 'antd';
 import type { TableProps } from 'antd';
 import dayjs from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween';
 import type { Dayjs } from 'dayjs';
+import { useDispatch, useSelector } from 'react-redux';
+import { getUserResultByIdAction } from '../../redux/action/userAction';
+import { getSubjectsForDDAction } from '../../redux/action/subjectAction';
+import { RootState, AppDispatch } from '../../redux/store';
 import './index.scss';
 
 dayjs.extend(isBetween);
@@ -19,44 +24,112 @@ interface DataType {
     wrongAnswers: number;
     totalQuestions: number;
     date: string;
-}
-
-const subjectsList = ['Mathematics', 'Science', 'History', 'English', 'Geography'];
-const mockData: DataType[] = [];
-for (let i = 1; i <= 50; i++) {
-    const subject = subjectsList[i % subjectsList.length];
-    const total = 25;
-    const correct = Math.floor(Math.random() * (total - 5)) + 5;
-    const randomDate = dayjs().subtract(Math.floor(Math.random() * 60), 'day');
-    mockData.push({
-        key: i,
-        no: i,
-        subject,
-        correctAnswers: correct,
-        wrongAnswers: total - correct,
-        totalQuestions: total,
-        date: randomDate.format('YYYY-MM-DD'),
-    });
+    subjectId?: string;
 }
 
 const ResultsPage: React.FC = () => {
+    const dispatch = useDispatch<AppDispatch>();
+    const { isLoading } = useSelector((state: RootState) => state.user);
+    const { subjectDropdownList } = useSelector((state: RootState) => state.subject);
+
     const [selectedSubject, setSelectedSubject] = useState<string>('all');
     const [dateRange, setDateRange] = useState<[Dayjs, Dayjs] | null>(null);
     const [selectedRowKey, setSelectedRowKey] = useState<React.Key | null>(null);
+    const [resultsData, setResultsData] = useState<DataType[]>([]);
+    const [totalResults, setTotalResults] = useState<number>(0);
+    const [currentPage, setCurrentPage] = useState<number>(1);
+    const pageSize = 10;
+
+    // Get user info from localStorage
+    const getUserInfo = () => {
+        try {
+            const userInfo = localStorage.getItem('user');
+            return userInfo ? JSON.parse(userInfo) : null;
+        } catch (error) {
+            console.error('Error parsing userInfo from localStorage:', error);
+            return null;
+        }
+    };
+
+    const userInfo = getUserInfo();
+    const userId = userInfo?.id;
+
+    // Fetch subjects for dropdown
+    useEffect(() => {
+        dispatch(getSubjectsForDDAction());
+    }, [dispatch]);
+
+    // Fetch user results from API
+    const fetchUserResults = useCallback(async (page: number, subjectId?: string, startDate?: Date, endDate?: Date) => {
+        if (!userId) {
+            message.error('User not found. Please login again.');
+            return;
+        }
+
+        try {
+            const payload: any = {
+                userId: String(userId),
+                page,
+                limit: pageSize,
+                sortField: 'examDate',
+                sortOrder: 'desc',
+            };
+
+            if (subjectId && subjectId !== 'all') {
+                payload.subjectId = subjectId;
+            }
+
+            if (startDate) {
+                payload.startDate = startDate;
+            }
+
+            if (endDate) {
+                payload.endDate = endDate;
+            }
+
+            const response = await dispatch(getUserResultByIdAction(payload)).unwrap();
+
+            // Extract results from API response
+            if (response?.data?.results) {
+                const transformedData: DataType[] = response.data.results.map((item: any, index: number) => ({
+                    key: item.id || index,
+                    no: (page - 1) * pageSize + index + 1,
+                    subject: item.subject?.subname || 'N/A',
+                    correctAnswers: item.correctAnswers || 0,
+                    wrongAnswers: item.wrongAnswers || 0,
+                    totalQuestions: item.totalQuestions || 0,
+                    date: item.examDate ? dayjs(item.examDate).format('YYYY-MM-DD') : 'N/A',
+                    subjectId: item.subjectId,
+                }));
+                setResultsData(transformedData);
+                setTotalResults(response.data.total || 0);
+            } else {
+                setResultsData([]);
+                setTotalResults(0);
+            }
+        } catch (error: any) {
+            console.error('Error fetching user results:', error);
+            message.error(error?.message || 'Failed to fetch results');
+            setResultsData([]);
+            setTotalResults(0);
+        }
+    }, [dispatch, userId, pageSize]);
+
+    // Fetch results on component mount and when filters change
+    useEffect(() => {
+        if (userId) {
+            const startDate = dateRange?.[0] ? dateRange[0].toDate() : undefined;
+            const endDate = dateRange?.[1] ? dateRange[1].toDate() : undefined;
+            const subjectId = selectedSubject !== 'all' ? selectedSubject : undefined;
+
+            fetchUserResults(currentPage, subjectId, startDate, endDate);
+        }
+    }, [userId, currentPage, selectedSubject, dateRange, fetchUserResults]);
 
     const uniqueSubjects = useMemo(
-        () => [...new Set(mockData.map(item => item.subject))],
-        []
+        () => Array.isArray(subjectDropdownList) ? subjectDropdownList : [],
+        [subjectDropdownList]
     );
-
-    const filteredData = useMemo(() => mockData.filter(item => {
-        const subjectMatch = selectedSubject === 'all' || item.subject === selectedSubject;
-        if (!dateRange || !dateRange[0] || !dateRange[1]) {
-            return subjectMatch;
-        }
-        const itemDate = dayjs(item.date);
-        return subjectMatch && itemDate.isBetween(dateRange[0], dateRange[1], 'day', '[]');
-    }), [selectedSubject, dateRange]);
 
     const columns: TableProps<DataType>['columns'] = [
         {
@@ -121,15 +194,18 @@ const ResultsPage: React.FC = () => {
                         <Select
                             value={selectedSubject}
                             style={{ width: '100%' }}
-                            onChange={setSelectedSubject}
+                            onChange={(value) => {
+                                setSelectedSubject(value);
+                                setCurrentPage(1); // Reset to first page when filter changes
+                            }}
                             aria-label="Filter by subject"
                             showSearch
                             optionFilterProp="children"
                             dropdownStyle={{ zIndex: 1200 }}
                         >
                             <Option value="all">All Subjects</Option>
-                            {uniqueSubjects.map(subject =>
-                                <Option key={subject} value={subject}>{subject}</Option>
+                            {uniqueSubjects.map((subject: any) =>
+                                <Option key={subject.id} value={subject.id}>{subject.subname}</Option>
                             )}
                         </Select>
                     </Col>
@@ -137,7 +213,10 @@ const ResultsPage: React.FC = () => {
                         <label>Date Range:</label>
                         <RangePicker
                             value={dateRange}
-                            onChange={(dates) => setDateRange(dates as [Dayjs, Dayjs] | null)}
+                            onChange={(dates) => {
+                                setDateRange(dates as [Dayjs, Dayjs] | null);
+                                setCurrentPage(1); // Reset to first page when filter changes
+                            }}
                             style={{ width: '100%' }}
                             dropdownClassName="antd-popper"
                             allowClear
@@ -146,24 +225,29 @@ const ResultsPage: React.FC = () => {
                 </Row>
             </div>
             <div className="results-table">
-                <Table
-                    columns={columns}
-                    dataSource={filteredData}
-                    pagination={{
-                        pageSize: 10,
-                        responsive: true,
-                        showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`
-                    }}
-                    scroll={{ x: 'max-content' }}
-                    size="middle"
-                    rowClassName={record =>
-                        record.key === selectedRowKey ? 'ant-table-row-selected' : ''
-                    }
-                    onRow={record => ({
-                        onClick: () => setSelectedRowKey(record.key),
-                        onMouseEnter: () => { },
-                    })}
-                />
+                <Spin spinning={isLoading}>
+                    <Table
+                        columns={columns}
+                        dataSource={resultsData}
+                        pagination={{
+                            current: currentPage,
+                            pageSize: pageSize,
+                            total: totalResults,
+                            responsive: true,
+                            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+                            onChange: (page) => setCurrentPage(page),
+                        }}
+                        scroll={{ x: 'max-content' }}
+                        size="middle"
+                        rowClassName={record =>
+                            record.key === selectedRowKey ? 'ant-table-row-selected' : ''
+                        }
+                        onRow={record => ({
+                            onClick: () => setSelectedRowKey(record.key),
+                            onMouseEnter: () => { },
+                        })}
+                    />
+                </Spin>
             </div>
         </div>
     );

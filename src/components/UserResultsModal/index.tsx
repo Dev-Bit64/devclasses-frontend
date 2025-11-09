@@ -1,14 +1,18 @@
-import React, { useState } from 'react';
-import { Modal, Table, Button, message, Typography, Row, Col } from 'antd';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useState, useEffect, useCallback } from 'react';
+import { Modal, Table, Button, message, Typography, Row, Col, Spin } from 'antd';
 import { FilePdfOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { useDispatch, useSelector } from 'react-redux';
+import { getUserResultByIdAction } from '../../redux/action/userAction';
+import { RootState, AppDispatch } from '../../redux/store';
 import './index.scss';
 
 const { Title } = Typography;
 
-// Interface for user result data
+// Interface for user result data from API
 interface UserResult {
-  key: number;
+  id?: string;
   examDate: string;
   totalQuestions: number;
   correctAnswers: number;
@@ -26,66 +30,71 @@ interface UserResultsModalProps {
   userId: string | number;
 }
 
-// Mock data for demonstration - replace with actual API call
-const mockUserResults: UserResult[] = [
-  {
-    key: 1,
-    examDate: '2024-01-15',
-    totalQuestions: 50,
-    correctAnswers: 42,
-    wrongAnswers: 8,
-    subject: 'Mathematics',
-    standard: '10th',
-    board: 'CBSE'
-  },
-  {
-    key: 2,
-    examDate: '2024-01-20',
-    totalQuestions: 40,
-    correctAnswers: 35,
-    wrongAnswers: 5,
-    subject: 'Physics',
-    standard: '10th',
-    board: 'CBSE'
-  },
-  {
-    key: 3,
-    examDate: '2024-01-25',
-    totalQuestions: 45,
-    correctAnswers: 38,
-    wrongAnswers: 7,
-    subject: 'Chemistry',
-    standard: '10th',
-    board: 'CBSE'
-  },
-  {
-    key: 4,
-    examDate: '2024-02-01',
-    totalQuestions: 30,
-    correctAnswers: 25,
-    wrongAnswers: 5,
-    subject: 'Biology',
-    standard: '10th',
-    board: 'CBSE'
-  },
-  {
-    key: 5,
-    examDate: '2024-02-05',
-    totalQuestions: 35,
-    correctAnswers: 30,
-    wrongAnswers: 5,
-    subject: 'English',
-    standard: '10th',
-    board: 'CBSE'
-  }
-];
-
 const UserResultsModal: React.FC<UserResultsModalProps> = ({
   visible,
   onClose,
   userName,
+  userId,
 }) => {
+  const dispatch = useDispatch<AppDispatch>();
   const [loading, setLoading] = useState(false);
+  const [userResults, setUserResults] = useState<UserResult[]>([]);
+  const [page, setPage] = useState<number>(1);
+  const [totalResults, setTotalResults] = useState<number>(0);
+  const PAGE_SIZE = 10;
+
+  // Get loading state from Redux
+  const isLoadingResults = useSelector((state: RootState) => state.user.isLoading);
+
+  /**
+   * Fetch user results from API
+   */
+  const fetchUserResults = useCallback(async (pageNum: number) => {
+    try {
+      const payload = {
+        userId: String(userId),
+        page: pageNum,
+        limit: PAGE_SIZE,
+        sortField: 'examDate',
+        sortOrder: 'desc',
+      };
+
+      const response = await dispatch(getUserResultByIdAction(payload)).unwrap();
+
+      // Extract results from API response
+      if (response?.data?.results) {
+        setUserResults(response.data.results);
+        setTotalResults(response.data.totalResults || 0);
+      } else {
+        setUserResults([]);
+        setTotalResults(0);
+      }
+    } catch (error: any) {
+      console.error('Error fetching user results:', error);
+      message.error(error?.message || 'Failed to fetch user results');
+      setUserResults([]);
+      setTotalResults(0);
+    }
+  }, [dispatch, userId, PAGE_SIZE]);
+
+  /**
+   * Fetch user results when modal opens or page changes
+   */
+  useEffect(() => {
+    if (visible && userId) {
+      fetchUserResults(page);
+    }
+  }, [visible, userId, page, fetchUserResults]);
+
+  /**
+   * Reset state when modal closes
+   */
+  const handleClose = () => {
+    setPage(1);
+    setUserResults([]);
+    setTotalResults(0);
+    onClose();
+  };
 
   /**
    * Handle PDF export functionality
@@ -276,7 +285,7 @@ const UserResultsModal: React.FC<UserResultsModalProps> = ({
         </div>
       }
       open={visible}
-      onCancel={onClose}
+      onCancel={handleClose}
       footer={null}
       width="90%"
       style={{ maxWidth: 1200 }}
@@ -284,66 +293,76 @@ const UserResultsModal: React.FC<UserResultsModalProps> = ({
       destroyOnClose
       centered
     >
-      <div className="user-results-content">
-        {/* Summary Statistics */}
-        <div className="results-summary" style={{ 
-          marginBottom: 24, 
-          padding: 16, 
-          background: '#f8f9fa', 
-          borderRadius: 8,
-          border: '1px solid #e9ecef'
-        }}>
-          <Row gutter={[16, 16]}>
-            <Col xs={24} sm={8}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>
-                  {mockUserResults.length}
+      <Spin spinning={isLoadingResults} tip="Loading results...">
+        <div className="user-results-content">
+          {/* Summary Statistics */}
+          <div className="results-summary" style={{
+            marginBottom: 24,
+            padding: 16,
+            background: '#f8f9fa',
+            borderRadius: 8,
+            border: '1px solid #e9ecef'
+          }}>
+            <Row gutter={[16, 16]}>
+              <Col xs={24} sm={8}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>
+                    {totalResults}
+                  </div>
+                  <div style={{ color: '#666' }}>Total Exams</div>
                 </div>
-                <div style={{ color: '#666' }}>Total Exams</div>
-              </div>
-            </Col>
-            <Col xs={24} sm={8}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
-                  {mockUserResults.reduce((sum, result) => sum + result.correctAnswers, 0)}
+              </Col>
+              <Col xs={24} sm={8}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
+                    {userResults.reduce((sum, result) => sum + result.correctAnswers, 0)}
+                  </div>
+                  <div style={{ color: '#666' }}>Total Correct</div>
                 </div>
-                <div style={{ color: '#666' }}>Total Correct</div>
-              </div>
-            </Col>
-            <Col xs={24} sm={8}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 24, fontWeight: 'bold', color: '#faad14' }}>
-                  {(
-                    mockUserResults.reduce((sum, result) => 
-                      sum + (result.correctAnswers / result.totalQuestions) * 100, 0
-                    ) / mockUserResults.length
-                  ).toFixed(1)}%
+              </Col>
+              <Col xs={24} sm={8}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 24, fontWeight: 'bold', color: '#faad14' }}>
+                    {userResults.length > 0
+                      ? (
+                          userResults.reduce((sum, result) =>
+                            sum + (result.correctAnswers / result.totalQuestions) * 100, 0
+                          ) / userResults.length
+                        ).toFixed(1)
+                      : '0.0'}%
+                  </div>
+                  <div style={{ color: '#666' }}>Average Score</div>
                 </div>
-                <div style={{ color: '#666' }}>Average Score</div>
-              </div>
-            </Col>
-          </Row>
-        </div>
+              </Col>
+            </Row>
+          </div>
 
-        {/* Results Table */}
-        <div className="results-table-wrapper" style={{ overflowX: 'auto' }}>
-          <Table
-            columns={columns}
-            dataSource={mockUserResults}
-            pagination={{ 
-              pageSize: 5,
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (total, range) => 
-                `${range[0]}-${range[1]} of ${total} results`
-            }}
-            bordered
-            rowKey="key"
-            scroll={{ x: 800 }}
-            size="middle"
-          />
+          {/* Results Table */}
+          <div className="results-table-wrapper" style={{ overflowX: 'auto' }}>
+            <Table
+              columns={columns}
+              dataSource={userResults}
+              pagination={{
+                current: page,
+                pageSize: PAGE_SIZE,
+                total: totalResults,
+                showSizeChanger: false,
+                showQuickJumper: true,
+                showTotal: (total, range) =>
+                  `${range[0]}-${range[1]} of ${total} results`,
+                onChange: (newPage) => setPage(newPage),
+              }}
+              bordered
+              rowKey={(record) => record.id || record.examDate}
+              scroll={{ x: 800 }}
+              size="middle"
+              locale={{
+                emptyText: 'No exam results found for this user'
+              }}
+            />
+          </div>
         </div>
-      </div>
+      </Spin>
     </Modal>
   );
 };

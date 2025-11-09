@@ -74,13 +74,13 @@ export enum APIEndpoints {
   GetQuestions = "/questions/getQuestions",
   AddQuestion = "/questions/createQuestion",
   UpdateQuestion = "/questions/updateQuestion",
-  DeleteQuestion = "/questions/deleteQuestion",
+  DeleteQuestion = "/questions/deleteQuestions",
   ImportQuestions = "/questions/importQuestions",
 
   //Users
   GetUsers = "/user/getAllUsers",
   DeleteUser = "/user/deleteUser",
-  GetUserResults = "/user/results",
+  GetUserResults = "/user/result",
   UpdateUserProfile = "/user/updateUser",
   GetUserProfile = "/user/getUserProfile",
 
