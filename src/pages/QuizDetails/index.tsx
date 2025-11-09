@@ -6,7 +6,7 @@ import { BookOutlined, FileTextOutlined, NumberOutlined } from '@ant-design/icon
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
-import { getSubjectsAction, getchaptersBySubjectIdAction } from '../../redux/action/subjectAction';
+import { getSubjectsForDDAction, getchaptersBySubjectIdAction } from '../../redux/action/subjectAction';
 import { getExamQuestionsAction } from '../../redux/action/examAction';
 import CustomDropdown, { DropdownOption } from '../../components/ImportModal/CustomDropdown';
 import './index.scss';
@@ -42,7 +42,7 @@ const QuizDetailsPage: React.FC = () => {
      */
     useEffect(() => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        dispatch(getSubjectsAction({}) as any);
+        dispatch(getSubjectsForDDAction() as any);
     }, [dispatch]);
 
     /**

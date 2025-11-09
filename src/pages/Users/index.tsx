@@ -37,17 +37,18 @@ const boardFilterOptions = [
 const UsersPage: React.FC = () => {
   // Redux hooks for state management and dispatching actions
   const dispatch = useDispatch<AppDispatch>();
-  const { userLists = [], isLoading } = useSelector((state: RootState) => state.user);
+  const { userLists , isLoading } = useSelector((state: RootState) => state.user);
+
+  console.log('User Lists from Redux:', userLists.users);
 
   // Normalize user list data coming from API/redux.
   // Some API responses return an object (e.g. { data: [...], total }) instead of a raw array.
   // Ant Design's Table expects an array for dataSource. Ensure we always pass an array.
-  const normalizedUserList: any[] = Array.isArray(userLists)
-    ? userLists
-    : // try common shapes where list might be nested
-      (userLists && Array.isArray((userLists as any).data) && (userLists as any).data) ||
-      (userLists && Array.isArray((userLists as any).docs) && (userLists as any).docs) ||
-      [];
+  const normalizedUserList: any[] = Array.isArray(userLists?.users)
+    ? userLists?.users : []
+  
+
+      console.log('Normalized User List:', normalizedUserList);
 
   // Local state for search and column filters
   const [searchInput, setSearchInput] = useState('');
