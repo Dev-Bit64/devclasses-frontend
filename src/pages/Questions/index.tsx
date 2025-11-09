@@ -268,11 +268,9 @@ const QuestionsPage: React.FC = () => {
    */
   const handleDelete = async (questionIds: string | string[]) => {
     try {
-      // Convert single ID to array format for consistent API handling
-      const idsArray = Array.isArray(questionIds) ? questionIds : [questionIds];
-
       // Dispatch delete action and wait for response
-      const resultAction = await dispatch(deleteQuestionAction(idsArray));
+      // The Redux action now accepts either a single id (string) or array (string[])
+      const resultAction = await dispatch(deleteQuestionAction(questionIds as any));
 
       // Check if deletion was successful
       if (deleteQuestionAction.fulfilled.match(resultAction)) {
@@ -756,7 +754,11 @@ const QuestionsPage: React.FC = () => {
               title={`Delete ${selectedRowKeys.length} question${selectedRowKeys.length > 1 ? 's' : ''}?`}
               description="This action cannot be undone."
               onConfirm={() => {
-                handleDelete(selectedRowKeys as string[]);
+                // Pass single id as string when only one selected, otherwise pass array of strings
+                const payload = selectedRowKeys.length === 1
+                  ? String(selectedRowKeys[0])
+                  : selectedRowKeys.map(k => String(k));
+                handleDelete(payload);
                 setSelectedRowKeys([]);
               }}
               okText="Yes"

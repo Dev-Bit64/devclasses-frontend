@@ -89,16 +89,19 @@ export const updateQuestionAction = createAsyncThunk(
 );
 
 /**
- * Delete one or multiple questions by ID(s)
- *
- * @param questionIds - Array of question IDs to delete
+ * Delete one or multiple questions.
+ * Accepts either a single question id (string) or an array of ids (string[]).
+ * When a single id is provided we send { questionId: '...'}; when multiple we send { questionIds: [...] }.
  */
 export const deleteQuestionAction = createAsyncThunk(
     "deleteQuestion",
-    async (questionIds: string[], { rejectWithValue }) => {
+    async (questionIds: string | string[], { rejectWithValue }) => {
         try {
-            // Send IDs in request body
-            const payload = { questionIds };
+            // Build payload based on whether a single id or an array was provided
+            const payload = Array.isArray(questionIds)
+                ? { questionIds }
+                : { ids: questionIds };
+
             const response = await deleteApi(APIEndpoints.DeleteQuestion, payload);
             if (response?.data?.statusCode === 200) {
                 return response.data;
