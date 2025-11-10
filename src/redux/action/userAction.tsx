@@ -39,7 +39,7 @@ export const deleteUserAction = createAsyncThunk(
             const ids = Array.isArray(userIds) ? userIds : [userIds];
 
             // Send DELETE request with body
-            const response = await deleteApi(APIEndpoints.DeleteUser, { data: { userIds: ids } });
+            const response = await deleteApi(APIEndpoints.DeleteUser,  { userIds: ids } );
 
             // Check if deletion was successful
             if (response?.data?.statusCode === 200) {

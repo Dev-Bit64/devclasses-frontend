@@ -143,8 +143,6 @@ const AddEditQuestionModal: React.FC<AddEditQuestionModalProps> = ({
       // Prepare payload for addQuestion API according to AddQuestionPayload interface
       const addQuestionPayload: AddQuestionPayload = {
         board: values.board,
-        subject: values.subject,
-        chapter: values.chapter,
         standard: values.standard,
         question: values.question,
         optionA: values.optionA,

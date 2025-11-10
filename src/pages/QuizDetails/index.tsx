@@ -87,7 +87,6 @@ const QuizDetailsPage: React.FC = () => {
         // Show success message
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const selectedSubjectLabel = examSubjectsList.find((s: any) => s.id === value)?.subname;
-        message.success(`${selectedSubjectLabel} selected!`);
     };
 
     /**
@@ -98,7 +97,6 @@ const QuizDetailsPage: React.FC = () => {
     const handleChapterChange = (value: string) => {
         setSelectedChapter(value);
         setSelectedChapterId(value);
-        message.info(`Chapter selected!`);
     };
 
     /**
@@ -108,8 +106,8 @@ const QuizDetailsPage: React.FC = () => {
      */
     const handleQuestionsChange = (value: number) => {
         setSelectedQuestions(value);
-        const selectedOption = questionNumbers.find(q => q.value === value);
-        message.info(`${selectedOption?.label} - ${selectedOption?.description} selected!`);
+        // const selectedOption = questionNumbers.find(q => q.value === value);
+        // message.info(`${selectedOption?.label} - ${selectedOption?.description} selected!`);
     };
 
     /**
@@ -167,24 +165,28 @@ const QuizDetailsPage: React.FC = () => {
     // Convert subjects to dropdown options
     // Uses examSubjectsList from getSubjectsForExamAction
     // Ensure examSubjectsList is always an array to prevent .map errors
+    // Normalize subject fields (some APIs return `id` / `_id` and `subname` / `subjectName`)
     const subjectOptions: DropdownOption[] = Array.isArray(examSubjectsList)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ? examSubjectsList.map((subject: any) => ({
-            value: subject.id,
-            label: subject.subname,
+            value: String(subject.id ?? subject._id ?? subject.value ?? ''),
+            label: subject.subname ?? subject.subjectName ?? subject.name ?? subject.label ?? '',
         }))
         : [];
 
     // Convert chapters to dropdown options
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const chapterOptions: DropdownOption[] = chapterLists.map((chapter: any) => ({
-        value: chapter._id,
-        label: chapter.chapterName,
-    }));
+    // Support multiple API shapes: { _id, chapterName } or { id, name }
+    const chapterOptions: DropdownOption[] = Array.isArray(chapterLists)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ? chapterLists.map((chapter: any) => ({
+            value: String(chapter._id ?? chapter.id ?? chapter.value ?? ''),
+            label: chapter.chapterName ?? chapter.name ?? chapter.label ?? '',
+        }))
+        : [];
 
     // Convert question numbers to dropdown options
     const questionOptions: DropdownOption[] = questionNumbers.map((q) => ({
-        value: q.value.toString(),
+        value: String(q.value),
         label: `${q.label} - ${q.description}`,
     }));
 
