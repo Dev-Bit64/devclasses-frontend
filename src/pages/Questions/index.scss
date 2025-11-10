@@ -65,10 +65,21 @@
       transition: all 0.3s ease;
 
       &:hover {
-        background: #ff4d4f;
-        color: #fff;
+        background: #ff4d4f !important;
+        color: #fff !important;
+        border-color: #ff4d4f !important;
         transform: translateY(-2px);
         box-shadow: 0 8px 20px rgba(255, 77, 79, 0.3);
+
+        // Ensure icon is also white on hover
+        .anticon {
+          color: #fff !important;
+        }
+
+        // Ensure all child elements are white
+        span {
+          color: #fff !important;
+        }
       }
     }
 
@@ -503,19 +514,20 @@
       transition: all 0.18s ease;
       cursor: pointer;
 
-      &:hover>td {
-        background: #e9f3ff !important;
-        transform: translateY(-1px);
+      // Only apply hover effect to non-selected rows
+      &:not(.ant-table-row-selected):hover>td {
+        background: #f5f5f5 !important;
       }
 
-      &:active>td {
-        background: #d6eaff !important;
-        transform: translateY(0);
-      }
-
+      // Selected row styling - highest priority
       &.ant-table-row-selected>td {
         background: #e6f7ff !important;
         border-left: 3px solid #1890ff;
+      }
+
+      // Selected row hover effect
+      &.ant-table-row-selected:hover>td {
+        background: #d6eaff !important;
       }
     }
 

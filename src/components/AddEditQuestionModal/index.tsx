@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React from 'react';
-import { Modal, Form, Input, Select, Row, Col, Button, message } from 'antd';
+import React, { useEffect } from 'react';
+import { Modal, Form, Input, Row, Col, Button, message } from 'antd';
 import { useDispatch, useSelector } from 'react-redux';
 import { addQuestionAction } from '../../redux/action/questionAction';
 import { getchaptersBySubjectIdAction } from '../../redux/action/subjectAction';
 import { RootState, AppDispatch } from '../../redux/store';
 import { AddQuestionPayload } from '../../interfaces/interfaces';
+import CustomDropdown from '../ImportModal/CustomDropdown';
 import './index.scss';
 
 // Board options for the form
@@ -38,6 +39,7 @@ interface AddEditQuestionModalProps {
   editingKey: number | null;
   selectedSubject: string | undefined;
   onSubjectChange: (value: string) => void;
+  editData?: any; // Data to populate when editing
 }
 
 /**
@@ -60,6 +62,7 @@ const AddEditQuestionModal: React.FC<AddEditQuestionModalProps> = ({
   editingKey,
   selectedSubject,
   onSubjectChange,
+  editData,
 }) => {
   const dispatch = useDispatch<AppDispatch>();
   const [form] = Form.useForm();
@@ -67,6 +70,34 @@ const AddEditQuestionModal: React.FC<AddEditQuestionModalProps> = ({
   // Redux selectors for subjects, chapters, and loading state
   const { subjectLists, chapterLists } = useSelector((state: RootState) => state.subject);
   const { isLoading } = useSelector((state: RootState) => state.questions);
+
+  /**
+   * Handle edit mode - populate form and fetch chapters
+   * When editData is provided, populate the form fields and fetch chapters for the subject
+   */
+  useEffect(() => {
+    if (visible && editData && editingKey !== null) {
+      // Set form values from editData
+      form.setFieldsValue({
+        board: editData.board,
+        standard: editData.standard,
+        subject: editData.subjectId || editData.subject,
+        chapter: editData.chapterId || editData.chapter,
+        question: editData.question,
+        optionA: editData.optionA,
+        optionB: editData.optionB,
+        optionC: editData.optionC,
+        optionD: editData.optionD,
+        correctAnswer: editData.correctAnswer,
+      });
+
+      // Fetch chapters for the subject if subjectId exists
+      const subjectId = editData.subjectId || editData.subject;
+      if (subjectId) {
+        dispatch(getchaptersBySubjectIdAction(subjectId));
+      }
+    }
+  }, [visible, editData, editingKey, form, dispatch]);
 
   /**
    * Handle subject change in the form
@@ -207,7 +238,7 @@ const AddEditQuestionModal: React.FC<AddEditQuestionModalProps> = ({
                 label="Board"
                 rules={[{ required: true, message: 'Please select board' }]}
               >
-                <Select
+                <CustomDropdown
                   options={BOARD_OPTIONS}
                   placeholder="Select Board"
                   size="large"
@@ -220,7 +251,7 @@ const AddEditQuestionModal: React.FC<AddEditQuestionModalProps> = ({
                 label="Standard"
                 rules={[{ required: true, message: 'Please select standard' }]}
               >
-                <Select
+                <CustomDropdown
                   options={STANDARD_OPTIONS}
                   placeholder="Select Standard"
                   size="large"
@@ -233,7 +264,7 @@ const AddEditQuestionModal: React.FC<AddEditQuestionModalProps> = ({
                 label="Subject"
                 rules={[{ required: true, message: 'Please select subject' }]}
               >
-                <Select
+                <CustomDropdown
                   options={
                     Array.isArray(subjectLists)
                       ? subjectLists.map((subject: any) => ({
@@ -254,7 +285,7 @@ const AddEditQuestionModal: React.FC<AddEditQuestionModalProps> = ({
                 label="Chapter"
                 rules={[{ required: true, message: 'Please select chapter' }]}
               >
-                <Select
+                <CustomDropdown
                   placeholder="Select Chapter"
                   options={
                     selectedSubject && Array.isArray(chapterLists)
@@ -343,7 +374,7 @@ const AddEditQuestionModal: React.FC<AddEditQuestionModalProps> = ({
                 label="Select Correct Answer"
                 rules={[{ required: true, message: 'Please select correct answer' }]}
               >
-                <Select
+                <CustomDropdown
                   options={CORRECT_ANSWER_OPTIONS}
                   placeholder="Choose correct option"
                   size="large"

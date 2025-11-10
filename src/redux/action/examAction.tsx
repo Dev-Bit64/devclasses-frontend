@@ -8,7 +8,7 @@ export const getSubjectsForExamAction = createAsyncThunk(
     "GetSubjectsExam",
     async (payload: GetExamSubjects, { rejectWithValue }) => {
         try {
-            const response = await getApi(APIEndpoints.GetSubjectsForExam + `?board=${payload.board}&standard=${payload.standard}`);
+            const response = await getApi(APIEndpoints.GetSubjectsForExam + `?board=${payload.board}`);
             if (response?.data?.statusCode === 200) {
                 return response.data;
             } else {

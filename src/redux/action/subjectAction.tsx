@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { postApi, putApi, getApi, deleteApi } from "../apis";
+import { postApi, putApi, getApi, deleteApi, patchApi } from "../apis";
 import { APIEndpoints } from "../../constants/constants";
 import { AddChapter, AddSubjectPayload, UpdateChapter, UpdateSubject } from "../../interfaces/interfaces";
 
@@ -51,7 +51,7 @@ export const updateSubjectAction = createAsyncThunk(
     "UpdateSubject",
     async (payload: UpdateSubject, { rejectWithValue }) => {
         try {
-            const response = await putApi(APIEndpoints.UpdateSubject, payload);
+            const response = await patchApi(APIEndpoints.UpdateSubject, payload);
             if (response?.data?.statusCode === 200) {
                 {
                     return response.data;

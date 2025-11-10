@@ -58,11 +58,11 @@ const QuizDetailsPage: React.FC = () => {
      */
     useEffect(() => {
         // Fetch subjects for exam with board and standard from localStorage
-        if (userBoard && userStandard) {
+        if (userBoard) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            dispatch(getSubjectsForExamAction({ board: userBoard, standard: userStandard }) as any);
+            dispatch(getSubjectsForExamAction({ board: userBoard}) as any);
         }
-    }, [dispatch, userBoard, userStandard]);
+    }, [dispatch, userBoard]);
 
     /**
      * Handle subject selection

@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Button, Table, Modal, Form, Input, Select, Row, Col, Space, Popconfirm, Tooltip, message, Radio } from 'antd';
+import { Button, Table, Modal, Form, Input, Row, Col, Space, Popconfirm, Tooltip, message, Radio } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, ImportOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { getQuestionsAction, addQuestionAction, updateQuestionAction, deleteQuestionAction } from '../../redux/action/questionAction';
@@ -61,7 +61,8 @@ const QuestionsPage: React.FC = () => {
   const [filterChapter, setFilterChapter] = useState<string | undefined>(undefined);
 
   // Search and pagination state
-  const [searchText, setSearchText] = useState<string>('');
+  const [searchText, setSearchText] = useState<string>(''); // Input field value
+  const [appliedSearch, setAppliedSearch] = useState<string>(''); // Actual search term used for API calls
   const [page, setPage] = useState<number>(1);
   const [sortField, setSortField] = useState<string>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -80,13 +81,14 @@ const QuestionsPage: React.FC = () => {
 
   /**
    * Fetch questions based on current filters and pagination
-   * - Called when page, search, sort field, sort order or any filter changes
+   * - Called when page, appliedSearch, sort field, sort order or any filter changes
+   * - Uses appliedSearch (not searchText) so API is only called when search button is clicked
    */
   const fetchQuestions = useCallback(() => {
     dispatch(getQuestionsAction({
       page,
       limit: DEFAULT_PAGE_SIZE,
-      search: searchText,
+      search: appliedSearch,
       sortField: sortField,
       sortOrder,
       board: filterBoard,
@@ -94,7 +96,7 @@ const QuestionsPage: React.FC = () => {
       subject: filterSubject,
       chapter: filterChapter,
     }));
-  }, [dispatch, page, searchText, sortField, sortOrder, filterBoard, filterStandard, filterSubject, filterChapter]);
+  }, [dispatch, page, appliedSearch, sortField, sortOrder, filterBoard, filterStandard, filterSubject, filterChapter]);
 
   useEffect(() => {
     fetchQuestions();
@@ -104,49 +106,36 @@ const QuestionsPage: React.FC = () => {
    * Handle search button click
    * - Validates that search text is at least 3 characters
    * - Only triggers API call on button click (not on input change)
-   * - Allows clearing search with empty string
+   * - Sets appliedSearch which triggers fetchQuestions via useEffect
    */
   const handleSearch = () => {
     const trimmedSearch = searchText.trim();
 
-    // Allow clearing search with empty string
-    if (trimmedSearch.length === 0) {
-      setPage(1);
-      dispatch(getQuestionsAction({
-        page: 1,
-        limit: DEFAULT_PAGE_SIZE,
-        search: '',
-        sortField: sortField,
-        sortOrder,
-      }));
-      return;
-    }
-
-    // Validate minimum 3 characters for search
-    if (trimmedSearch.length < 3) {
+    // Validate minimum 3 characters for search (if not empty)
+    if (trimmedSearch.length > 0 && trimmedSearch.length < 3) {
       message.warning('Search text must be at least 3 characters long');
       return;
     }
 
-    // Perform search with valid text
+    // Apply the search and reset to page 1
+    setAppliedSearch(trimmedSearch);
     setPage(1);
-    dispatch(getQuestionsAction({
-      page: 1,
-      limit: DEFAULT_PAGE_SIZE,
-      search: trimmedSearch,
-      sortField: sortField,
-      sortOrder,
-    }));
   };
 
   /**
    * Handle search input change
-   * - Only updates the search text state
-   * - Does NOT trigger API calls (only on button click)
+   * - Updates the search text state
+   * - If input is cleared and search was previously applied, reset the search
    */
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchText(value);
+
+    // If user clears the search input and a search was previously applied, reset it
+    if (value.trim() === '' && appliedSearch !== '') {
+      setAppliedSearch('');
+      setPage(1);
+    }
   };
 
   /**
@@ -240,8 +229,11 @@ const QuestionsPage: React.FC = () => {
   const handleEdit = (record: any) => {
     setEditingKey(record.id);
 
-    // Set the subject ID from the record
-    const subjectId = record.subjectId || record.subject;
+    // Extract subject ID from the record (could be object or string)
+    const subjectId = typeof record.subject === 'object' ? record.subject?.id : record.subjectId || record.subject;
+    // Extract chapter ID from the record (could be object or string)
+    const chapterId = typeof record.chapter === 'object' ? record.chapter?.id : record.chapterId || record.chapter;
+
     setSelectedSubject(subjectId);
     setSelectedSubjectId(subjectId);
 
@@ -250,16 +242,21 @@ const QuestionsPage: React.FC = () => {
       dispatch(getchaptersBySubjectIdAction(subjectId));
     }
 
-    // Load form values from the record
-    form.setFieldsValue(record);
+    // Load form values from the record with proper ID mapping
+    form.setFieldsValue({
+      ...record,
+      subject: subjectId,
+      chapter: chapterId,
+    });
     setModalVisible(true);
   };
 
   /**
    * Handle delete one or multiple questions
    * - Accepts a single question ID or array of IDs
-   * - Converts single ID to array format for consistent API handling
-   * - Dispatches deleteQuestionAction with array of IDs
+   * - For single deletion: sends ids as string
+   * - For multiple deletion: sends ids as array
+   * - Dispatches deleteQuestionAction with appropriate format
    * - Redux slice removes the question(s) from the list and updates total count
    * - Shows success/error message via Redux toast notifications
    * - Supports both single deletion (from Actions column) and bulk deletion
@@ -268,9 +265,11 @@ const QuestionsPage: React.FC = () => {
    */
   const handleDelete = async (questionIds: string | string[]) => {
     try {
+      // Keep the format as-is: string for single, array for multiple
+      const ids = questionIds;
+
       // Dispatch delete action and wait for response
-      // The Redux action now accepts either a single id (string) or array (string[])
-      const resultAction = await dispatch(deleteQuestionAction(questionIds as any));
+      const resultAction = await dispatch(deleteQuestionAction(ids));
 
       // Check if deletion was successful
       if (deleteQuestionAction.fulfilled.match(resultAction)) {
@@ -338,15 +337,17 @@ const QuestionsPage: React.FC = () => {
    * @param values.correctAnswer - Correct answer (A/B/C/D)
    */
   const handleFinish = async (values: any) => {
+    debugger
     try {
+      debugger
       // Handle Edit Question
       if (editingKey !== null) {
         // Prepare payload for updateQuestion API according to UpdateQuestionPayload interface
         const updateQuestionPayload: UpdateQuestionPayload = {
           id: String(editingKey),
           board: values.board,
-          subject: values.subject,
-          chapter: values.chapter,
+          subjectId: values.subject,
+          chapterId: values.chapter,
           standard: values.standard,
           question: values.question,
           optionA: values.optionA,
@@ -377,8 +378,6 @@ const QuestionsPage: React.FC = () => {
       // Prepare payload for addQuestion API according to AddQuestionPayload interface
       const addQuestionPayload: AddQuestionPayload = {
         board: values.board,
-        subject: values.subject,
-        chapter: values.chapter,
         standard: values.standard,
         question: values.question,
         optionA: values.optionA,
@@ -754,11 +753,7 @@ const QuestionsPage: React.FC = () => {
               title={`Delete ${selectedRowKeys.length} question${selectedRowKeys.length > 1 ? 's' : ''}?`}
               description="This action cannot be undone."
               onConfirm={() => {
-                // Pass single id as string when only one selected, otherwise pass array of strings
-                const payload = selectedRowKeys.length === 1
-                  ? String(selectedRowKeys[0])
-                  : selectedRowKeys.map(k => String(k));
-                handleDelete(payload);
+                handleDelete(selectedRowKeys as string[]);
                 setSelectedRowKeys([]);
               }}
               okText="Yes"
@@ -964,10 +959,11 @@ const QuestionsPage: React.FC = () => {
                   label="Board"
                   rules={[{ required: true, message: 'Please select board' }]}
                 >
-                  <Select
+                  <CustomDropdown
                     options={BOARD_OPTIONS}
                     placeholder="Select Board"
                     size="large"
+                    style={{ width: '100%' }}
                   />
                 </Form.Item>
               </Col>
@@ -977,10 +973,11 @@ const QuestionsPage: React.FC = () => {
                   label="Standard"
                   rules={[{ required: true, message: 'Please select standard' }]}
                 >
-                  <Select
+                  <CustomDropdown
                     options={STANDARD_OPTIONS}
                     placeholder="Select Standard"
                     size="large"
+                    style={{ width: '100%' }}
                   />
                 </Form.Item>
               </Col>
@@ -990,11 +987,11 @@ const QuestionsPage: React.FC = () => {
                   label="Subject"
                   rules={[{ required: true, message: 'Please select subject' }]}
                 >
-                  <Select
+                  <CustomDropdown
                     options={
                       Array.isArray(subjectDropdownList)
                         ? subjectDropdownList.map((subject: any) => ({
-                          label: subject.subjectName,
+                          label: subject.subname,
                           value: subject.id,
                         }))
                         : []
@@ -1002,7 +999,7 @@ const QuestionsPage: React.FC = () => {
                     placeholder="Select Subject"
                     onChange={handleSubjectChange}
                     size="large"
-                    allowClear
+                    style={{ width: '100%' }}
                   />
                 </Form.Item>
               </Col>
@@ -1012,19 +1009,19 @@ const QuestionsPage: React.FC = () => {
                   label="Chapter"
                   rules={[{ required: true, message: 'Please select chapter' }]}
                 >
-                  <Select
+                  <CustomDropdown
                     placeholder="Select Chapter"
                     options={
                       selectedSubject && Array.isArray(chapterLists)
                         ? chapterLists.map((chapter: any) => ({
-                          label: chapter.chapterName,
+                          label: chapter.name,
                           value: chapter.id,
                         }))
                         : []
                     }
                     size="large"
-                    allowClear
                     disabled={!selectedSubject}
+                    style={{ width: '100%' }}
                   />
                 </Form.Item>
               </Col>
@@ -1104,7 +1101,7 @@ const QuestionsPage: React.FC = () => {
                   label="Select Correct Answer"
                   rules={[{ required: true, message: 'Please select correct answer' }]}
                 >
-                  <Select
+                  <CustomDropdown
                     options={
                       [
                         { label: 'Option A', value: 'A' },
@@ -1115,6 +1112,7 @@ const QuestionsPage: React.FC = () => {
                     }
                     placeholder="Choose correct option"
                     size="large"
+                    style={{ width: '100%' }}
                   />
                 </Form.Item>
               </Col>

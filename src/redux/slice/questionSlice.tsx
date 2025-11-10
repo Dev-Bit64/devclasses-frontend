@@ -129,24 +129,27 @@ const QuestionsSlice = createSlice({
                 toastText(action?.payload?.message, "success");
 
                 // Remove the deleted question(s) from the data array
-                if (state.data && Array.isArray(state.data.questions)) {
-                    // Handle both single deletion and bulk deletion
-                    const deletedIds = Array.isArray(action?.payload?.data?.id)
-                        ? action?.payload?.data?.id
-                        : [action?.payload?.data?.id];
+                if (state.data && Array.isArray(state.data.questions) && action?.payload?.deletedIds) {
+                    // Get the deleted IDs from the action payload
+                    const deletedIds = action.payload.deletedIds;
 
                     // Filter out all deleted questions
                     state.data.questions = state.data.questions.filter(
                         (q: any) => !deletedIds.includes(q.id)
                     );
-                    state.questionLists.questions = state.questionLists.questions.filter(
-                        (q: any) => !deletedIds.includes(q.id)
-                    );
+
+                    if (state.questionLists && Array.isArray(state.questionLists.questions)) {
+                        state.questionLists.questions = state.questionLists.questions.filter(
+                            (q: any) => !deletedIds.includes(q.id)
+                        );
+                    }
 
                     // Update total count by subtracting number of deleted questions
                     const deletedCount = deletedIds.length;
-                    if (state.data.totalRecords > 0) {
+                    if (state.data.totalRecords !== undefined && state.data.totalRecords > 0) {
                         state.data.totalRecords = Math.max(0, state.data.totalRecords - deletedCount);
+                    }
+                    if (state.questionLists && state.questionLists.totalRecords !== undefined && state.questionLists.totalRecords > 0) {
                         state.questionLists.totalRecords = Math.max(0, state.questionLists.totalRecords - deletedCount);
                     }
                 }

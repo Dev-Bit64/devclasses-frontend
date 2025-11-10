@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Tooltip, Input, Card, message, Popconfirm, Space } from 'antd';
-import { WhatsAppOutlined, EyeOutlined, SearchOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Table, Button, Tooltip, Avatar, Input, Card, message, Popconfirm, Space } from 'antd';
+import { WhatsAppOutlined, EyeOutlined, UserOutlined, SearchOutlined, DeleteOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useDispatch, useSelector } from 'react-redux';
 import UserResultsModal from '../../components/UserResultsModal';
@@ -40,7 +40,7 @@ const boardFilterOptions = [
 const UsersPage: React.FC = () => {
   // Redux hooks for state management and dispatching actions
   const dispatch = useDispatch<AppDispatch>();
-  const { userLists = [], isLoading, totalUsers = 0 } = useSelector((state: RootState) => state.user);
+  const { userLists = [], isLoading, totalUsers = 0, currentPage = 1 } = useSelector((state: RootState) => state.user);
 
   // Transform API response data to match table structure
   // API returns: { id, board, email, firstName, lastName, standard }

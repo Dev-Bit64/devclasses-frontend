@@ -5,13 +5,14 @@ import {
   Table,
   Button,
   Input,
-  Select,
   Modal,
   Form,
   message,
   Popconfirm,
   Space,
-  Typography
+  Typography,
+  Row,
+  Col
 } from 'antd';
 import {
   SearchOutlined,
@@ -22,6 +23,7 @@ import {
 import './index.scss';
 import AddChapterModal from '../../components/AddChapterModal';
 import '../../components/AddChapterModal/index.scss';
+import CustomDropdown, { DropdownOption } from '../../components/ImportModal/CustomDropdown';
 import { getSubjectsAction, addSubjectAction, updateSubjectAction, deleteSubjectAction } from '../../redux/action/subjectAction';
 import { RootState, AppDispatch } from '../../redux/store';
 import { AddSubjectPayload, UpdateSubject } from '../../interfaces/interfaces';
@@ -32,7 +34,7 @@ const { Title } = Typography;
  * Board options for filtering
  * Supports GSEB and CBSE boards
  */
-const BOARD_OPTIONS = [
+const BOARD_OPTIONS: DropdownOption[] = [
   { label: 'GSEB', value: 'GSEB' },
   { label: 'CBSE', value: 'CBSE' },
 ];
@@ -41,7 +43,7 @@ const BOARD_OPTIONS = [
  * Standard options for filtering
  * Represents different educational standards/grades
  */
-const STANDARD_OPTIONS = [
+const STANDARD_OPTIONS: DropdownOption[] = [
   { label: '11th', value: '11th' },
   { label: '12th', value: '12th' },
 ];
@@ -767,9 +769,10 @@ const SubjectsPage: React.FC = () => {
             label="Board"
             rules={[{ required: true, message: 'Please select board' }]}
           >
-            <Select
+            <CustomDropdown
               placeholder="Select Board"
               options={BOARD_OPTIONS}
+              size="middle"
             />
           </Form.Item>
 
@@ -779,32 +782,40 @@ const SubjectsPage: React.FC = () => {
             label="Standard"
             rules={[{ required: true, message: 'Please select standard' }]}
           >
-            <Select
+            <CustomDropdown
               placeholder="Select Standard"
               options={STANDARD_OPTIONS}
-              allowClear={false}
+              size="middle"
             />
           </Form.Item>
 
           {/* Modal Action Buttons */}
-          <Form.Item className="modal-action-buttons" style={{ textAlign: 'right', marginBottom: 0 }}>
-            <div className="subjects-modal-footer">
-              <Button
-                onClick={handleModalCancel}
-                className="cancel-button"
-                disabled={submitLoading}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="primary"
-                htmlType="submit"
-                className="submit-button"
-                loading={submitLoading}
-              >
-                {editingKey ? 'Update Subject' : 'Add Subject'}
-              </Button>
-            </div>
+          <Form.Item className="modal-action-buttons" style={{ marginBottom: 0 }}>
+            <Row justify="end" gutter={12} className="subjects-modal-footer">
+              <Col>
+                <Button
+                  onClick={handleModalCancel}
+                  className="cancel-button"
+                  disabled={submitLoading}
+                  size="large"
+                  style={{ minWidth: 100 }}
+                >
+                  Cancel
+                </Button>
+              </Col>
+              <Col>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  className="submit-button"
+                  loading={submitLoading}
+                  size="large"
+                  style={{ minWidth: 140 }}
+                >
+                  {editingKey ? 'Update Subject' : 'Add Subject'}
+                </Button>
+              </Col>
+            </Row>
           </Form.Item>
         </Form>
       </Modal>

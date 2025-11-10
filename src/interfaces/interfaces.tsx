@@ -88,8 +88,6 @@ export interface GetUsersPayload {
 
 export interface AddQuestionPayload {
     board: string,
-    subject: string,
-    chapter: string,
     standard: string,
     question: string,
     optionA: string,
@@ -104,8 +102,8 @@ export interface AddQuestionPayload {
 export interface UpdateQuestionPayload {
     id: string;
     board?: string,
-    subject?: string,
-    chapter?: string,
+    subjectId?: string,
+    chapterId?: string,
     standard?: string,
     question?: string,
     optionA?: string,
@@ -142,7 +140,6 @@ export interface UpdateChapter {
 
 export interface GetExamSubjects {
     board: string;
-    standard: string;
 }
 
 export interface GetExamQuestions {
