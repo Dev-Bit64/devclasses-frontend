@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Radio, Space, Progress, message, Statistic, Empty } from 'antd';
+import { Button, Radio, Space, Progress, message, Statistic, Empty, Spin } from 'antd';
 import { LeftOutlined, RightOutlined, CheckOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../redux/store';
+import { getQuestionAction, submitExamAction } from '../../redux/action/examAction';
 import './index.scss';
 
 const { Countdown } = Statistic;
@@ -11,62 +12,111 @@ const { Countdown } = Statistic;
 /**
  * Question interface for MCQ questions
  * Represents the structure of exam questions from the API
+ * Updated to match backend response format with options as object
  */
 interface Question {
-  _id?: string;
-  id?: number;
+  id: string;
   question: string;
-  options: string[];
-  correctAnswer?: number;
+  options: {
+    [key: string]: string; // Support both "A" and "OPTIONA" formats
+  };
+  page: number;
+  totalPages: number;
 }
 
 const TestPage: React.FC = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
-  // Get exam questions from Redux store
-  const { examQuestions } = useSelector((state: RootState) => state.exam);
+  // Get exam session data from Redux store
+  const { examId, totalQuestions, currentQuestion, isLoading } = useSelector((state: RootState) => state.exam);
+
+  // Get user info from localStorage
+  const getUserInfo = () => {
+    try {
+      const userInfo = localStorage.getItem('user');
+      return userInfo ? JSON.parse(userInfo) : null;
+    } catch (error) {
+      console.error('Error parsing userInfo from localStorage:', error);
+      return null;
+    }
+  };
+
+  const userInfo = getUserInfo();
+  const userId = userInfo?.id || '';
+
+  // Local state management
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedAnswers, setSelectedAnswers] = useState<{ [key: string]: string }>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(0); // Will be set based on totalQuestions
+  const [questionData, setQuestionData] = useState<Question | null>(null);
 
   /**
-   * Transform exam questions from API response to Question interface
-   * Handles both API format and fallback to sample data
+   * Initialize timer based on number of questions
+   * 1 minute per question (e.g., 5 questions = 5 minutes)
    */
-  const transformedQuestions: Question[] = examQuestions && examQuestions.length > 0
-    ? examQuestions.map((q: any, index: number) => ({
-        _id: q._id,
-        id: index + 1,
-        question: q.question,
-        options: q.options || [],
-        correctAnswer: q.correctAnswer,
-      }))
-    : []; // Empty array if no questions from API
-
-  // Use transformed questions or show empty state
-  const questions = transformedQuestions.length > 0 ? transformedQuestions : [];
-
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [selectedAnswers, setSelectedAnswers] = useState<{ [key: string | number]: number }>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(30 * 60 * 1000); // 30 minutes in milliseconds
-
-  // Handle empty questions state
   useEffect(() => {
-    if (questions.length === 0) {
-      message.warning('No questions available. Please generate a test first.');
+    if (totalQuestions && totalQuestions > 0) {
+      setTimeLeft(totalQuestions * 60 * 1000); // Convert minutes to milliseconds
+    }
+  }, [totalQuestions]);
+
+  /**
+   * Check if exam session exists, redirect if not
+   */
+  useEffect(() => {
+    if (!examId) {
+      message.warning('No active exam session. Please start a new exam.');
       setTimeout(() => {
         navigate('/quiz-details');
       }, 2000);
     }
-  }, [questions.length, navigate]);
+  }, [examId, navigate]);
 
-  const currentQuestion = questions[currentQuestionIndex];
-  const progress = questions.length > 0 ? ((currentQuestionIndex + 1) / questions.length) * 100 : 0;
+  /**
+   * Fetch question when page changes or component mounts
+   */
+  useEffect(() => {
+    if (examId && currentPage) {
+      fetchQuestion(currentPage);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [examId, currentPage]);
+
+  /**
+   * Update local question data when Redux state changes
+   */
+  useEffect(() => {
+    if (currentQuestion) {
+      setQuestionData(currentQuestion);
+    }
+  }, [currentQuestion]);
+
+  /**
+   * Fetch a single question by page number
+   */
+  const fetchQuestion = async (page: number) => {
+    if (!examId) return;
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await dispatch(getQuestionAction({ examId, page }) as any);
+    } catch (error) {
+      message.error('Failed to fetch question. Please try again.');
+      console.error('Error fetching question:', error);
+    }
+  };
+
+  const progress = totalQuestions && totalQuestions > 0 ? (currentPage / totalQuestions) * 100 : 0;
 
   /**
    * Timer effect - Auto-submit when time runs out
    * Countdown timer for the exam duration
+   * Timer starts only when we have a valid exam session
    */
   useEffect(() => {
-    if (questions.length === 0) return; // Don't start timer if no questions
+    if (!examId || timeLeft === 0) return; // Don't start timer if no exam or time not set
 
     const timer = setInterval(() => {
       setTimeLeft((prevTime) => {
@@ -80,71 +130,128 @@ const TestPage: React.FC = () => {
 
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [questions.length]);
+  }, [examId, timeLeft]);
 
   /**
    * Handle answer selection for current question
-   * Stores the selected option index for the current question
+   * Stores the selected option in OPTIONA/OPTIONB/OPTIONC/OPTIOND format
+   * Backend accepts this format and normalizes it internally
    */
-  const handleAnswerChange = (value: number) => {
-    const questionKey:any = currentQuestion._id || currentQuestion.id;
+  const handleAnswerChange = (value: string) => {
+    if (!questionData) return;
+
+    // Always transform to OPTIONA/OPTIONB/OPTIONC/OPTIOND format for payload
+    // Backend on line 78-91 of examService.ts accepts and normalizes this format
+    let transformedValue = value;
+    if (["A", "B", "C", "D"].includes(value.toUpperCase())) {
+      // "A" -> "OPTIONA"
+      transformedValue = `OPTION${value.toUpperCase()}`;
+    } else if (value.toUpperCase().startsWith('OPTION')) {
+      // "OPTIONA" -> "OPTIONA" (ensure uppercase)
+      transformedValue = value.toUpperCase();
+    }
+
     setSelectedAnswers(prev => ({
       ...prev,
-      [questionKey]: value
+      [questionData.id]: transformedValue
     }));
   };
 
+  /**
+   * Navigate to previous question
+   */
   const handlePrevious = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(currentQuestionIndex - 1);
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
     }
   };
 
+  /**
+   * Navigate to next question
+   */
   const handleNext = () => {
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
+    if (totalQuestions && currentPage < totalQuestions) {
+      setCurrentPage(currentPage + 1);
     }
   };
 
+  /**
+   * Submit exam answers and generate result
+   * Converts selected answers to API format and calls submitExamAction
+   */
   const handleSubmit = async () => {
+    if (!examId || !userId) {
+      message.error('Missing exam session or user information.');
+      return;
+    }
+
     setIsSubmitting(true);
-    
+
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      message.success({
-        content: '🎉 Test submitted successfully!',
-        duration: 3,
-      });
-      
-      // Navigate to your result page
-      navigate('/your-result');
-      
+      // Convert answers to API format
+      // selectedAnswers: { questionId: "OPTIONA" | "OPTIONB" | "OPTIONC" | "OPTIOND" }
+      // API expects: { questionId: string, selectedOption: string }[]
+      const answers = Object.entries(selectedAnswers).map(([questionId, selectedOption]) => ({
+        questionId,
+        selectedOption
+      }));
+
+      // Verify payload format before submission
+      console.log('=== SUBMITTING EXAM ===');
+      console.log('Sample answer format:', answers[0]);
+      console.log('Expected: { questionId: "...", selectedOption: "OPTIONA" }');
+
+      // Call submit exam API
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await dispatch(submitExamAction({ userId, examId, answers }) as any);
+
+      if (result.payload?.statusCode === 200) {
+        message.success({
+          content: '🎉 Test submitted successfully!',
+          duration: 3,
+        });
+
+        // Navigate to result page
+        setTimeout(() => {
+          navigate('/your-result');
+        }, 1000);
+      } else {
+        message.error('Failed to submit test. Please try again.');
+      }
+
     } catch (error) {
       message.error('Failed to submit test. Please try again.');
+      console.error('Error submitting exam:', error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const isLastQuestion = currentQuestionIndex === questions.length - 1;
-  const isFirstQuestion = currentQuestionIndex === 0;
-  const currentQuestionKey = currentQuestion ? (currentQuestion._id || currentQuestion.id) : null;
-  const hasAnsweredCurrent = currentQuestionKey ? selectedAnswers[currentQuestionKey] !== undefined : false;
+  const isLastQuestion = totalQuestions ? currentPage === totalQuestions : false;
+  const isFirstQuestion = currentPage === 1;
+  const hasAnsweredCurrent = questionData ? selectedAnswers[questionData.id] !== undefined : false;
 
-  // Show empty state if no questions are available
-  if (questions.length === 0) {
+  // Show empty state if no exam session
+  if (!examId) {
     return (
       <div className="quiz-taking">
         <Empty
-          description="No Questions Available"
+          description="No Active Exam Session"
           style={{ marginTop: '100px' }}
         >
           <Button type="primary" onClick={() => navigate('/quiz-details')}>
-            Generate a Test
+            Start a New Exam
           </Button>
         </Empty>
+      </div>
+    );
+  }
+
+  // Show loading state while fetching question
+  if (isLoading || !questionData) {
+    return (
+      <div className="quiz-taking" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+        <Spin size="large" tip="Loading question..." />
       </div>
     );
   }
@@ -160,7 +267,7 @@ const TestPage: React.FC = () => {
               value={Date.now() + timeLeft}
               format="mm:ss"
               valueStyle={{
-                color: timeLeft < 5 * 60 * 1000 ? '#ff4d4f' : '#3E69E7',
+                color: timeLeft < 1 * 60 * 1000 ? '#ff4d4f' : '#3E69E7',
                 fontSize: '20px',
                 fontWeight: 'bold'
               }}
@@ -174,7 +281,7 @@ const TestPage: React.FC = () => {
             strokeColor="#3E69E7"
             trailColor="rgba(62, 105, 231, 0.1)"
             strokeWidth={8}
-            format={() => `${currentQuestionIndex + 1}/${questions.length}`}
+            format={() => `${currentPage}/${totalQuestions}`}
           />
         </div>
       </div>
@@ -183,29 +290,29 @@ const TestPage: React.FC = () => {
         <div className="quiz-content-scroll">
           <div className="question-container">
             <div className="question-header">
-              <span className="question-number">Question {currentQuestionIndex + 1}</span>
+              <span className="question-number">Question {currentPage}</span>
               <span className="question-type">Multiple Choice</span>
             </div>
 
             <div className="question-text">
-              {currentQuestion.question}
+              {questionData.question}
             </div>
 
             <div className="options-container">
               <Radio.Group
-                value={currentQuestionKey ? selectedAnswers[currentQuestionKey] : undefined}
+                value={selectedAnswers[questionData.id] || null}
                 onChange={(e) => handleAnswerChange(e.target.value)}
                 className="quiz-radio-group"
               >
                 <Space direction="vertical" size="large" className="options-list">
-                  {currentQuestion.options.map((option, index) => (
+                  {Object.entries(questionData.options).map(([optionKey, optionText]) => (
                     <Radio
-                      key={index}
-                      value={index}
+                      key={optionKey}
+                      value={`OPTION${optionKey}`}   // ALWAYS send OPTIONA / OPTIONB
                       className="quiz-radio-option"
                     >
                       <span className="option-label">
-                        {String.fromCharCode(65 + index)}. {option}
+                        {optionKey}. {optionText}
                       </span>
                     </Radio>
                   ))}
@@ -218,7 +325,7 @@ const TestPage: React.FC = () => {
         <div className="quiz-navigation">
           <Button
             onClick={handlePrevious}
-            disabled={isFirstQuestion}
+            disabled={isFirstQuestion || isLoading}
             className="nav-button prev-button"
             size="large"
             icon={<LeftOutlined />}
@@ -226,20 +333,11 @@ const TestPage: React.FC = () => {
             Previous
           </Button>
 
-          {/* Question indicator dots - shows progress and answered status */}
+          {/* Question progress indicator */}
           <div className="question-indicator">
-            {questions.map((question, index) => {
-              const questionKey:any = question._id || question.id;
-              return (
-                <div
-                  key={index}
-                  className={`indicator-dot ${
-                    index === currentQuestionIndex ? 'active' : ''
-                  } ${selectedAnswers[questionKey] !== undefined ? 'answered' : ''}`}
-                  onClick={() => setCurrentQuestionIndex(index)}
-                />
-              );
-            })}
+            <span className="progress-text">
+              Question {currentPage} of {totalQuestions}
+            </span>
           </div>
 
           {/* Submit or Next button based on question position */}
@@ -250,14 +348,14 @@ const TestPage: React.FC = () => {
               className="nav-button submit-button"
               size="large"
               icon={<CheckOutlined />}
-              disabled={!hasAnsweredCurrent}
+              disabled={!hasAnsweredCurrent || isLoading}
             >
               {isSubmitting ? 'Submitting...' : 'Submit Test'}
             </Button>
           ) : (
             <Button
               onClick={handleNext}
-              disabled={!hasAnsweredCurrent}
+              disabled={!hasAnsweredCurrent || isLoading}
               className="nav-button next-button"
               size="large"
               icon={<RightOutlined />}

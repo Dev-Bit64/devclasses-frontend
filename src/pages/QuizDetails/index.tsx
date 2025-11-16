@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
 import { getchaptersBySubjectIdAction } from '../../redux/action/subjectAction';
-import { getExamQuestionsAction, getSubjectsForExamAction } from '../../redux/action/examAction';
+import { startExamAction, getSubjectsForExamAction } from '../../redux/action/examAction';
 import CustomDropdown, { DropdownOption } from '../../components/ImportModal/CustomDropdown';
 import './index.scss';
 
@@ -45,10 +45,9 @@ const QuizDetailsPage: React.FC = () => {
 
     // Question number options
     const questionNumbers = [
-        { value: 5, label: '5 Questions', description: 'Quick Quiz' },
-        { value: 10, label: '10 Questions', description: 'Short Test' },
-        { value: 15, label: '15 Questions', description: 'Medium Test' },
-        { value: 20, label: '20 Questions', description: 'Standard Test' },
+        { value: 5, label: '5 Questions' },
+        { value: 10, label: '10 Questions' },
+        { value: 15, label: '15 Questions' },
     ];
 
     /**
@@ -107,11 +106,12 @@ const QuizDetailsPage: React.FC = () => {
     };
 
     /**
-     * Handle form submission - Generate Exam
+     * Handle form submission - Start Exam
      * - Validates all required fields
-     * - Calls getExamQuestionsAction API with selected values
+     * - Calls startExamAction API to create exam session
      * - Uses board and standard from localStorage userInfo
-     * - Navigates to Test page with exam questions
+     * - Stores examId in Redux state
+     * - Navigates to Test page to begin quiz
      * - Handles errors with user-friendly messages
      */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -119,40 +119,42 @@ const QuizDetailsPage: React.FC = () => {
         setLoading(true);
 
         try {
-            // Prepare payload for getExamQuestions API
+            // Prepare payload for startExam API
             // Uses board and standard from localStorage userInfo
             const payload = {
                 board: userBoard,
                 standard: userStandard,
                 subject: selectedSubjectId,
                 chapter: selectedChapterId,
-                noOfQuestions: selectedQuestions || 5,
+                numberOfQuestions: selectedQuestions || 5,
             };
 
-            // Call the getExamQuestions API
+            // Call the startExam API to create exam session
+            // This returns examId, totalQuestions, and startedAt
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const result = await dispatch(getExamQuestionsAction(payload) as any);
+            const result = await dispatch(startExamAction(payload) as any);
 
             if (result.payload?.statusCode === 200) {
-                message.success({
-                    content: '🎉 Test generated successfully! Redirecting to quiz...',
-                    duration: 2,
-                    style: {
-                        marginTop: '20vh',
-                    },
-                });
+                // message.success({
+                //     content: '🎉 Exam session created successfully! Redirecting to quiz...',
+                //     duration: 2,
+                //     style: {
+                //         marginTop: '20vh',
+                //     },
+                // });
 
                 // Navigate to test page after a short delay
+                // The examId is now stored in Redux state
                 setTimeout(() => {
                     navigate('/quiz');
                 }, 1000);
             } else {
-                message.error('Failed to generate test. Please try again.');
+                message.error('Failed to start exam. Please try again.');
             }
 
         } catch (error) {
-            message.error('Failed to generate test. Please try again.');
-            console.error('Error generating exam:', error);
+            message.error('Failed to start exam. Please try again.');
+            console.error('Error starting exam:', error);
         } finally {
             setLoading(false);
         }
@@ -183,7 +185,7 @@ const QuizDetailsPage: React.FC = () => {
     // Convert question numbers to dropdown options
     const questionOptions: DropdownOption[] = questionNumbers.map((q) => ({
         value: String(q.value),
-        label: `${q.label} - ${q.description}`,
+        label: `${q.label}`,
     }));
 
     return (

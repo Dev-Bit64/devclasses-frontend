@@ -51,6 +51,11 @@ export interface InitialState {
     totalUsers?: number;
     currentPage?: number;
     totalPages?: number;
+    // New fields for exam session management
+    examId?: string | null;
+    totalQuestions?: number;
+    currentQuestion?: any;
+    examResult?: ExamResult | null;
 }
 
 export interface PagninationPayload {
@@ -148,4 +153,97 @@ export interface GetExamQuestions {
     subject: string;
     chapter: string;
     noOfQuestions: number;
+}
+
+/**
+ * Interface for starting an exam session
+ * Creates a new exam session and returns examId
+ */
+export interface StartExamPayload {
+    board: string;
+    standard: string;
+    subject: string;
+    chapter: string;
+    numberOfQuestions: number;
+}
+
+/**
+ * Interface for fetching a single question by page
+ * Uses examId from the session
+ */
+export interface GetQuestionPayload {
+    examId: string;
+    page: number;
+}
+
+/**
+ * Interface for submitting exam answers
+ * Generates exam result and saves to database
+ */
+export interface SubmitExamPayload {
+    userId: string;
+    examId: string;
+    answers: {
+        questionId: string;
+        selectedOption: string;
+    }[];
+}
+
+/**
+ * Interface for detailed result of a single question
+ * Shows question, selected answer, correct answer, and whether it was correct
+ * selectedOption can be null if the question was not answered
+ */
+export interface DetailedQuestionResult {
+    questionId: string;
+    question: string;
+    selectedOption: string | null;
+    correctOption: string;
+    isCorrect: boolean;
+}
+
+/**
+ * Interface for exam result response
+ * Contains overall score and detailed results for each question
+ */
+export interface ExamResult {
+    resultId: string;
+    examSessionId: string;
+    userId: string;
+    subjectId: string;
+    standard: string;
+    board: string;
+    chapterId: string;
+    score: number;
+    wrongAnswers: number;
+    totalQuestions: number;
+    examDate: string;
+    detailedResults: DetailedQuestionResult[];
+}
+
+/**
+ * Interface for exam session response
+ * Returned when starting an exam
+ */
+export interface ExamSessionResponse {
+    examId: string;
+    totalQuestions: number;
+    startedAt: string;
+}
+
+/**
+ * Interface for single question response
+ * Returned when fetching a question by page
+ */
+export interface QuestionResponse {
+    id: string;
+    question: string;
+    options: {
+        A: string;
+        B: string;
+        C: string;
+        D: string;
+    };
+    page: number;
+    totalPages: number;
 }

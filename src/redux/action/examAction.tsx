@@ -2,7 +2,7 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import { getApi, postApi } from "../apis";
 import { APIEndpoints } from "../../constants/constants";
-import { GetExamQuestions, GetExamSubjects } from "../../interfaces/interfaces";
+import { GetExamQuestions, GetExamSubjects, StartExamPayload, GetQuestionPayload, SubmitExamPayload } from "../../interfaces/interfaces";
 
 export const getSubjectsForExamAction = createAsyncThunk(
     "GetSubjectsExam",
@@ -29,6 +29,78 @@ export const getExamQuestionsAction = createAsyncThunk(
     async (payload: GetExamQuestions, { rejectWithValue }) => {
         try {
             const response = await postApi(APIEndpoints.GetQuestionsForExam, payload);
+            if (response?.data?.statusCode === 200) {
+                return response.data;
+            } else {
+                throw Error(response?.data?.message);
+            }
+        } catch (error: any) {
+            if (!error.response) {
+                throw error;
+            }
+            return rejectWithValue(error?.response?.data);
+        }
+    }
+)
+
+/**
+ * Start Exam Action
+ * Creates a new exam session and returns examId, totalQuestions, and startedAt
+ * This should be called when user clicks "Generate Exam" button
+ */
+export const startExamAction = createAsyncThunk(
+    'StartExam',
+    async (payload: StartExamPayload, { rejectWithValue }) => {
+        try {
+            const response = await postApi(APIEndpoints.StartExam, payload);
+            if (response?.data?.statusCode === 200) {
+                return response.data;
+            } else {
+                throw Error(response?.data?.message);
+            }
+        } catch (error: any) {
+            if (!error.response) {
+                throw error;
+            }
+            return rejectWithValue(error?.response?.data);
+        }
+    }
+)
+
+/**
+ * Get Question Action
+ * Fetches a single question by page number using examId
+ * This should be called when navigating between questions
+ */
+export const getQuestionAction = createAsyncThunk(
+    'GetQuestion',
+    async (payload: GetQuestionPayload, { rejectWithValue }) => {
+        try {
+            const response = await postApi(APIEndpoints.GetQuestion, payload);
+            if (response?.data?.statusCode === 200) {
+                return response.data;
+            } else {
+                throw Error(response?.data?.message);
+            }
+        } catch (error: any) {
+            if (!error.response) {
+                throw error;
+            }
+            return rejectWithValue(error?.response?.data);
+        }
+    }
+)
+
+/**
+ * Submit Exam Action
+ * Submits exam answers and generates result
+ * This should be called when user clicks "Submit Test" button
+ */
+export const submitExamAction = createAsyncThunk(
+    'SubmitExam',
+    async (payload: SubmitExamPayload, { rejectWithValue }) => {
+        try {
+            const response = await postApi(APIEndpoints.GenerateExamResult, payload);
             if (response?.data?.statusCode === 200) {
                 return response.data;
             } else {

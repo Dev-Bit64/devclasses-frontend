@@ -105,5 +105,8 @@ export enum APIEndpoints {
   //Exam
   GetSubjectsForExam = "/exam/getSubjectsForExam",
   GetQuestionsForExam = "/exam/getExamQuestions",
+  StartExam = "/exam/startExam",
+  GetQuestion = "/exam/getQuestion",
+  GenerateExamResult = "/exam/generateExamResult",
 
 }
