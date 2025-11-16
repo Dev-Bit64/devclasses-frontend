@@ -61,8 +61,6 @@ const getScoreColor = (percentage: number) => {
 
 const SummaryCard: React.FC<SummaryCardProps> = ({
   scorePercentage,
-  correctAnswers,
-  wrongAnswers
 }) => {
   const feedback = getPerformanceFeedback(scorePercentage);
 

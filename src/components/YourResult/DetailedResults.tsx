@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Card, Tag, Typography, Space, Collapse, Row, Col, Badge } from 'antd';
-import { CheckCircleOutlined, CloseCircleOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import { Card, Tag, Typography, Space, Collapse, Row, Col } from 'antd';
+import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { DetailedQuestionResult } from '../../interfaces/interfaces';
 
 const { Text, Paragraph } = Typography;
