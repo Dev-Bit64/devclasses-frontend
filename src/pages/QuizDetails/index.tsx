@@ -83,10 +83,6 @@ const QuizDetailsPage: React.FC = () => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             dispatch(getchaptersBySubjectIdAction(value) as any);
         }
-
-        // Show success message
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const selectedSubjectLabel = examSubjectsList.find((s: any) => s.id === value)?.subname;
     };
 
     /**

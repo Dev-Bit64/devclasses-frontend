@@ -16,9 +16,9 @@ import {
 } from 'antd';
 import { 
   BookOutlined, 
-  TeamOutlined, 
+  FileDoneOutlined,
   TrophyOutlined, 
-  AimOutlined,
+  ReadOutlined,
   PhoneOutlined,
   MailOutlined,
   EnvironmentOutlined,
@@ -26,12 +26,13 @@ import {
   RocketOutlined,
   BarChartOutlined,
   CheckCircleOutlined,
-  ClockCircleOutlined,
   CloseOutlined
 } from '@ant-design/icons';
 import { Image as LucideImage } from 'lucide-react';
 import './index.scss';
 import { useIsMobile } from '../../hooks/use-mobile';
+import professorIcon from '../../assets/professor-icon2.svg';
+
 const LoginForm = React.lazy(() => import('../../components/Login/LoginLayoutBody'));
 const RegistrationForm = React.lazy(() => import('../../components/Login/RegisterLayoutBody'));
 const ForgotPasswordForm = React.lazy(() => import('../../components/Login/ForgotPassword'));
@@ -101,24 +102,24 @@ const LandingPage = () => {
 
   const features = [
     {
-      title: 'Expert Faculty',
-      icon: <TeamOutlined />,
-      description: 'Learn from highly qualified educators with years of teaching experience in Commerce subjects.'
+      title: 'Online MCQ Assessment',
+      icon: <FileDoneOutlined />,
+      description: 'Having difficulties in finding MCQs from the Textbooks? Our Website is here to help you for the MCQs. Get your self assessed by attempting MCQs of your desired Commerce Subjects here.'
     },
     {
-      title: 'Comprehensive Curriculum',
+      title: 'Accounting is for Career',
       icon: <BookOutlined />,
-      description: 'Our well-structured syllabus covers all aspects of State and Central Board Commerce education.'
+      description: 'Accounting is not just for exams. It is for building a Professional Career. Accounting + Taxation is a great combination for an extra-ordinary career.'
     },
     {
-      title: 'Exam-focused Training',
+      title: 'We can help',
       icon: <TrophyOutlined />,
-      description: 'Special focus on exam preparation with regular mock tests and performance analysis.'
+      description: 'Having experience of 20 years in teaching Accounting, we can help you for better understanding the Fundamental Concepts of Accounting. We teach for building basic to higher level Accounting Skill following the Academic Curriculum.'
     },
     {
-      title: 'Career Guidance',
-      icon: <AimOutlined />,
-      description: 'Professional career counseling to help students choose the right path after 12th grade.'
+      title: 'Teaching is our Passion',
+      icon: <ReadOutlined />,
+      description: "We never loose an opportunity to clear our students's doubts. Online or Offline, we always try give our 100%."
     }
   ];
 
@@ -375,7 +376,7 @@ const LandingPage = () => {
             <Row gutter={[32, 32]} align="middle">
               <Col xs={24} md={12} className="slide-up">
                 <img 
-                  src="https://img.freepik.com/free-vector/teaching-concept-illustration_114360-2688.jpg?w=740&t=st=1713525623~exp=1713526223~hmac=6e61ddbfda1d3d2daaebc472cb9c47ae0f73b7e1bc8f4df47db4470d56b92a39" 
+                  src={professorIcon}
                   alt="Teaching" 
                   style={{ width: '100%', maxWidth: '500px', margin: '0 auto', display: 'block' }}
                 />
@@ -404,11 +405,6 @@ const LandingPage = () => {
                       description: 'Detailed analysis of student performance with improvement tips',
                       icon: <BarChartOutlined style={{ color: '#1890ff', fontSize: '24px' }} />
                     },
-                    {
-                      title: 'Flexible Batch Timings',
-                      description: 'Morning and evening batches to suit student preferences',
-                      icon: <ClockCircleOutlined style={{ color: '#1890ff', fontSize: '24px' }} />
-                    }
                   ]}
                   renderItem={(item, index) => (
                     <List.Item className={`slide-up delay-${index + 1}`}>
@@ -472,7 +468,7 @@ const LandingPage = () => {
                     </div>
                     <div className="text">
                       <h4 className='contact-info-header'>Phone</h4>
-                      <p>+91 98765 43210</p>
+                      <p>+91 98240 68390</p>
                     </div>
                   </div>
                   
