@@ -1,19 +1,19 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Table, Select, DatePicker, Row, Col, Tooltip as AntdTooltip, Spin, message } from 'antd';
+import { Table, DatePicker, Row, Col, Tooltip as AntdTooltip, Spin, message } from 'antd';
 import type { TableProps } from 'antd';
 import dayjs from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween';
 import type { Dayjs } from 'dayjs';
 import { useDispatch, useSelector } from 'react-redux';
 import { getUserResultByIdAction } from '../../redux/action/userAction';
-import { getSubjectsForDDAction } from '../../redux/action/subjectAction';
+import { getSubjectsByBoardAction } from '../../redux/action/subjectAction';
 import { RootState, AppDispatch } from '../../redux/store';
+import CustomDropdown, { DropdownOption } from '../../components/ImportModal/CustomDropdown';
 import './index.scss';
 
 dayjs.extend(isBetween);
 
-const { Option } = Select;
 const { RangePicker } = DatePicker;
 
 interface DataType {
@@ -53,11 +53,14 @@ const ResultsPage: React.FC = () => {
 
     const userInfo = getUserInfo();
     const userId = userInfo?.id;
+    const userBoard = userInfo?.board;
 
-    // Fetch subjects for dropdown
+    // Fetch subjects for dropdown based on user's board
     useEffect(() => {
-        dispatch(getSubjectsForDDAction());
-    }, [dispatch]);
+        if (userBoard) {
+            dispatch(getSubjectsByBoardAction(userBoard));
+        }
+    }, [dispatch, userBoard]);
 
     // Fetch user results from API
     const fetchUserResults = useCallback(async (page: number, subjectId?: string, startDate?: Date, endDate?: Date) => {
@@ -126,10 +129,16 @@ const ResultsPage: React.FC = () => {
         }
     }, [userId, currentPage, selectedSubject, dateRange, fetchUserResults]);
 
-    const uniqueSubjects = useMemo(
-        () => Array.isArray(subjectDropdownList) ? subjectDropdownList : [],
-        [subjectDropdownList]
-    );
+    const subjectOptions = useMemo<DropdownOption[]>(() => {
+        const subjects = Array.isArray(subjectDropdownList) ? subjectDropdownList : [];
+        return [
+            { value: 'all', label: 'All Subjects' },
+            ...subjects.map((subject: any) => ({
+                value: subject.id,
+                label: subject.subname
+            }))
+        ];
+    }, [subjectDropdownList]);
 
     const columns: TableProps<DataType>['columns'] = [
         {
@@ -191,23 +200,17 @@ const ResultsPage: React.FC = () => {
                 <Row gutter={[16, 16]} align="middle" style={{ width: "100%" }}>
                     <Col xs={24} sm={12} md={8} lg={6}>
                         <label>Subject:</label>
-                        <Select
+                        <CustomDropdown
                             value={selectedSubject}
                             style={{ width: '100%' }}
                             onChange={(value) => {
                                 setSelectedSubject(value);
                                 setCurrentPage(1); // Reset to first page when filter changes
                             }}
-                            aria-label="Filter by subject"
-                            showSearch
-                            optionFilterProp="children"
+                            options={subjectOptions}
+                            placeholder="Select Subject"
                             dropdownStyle={{ zIndex: 1200 }}
-                        >
-                            <Option value="all">All Subjects</Option>
-                            {uniqueSubjects.map((subject: any) =>
-                                <Option key={subject.id} value={subject.id}>{subject.subname}</Option>
-                            )}
-                        </Select>
+                        />
                     </Col>
                     <Col xs={24} sm={12} md={10} lg={8}>
                         <label>Date Range:</label>

@@ -3,7 +3,7 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { toastText } from "../../utils/toast";
 import { InitialState } from "../../interfaces/interfaces";
-import { addChapterAction, addSubjectAction, deleteChapterByIdAction, deleteMultipleChaptersAction, deleteSubjectAction, getchaptersBySubjectIdAction, getSubjectsAction, getSubjectsForDDAction, updateChapterAction, updateSubjectAction } from "../action/subjectAction";
+import { addChapterAction, addSubjectAction, deleteChapterByIdAction, deleteMultipleChaptersAction, deleteSubjectAction, getchaptersBySubjectIdAction, getSubjectsAction, getSubjectsForDDAction, getSubjectsByBoardAction, updateChapterAction, updateSubjectAction } from "../action/subjectAction";
 
 
 const initialState: InitialState = {
@@ -257,6 +257,23 @@ const subjectSlice = createSlice({
                 state.error = action.payload;
                 state.message = action?.payload?.message;
                 toastText(action?.payload?.message || 'Failed to fetch Subejcts', "error");
+            });
+
+        builder
+            .addCase(getSubjectsByBoardAction.pending, (state) => {
+                state.isLoading = true;
+                state.error = null;
+            })
+            .addCase(getSubjectsByBoardAction.fulfilled, (state, action) => {
+                state.isLoading = false;
+                state.subjectDropdownList = action?.payload?.data?.subjects || [];
+                state.message = action?.payload?.message;
+            })
+            .addCase(getSubjectsByBoardAction.rejected, (state, action: any) => {
+                state.isLoading = false;
+                state.error = action.payload;
+                state.message = action?.payload?.message;
+                toastText(action?.payload?.message || 'Failed to fetch subjects by board', "error");
             });
     },
 });

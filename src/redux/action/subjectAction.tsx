@@ -215,3 +215,25 @@ export const getSubjectsForDDAction = createAsyncThunk(
         }
     }
 )
+
+export const getSubjectsByBoardAction = createAsyncThunk(
+    "GetSubjectsByBoard",
+    async (board: string, { rejectWithValue }) => {
+        try {
+            const response = await getApi(APIEndpoints.GetSubjectsForExam + `?board=${board}`);
+            if (response?.data?.statusCode === 200) {
+                {
+                    return response.data;
+                }
+            } else {
+                throw Error(response?.data?.message);
+            }
+        } catch (error: any) {
+            if (!error.response) {
+                throw error;
+            }
+            return rejectWithValue(error?.response?.data);
+        }
+    }
+)
+

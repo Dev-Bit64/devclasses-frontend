@@ -267,7 +267,7 @@ const TestPage: React.FC = () => {
               value={Date.now() + timeLeft}
               format="mm:ss"
               valueStyle={{
-                color: timeLeft < 1 * 60 * 1000 ? '#ff4d4f' : '#3E69E7',
+                color: timeLeft < 5 * 60 * 1000 ? '#ff4d4f' : '#3E69E7',
                 fontSize: '20px',
                 fontWeight: 'bold'
               }}
@@ -300,22 +300,35 @@ const TestPage: React.FC = () => {
 
             <div className="options-container">
               <Radio.Group
-                value={selectedAnswers[questionData.id] || null}
+                value={(() => {
+                  // Reverse transform for display: "OPTIONA" -> "A"
+                  const storedValue = selectedAnswers[questionData.id];
+                  if (storedValue && storedValue.startsWith('OPTION')) {
+                    return storedValue.replace('OPTION', '');
+                  }
+                  return storedValue;
+                })()}
                 onChange={(e) => handleAnswerChange(e.target.value)}
                 className="quiz-radio-group"
               >
                 <Space direction="vertical" size="large" className="options-list">
-                  {Object.entries(questionData.options).map(([optionKey, optionText]) => (
-                    <Radio
-                      key={optionKey}
-                      value={`OPTION${optionKey}`}   // ALWAYS send OPTIONA / OPTIONB
-                      className="quiz-radio-option"
-                    >
-                      <span className="option-label">
-                        {optionKey}. {optionText}
-                      </span>
-                    </Radio>
-                  ))}
+                  {Object.entries(questionData.options).map(([key, value]) => {
+                    // Handle both formats: "A" or "OPTIONA"
+                    // Extract letter for display: "OPTIONA" -> "A", or "A" -> "A"
+                    const optionLetter = key.startsWith('OPTION') ? key.replace('OPTION', '') : key;
+
+                    return (
+                      <Radio
+                        key={key}
+                        value={key}
+                        className="quiz-radio-option"
+                      >
+                        <span className="option-label">
+                          {optionLetter}. {value}
+                        </span>
+                      </Radio>
+                    );
+                  })}
                 </Space>
               </Radio.Group>
             </div>
