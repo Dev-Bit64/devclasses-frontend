@@ -61,8 +61,9 @@ export enum APIEndpoints {
   LOGIN = "/auth/login",
   LOGOUT = "/auth/logout",
   REGISTER = "/auth/register",
-  ForgotPasswordMail = "/auth/sendForgotPassEmail", 
+  ForgotPasswordMail = "/auth/sendForgotPassEmail",
   ResetPassword = "/auth/resetPassword",
+  SendWhatsAppMessage = "/auth/sendWhatsappAlert",
 
   // QUIZ_LIST = "/quiz/list",
   // QUIZ_DETAILS = "/quiz/details",
@@ -96,7 +97,7 @@ export enum APIEndpoints {
   DeleteChapters = "/subject/deleteChapters",
   UpdateChapter = "/subject/updateChapter",
   DeleteChapterById = "/subject/deleteChapterById",
-  GetChapters = "/subject/getChapters", 
+  GetChapters = "/subject/getChapters",
 
 
   //Dashboard
@@ -108,5 +109,6 @@ export enum APIEndpoints {
   StartExam = "/exam/startExam",
   GetQuestion = "/exam/getQuestion",
   GenerateExamResult = "/exam/generateExamResult",
+  ExportResultToPDF = "/exam/exportResultToPDF",
 
 }

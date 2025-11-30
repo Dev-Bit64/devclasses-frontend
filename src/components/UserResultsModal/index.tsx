@@ -7,17 +7,25 @@ import { useDispatch, useSelector } from 'react-redux';
 import { getUserResultByIdAction } from '../../redux/action/userAction';
 import { RootState, AppDispatch } from '../../redux/store';
 import './index.scss';
+import { exportExamResultToPDFAction } from '../../redux/action/examAction';
 
 const { Title } = Typography;
 
 // Interface for user result data from API
 interface UserResult {
-  id?: string;
+  id: string;
   examDate: string;
+  examSessionId: string;
   totalQuestions: number;
   correctAnswers: number;
   wrongAnswers: number;
-  subject: string;
+  totalTestsGiven: number;
+  subject: {
+    subname: string;
+  };
+  chapter: {
+    name: string;
+  };
   standard: string;
   board: string;
 }
@@ -37,7 +45,7 @@ const UserResultsModal: React.FC<UserResultsModalProps> = ({
   userId,
 }) => {
   const dispatch = useDispatch<AppDispatch>();
-  const [loading, setLoading] = useState(false);
+  const [loadingExamId, setLoadingExamId] = useState<string | null>(null);
   const [userResults, setUserResults] = useState<UserResult[]>([]);
   const [page, setPage] = useState<number>(1);
   const [totalResults, setTotalResults] = useState<number>(0);
@@ -102,57 +110,23 @@ const UserResultsModal: React.FC<UserResultsModalProps> = ({
    */
   const handleExportToPDF = async (record: UserResult) => {
     try {
-      setLoading(true);
-      
-      // Create a simple HTML content for PDF generation
-      const htmlContent = `
-        <html>
-          <head>
-            <title>Exam Result - ${userName}</title>
-            <style>
-              body { font-family: Arial, sans-serif; margin: 20px; }
-              .header { text-align: center; margin-bottom: 30px; }
-              .result-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-              .result-table th, .result-table td { 
-                border: 1px solid #ddd; 
-                padding: 12px; 
-                text-align: left; 
-              }
-              .result-table th { background-color: #f2f2f2; }
-              .score { font-weight: bold; color: #1890ff; }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <h1>Exam Result Report</h1>
-              <h2>Student: ${userName}</h2>
-              <p>Subject: ${record.subject} | Standard: ${record.standard} | Board: ${record.board}</p>
-              <p>Exam Date: ${record.examDate}</p>
-            </div>
-            <table class="result-table">
-              <tr>
-                <th>Total Questions</th>
-                <th>Correct Answers</th>
-                <th>Wrong Answers</th>
-                <th>Score</th>
-              </tr>
-              <tr>
-                <td>${record.totalQuestions}</td>
-                <td class="score">${record.correctAnswers}</td>
-                <td>${record.wrongAnswers}</td>
-                <td class="score">${((record.correctAnswers / record.totalQuestions) * 100).toFixed(1)}%</td>
-              </tr>
-            </table>
-          </body>
-        </html>
-      `;
+      console.log("record", record);
+      setLoadingExamId(record.examSessionId);
 
-      // Create a blob and download the file
-      const blob = new Blob([htmlContent], { type: 'text/html' });
+      // Create a simple HTML content for PDF generation
+      const payload = {
+        examId: record.examSessionId,
+        userId: String(userId),
+      };
+
+      const response = await dispatch(exportExamResultToPDFAction(payload)).unwrap();
+
+      // Response is already a blob from postApiBlob
+      const blob = response;
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${userName}_${record.subject}_${record.examDate}_result.html`;
+      link.download = `${userName}_${record.subject?.subname}_${record.chapter?.name}_${record.examDate}_result.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -163,7 +137,7 @@ const UserResultsModal: React.FC<UserResultsModalProps> = ({
       console.error('Error exporting PDF:', error);
       message.error('Failed to export result. Please try again.');
     } finally {
-      setLoading(false);
+      setLoadingExamId(null);
     }
   };
 
@@ -186,7 +160,13 @@ const UserResultsModal: React.FC<UserResultsModalProps> = ({
       key: 'examDate',
       align: 'center',
       width: 120,
-      render: (date: string) => new Date(date).toLocaleDateString('en-GB'),
+      render: (date: string) => {
+        const d = new Date(date);
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}-${month}--${year}`;
+      },
       responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
     },
     {
@@ -196,6 +176,24 @@ const UserResultsModal: React.FC<UserResultsModalProps> = ({
       align: 'center',
       width: 120,
       responsive: ['sm', 'md', 'lg', 'xl'],
+      render: (subject: any) => (
+        <span style={{ color: '#1890ff', fontWeight: '500' }}>
+          {subject?.subname || 'N/A'}
+        </span>
+      ),
+    },
+    {
+      title: 'Chapter',
+      dataIndex: 'chapter',
+      key: 'chapter',
+      align: 'center',
+      width: 150,
+      responsive: ['md', 'lg', 'xl'],
+      render: (chapter: any) => (
+        <span style={{ color: '#722ed1', fontWeight: '500' }}>
+          {chapter?.name || 'N/A'}
+        </span>
+      ),
     },
     {
       title: 'Total Questions',
@@ -204,6 +202,11 @@ const UserResultsModal: React.FC<UserResultsModalProps> = ({
       align: 'center',
       width: 120,
       responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
+      render: (totalQuestions: number) => (
+        <span style={{ color: '#1890ff', fontWeight: '500' }}>
+          {totalQuestions}
+        </span>
+      ),
     },
     {
       title: 'Correct Answers',
@@ -257,9 +260,9 @@ const UserResultsModal: React.FC<UserResultsModalProps> = ({
           type="primary"
           icon={<FilePdfOutlined />}
           size="small"
-          loading={loading}
+          loading={loadingExamId === record.examSessionId}
           onClick={() => handleExportToPDF(record)}
-          style={{ 
+          style={{
             borderRadius: 6,
             display: 'block',
             alignItems: 'center',
@@ -267,7 +270,7 @@ const UserResultsModal: React.FC<UserResultsModalProps> = ({
             gap: 4
           }}
         >
-         <span style={{  marginLeft: '5px' }}>Export</span>
+          <span style={{ marginLeft: '5px' }}>Export</span>
         </Button>
       ),
       responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
@@ -325,10 +328,10 @@ const UserResultsModal: React.FC<UserResultsModalProps> = ({
                   <div style={{ fontSize: 24, fontWeight: 'bold', color: '#faad14' }}>
                     {userResults.length > 0
                       ? (
-                          userResults.reduce((sum, result) =>
-                            sum + (result.correctAnswers / result.totalQuestions) * 100, 0
-                          ) / userResults.length
-                        ).toFixed(1)
+                        userResults.reduce((sum, result) =>
+                          sum + (result.correctAnswers / result.totalQuestions) * 100, 0
+                        ) / userResults.length
+                      ).toFixed(1)
                       : '0.0'}%
                   </div>
                   <div style={{ color: '#666' }}>Average Score</div>

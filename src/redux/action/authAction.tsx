@@ -114,3 +114,29 @@ export const resetPasswordAction = createAsyncThunk(
         }
     }
 );
+
+/**
+ * Send WhatsApp Message Action
+ * Sends a WhatsApp message to a student's phone number
+ *
+ * @param payload - Object containing phoneNumber and message
+ * @returns Response data on success or error message on failure
+ */
+export const sendWhatsAppMessageAction = createAsyncThunk(
+    "SendWhatsAppMessage",
+    async (payload: { phoneNumber: string; message: string }, { rejectWithValue }) => {
+        try {
+            const response = await postApi(APIEndpoints.SendWhatsAppMessage, payload);
+            if (response?.data?.statusCode === 200) {
+                return response.data;
+            } else {
+                throw Error(response?.data?.message || 'Failed to send WhatsApp message');
+            }
+        } catch (error: any) {
+            if (!error.response) {
+                throw error;
+            }
+            return rejectWithValue(error?.response?.data);
+        }
+    }
+);

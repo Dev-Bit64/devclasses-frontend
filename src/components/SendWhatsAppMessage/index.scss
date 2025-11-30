@@ -1,0 +1,73 @@
+.send-whatsapp-modal {
+    .ant-modal-header {
+        border-bottom: 1px solid #f0f0f0;
+        padding: 16px 24px;
+    }
+
+    .ant-modal-body {
+        padding: 24px;
+    }
+
+    .ant-modal-footer {
+        border-top: 1px solid #f0f0f0;
+        padding: 12px 16px;
+    }
+
+    .ant-form-item-label>label {
+        font-weight: 500;
+        color: #262626;
+    }
+
+    .ant-input,
+    .ant-input-textarea textarea {
+        border-radius: 6px;
+
+        &:focus,
+        &:hover {
+            border-color: #25D366;
+        }
+    }
+
+    .ant-input-textarea textarea {
+        resize: none;
+    }
+
+    // Responsive design
+    @media (max-width: 768px) {
+        .ant-modal {
+            width: 95% !important;
+            margin: 10px;
+        }
+    }
+
+    // Animation for modal appearance
+    .ant-modal-mask {
+        animation: fadeIn 0.3s ease-in-out;
+    }
+
+    .ant-modal-wrap {
+        animation: slideIn 0.3s ease-in-out;
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}

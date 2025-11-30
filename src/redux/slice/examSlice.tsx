@@ -2,7 +2,7 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { toastText } from "../../utils/toast";
 import { InitialState } from "../../interfaces/interfaces";
-import { getSubjectsForExamAction, getExamQuestionsAction, startExamAction, getQuestionAction, submitExamAction } from "../action/examAction";
+import { getSubjectsForExamAction, getExamQuestionsAction, startExamAction, getQuestionAction, submitExamAction, exportExamResultToPDFAction } from "../action/examAction";
 
 /**
  * Initial state for exam slice
@@ -151,6 +151,30 @@ const examSlice = createSlice({
                 state.message = action?.payload?.message;
             })
             .addCase(submitExamAction.rejected, (state, action: any) => {
+                state.isLoading = false;
+                state.error = action.payload;
+                state.message = action?.payload?.message;
+                toastText(action?.payload?.message, "error");
+            });
+
+
+        /**
+         * Handle export exam result to PDF action
+         * - Exports exam results to a PDF file
+         * - Shows loading state during export
+         * - Handles errors with toast notifications
+         */
+        builder
+            .addCase(exportExamResultToPDFAction.pending, (state) => {
+                state.isLoading = true;
+                state.error = null;
+            })
+            .addCase(exportExamResultToPDFAction.fulfilled, (state, action) => {
+                state.isLoading = false;
+                state.data = action?.payload?.data;
+                state.message = action?.payload?.message;
+            })
+            .addCase(exportExamResultToPDFAction.rejected, (state, action: any) => {
                 state.isLoading = false;
                 state.error = action.payload;
                 state.message = action?.payload?.message;

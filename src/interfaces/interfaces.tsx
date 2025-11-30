@@ -119,7 +119,7 @@ export interface UpdateQuestionPayload {
 }
 
 export interface AddSubjectPayload {
-    subjectName:string,
+    subjectName: string,
     subjectDescription: string,
     board: string,
     standard: string
@@ -139,7 +139,7 @@ export interface AddChapter {
 }
 
 export interface UpdateChapter {
-    id:string;
+    id: string;
     chapterName: string;
 }
 
@@ -246,4 +246,13 @@ export interface QuestionResponse {
     };
     page: number;
     totalPages: number;
+}
+
+/**
+ * Interface for export exam payload
+ * Contains examId and userId
+ */
+export interface ExportExamPayload {
+    examId: string;
+    userId: string;
 }

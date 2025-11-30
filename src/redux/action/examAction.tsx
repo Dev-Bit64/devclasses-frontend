@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { getApi, postApi } from "../apis";
+import { getApi, postApi, postApiBlob } from "../apis";
 import { APIEndpoints } from "../../constants/constants";
-import { GetExamQuestions, GetExamSubjects, StartExamPayload, GetQuestionPayload, SubmitExamPayload } from "../../interfaces/interfaces";
+import { GetExamQuestions, GetExamSubjects, StartExamPayload, GetQuestionPayload, SubmitExamPayload, ExportExamPayload } from "../../interfaces/interfaces";
 
 export const getSubjectsForExamAction = createAsyncThunk(
     "GetSubjectsExam",
@@ -106,6 +106,28 @@ export const submitExamAction = createAsyncThunk(
             } else {
                 throw Error(response?.data?.message);
             }
+        } catch (error: any) {
+            if (!error.response) {
+                throw error;
+            }
+            return rejectWithValue(error?.response?.data);
+        }
+    }
+)
+
+
+/**
+ * Export Exam Action
+ * Exports exam results to a PDF file
+ * This should be called when user clicks "Export Results" button
+ */
+export const exportExamResultToPDFAction = createAsyncThunk(
+    'ExportExamResultToPDF',
+    async (payload: ExportExamPayload, { rejectWithValue }) => {
+        try {
+            const response = await postApiBlob(APIEndpoints.ExportResultToPDF, payload);
+            // For blob responses, return the data directly
+            return response.data;
         } catch (error: any) {
             if (!error.response) {
                 throw error;

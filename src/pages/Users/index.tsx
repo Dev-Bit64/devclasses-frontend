@@ -6,6 +6,7 @@ import { WhatsAppOutlined, EyeOutlined, SearchOutlined, DeleteOutlined } from '@
 import type { ColumnsType } from 'antd/es/table';
 import { useDispatch, useSelector } from 'react-redux';
 import UserResultsModal from '../../components/UserResultsModal';
+import SendWhatsAppMessage from '../../components/SendWhatsAppMessage';
 import { getUsersAction, deleteUserAction } from '../../redux/action/userAction';
 import { RootState, AppDispatch } from '../../redux/store';
 import './index.scss';
@@ -47,17 +48,17 @@ const UsersPage: React.FC = () => {
   // Table expects: { key, id, name, email, testsGiven, avatar, standard, board }
   const normalizedUserList: User[] = Array.isArray(userLists)
     ? userLists.map((user: any) => ({
-        key: user.id,
-        id: user.id,
-        name: `${user.firstName} ${user.lastName}`,
-        email: user.email,
-        testsGiven: user.testsGiven || 0, // Default to 0 if not provided
-        avatar: user.avatar || '', // Default to empty string if not provided
-        standard: user.standard,
-        board: user.board,
-        firstName: user.firstName,
-        lastName: user.lastName,
-      }))
+      key: user.id,
+      id: user.id,
+      name: `${user.firstName} ${user.lastName}`,
+      email: user.email,
+      testsGiven: user.testsGiven || 0, // Default to 0 if not provided
+      avatar: user.avatar || '', // Default to empty string if not provided
+      standard: user.standard,
+      board: user.board,
+      firstName: user.firstName,
+      lastName: user.lastName,
+    }))
     : [];
 
   // Local state for search and column filters
@@ -74,6 +75,10 @@ const UsersPage: React.FC = () => {
   // State for UserResultsModal
   const [resultsModalVisible, setResultsModalVisible] = useState(false);
   const [selectedUser, setSelectedUser] = useState<{ name: string; id: string } | null>(null);
+
+  // State for SendWhatsAppMessage modal
+  const [whatsappModalVisible, setWhatsappModalVisible] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<{ name: string; phoneNumber: string } | null>(null);
 
   /**
    * Fetch users with current filters and search parameters
@@ -144,8 +149,6 @@ const UsersPage: React.FC = () => {
     }
   };
 
-
-
   /**
    * Handle opening the results modal for a specific user
    * @param user - The user object containing name and key (id)
@@ -161,6 +164,23 @@ const UsersPage: React.FC = () => {
   const handleCloseResultsModal = () => {
     setResultsModalVisible(false);
     setSelectedUser(null);
+  };
+
+  /**
+   * Handle opening the WhatsApp modal for a specific user
+   * @param user - The user object containing name
+   */
+  const handleOpenWhatsAppModal = (user: User) => {
+    setSelectedStudent({ name: user.name, phoneNumber: '' });
+    setWhatsappModalVisible(true);
+  };
+
+  /**
+   * Handle closing the WhatsApp modal
+   */
+  const handleCloseWhatsAppModal = () => {
+    setWhatsappModalVisible(false);
+    setSelectedStudent(null);
   };
 
   /**
@@ -434,7 +454,7 @@ const UsersPage: React.FC = () => {
             <Button
               type="text"
               icon={<WhatsAppOutlined style={{ color: '#25D366', fontSize: 18 }} />}
-              onClick={() => alert(`Send Whatsapp alert to ${record.name}`)}
+              onClick={() => handleOpenWhatsAppModal(record)}
             />
           </Tooltip>
           {/* Delete User Button */}
@@ -586,6 +606,16 @@ const UsersPage: React.FC = () => {
           onClose={handleCloseResultsModal}
           userName={selectedUser.name}
           userId={selectedUser.id}
+        />
+      )}
+
+      {/* Send WhatsApp Message Modal */}
+      {selectedStudent && (
+        <SendWhatsAppMessage
+          visible={whatsappModalVisible}
+          onClose={handleCloseWhatsAppModal}
+          studentName={selectedStudent.name}
+          phoneNumber={selectedStudent.phoneNumber}
         />
       )}
     </div>

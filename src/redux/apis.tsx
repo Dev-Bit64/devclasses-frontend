@@ -26,10 +26,11 @@ axiosInstance.interceptors.response.use(
   }
 );
 
-const apiConfig = (flag = false, params?: any) => {
+const apiConfig = (flag = false, params?: any, responseType: any = "json") => {
   if (localStorage.getItem("accessToken")) {
     return {
       params: params,
+      responseType: responseType,
       headers: {
         Authorization: `bearer ${localStorage.getItem("accessToken")}`,
         "Content-Type": flag ? "multipart/form-data" : "application/json",
@@ -52,6 +53,14 @@ export const postApi = (url: string, apiData?: any, flag?: boolean) => {
 
 export const putApi = (url: string, apiData: any, flag?: boolean) => {
   return axiosInstance.put(`${endPoint}${url}`, apiData, apiConfig(flag));
+};
+
+export const postApiBlob = (url: string, apiData?: any) => {
+  return axiosInstance.post(
+    `${endPoint}${url}`,
+    apiData,
+    apiConfig(false, null, "blob") // <-- IMPORTANT
+  );
 };
 
 export const patchApi = (url: string, apiData: any, flag?: boolean) => {
