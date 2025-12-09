@@ -44,7 +44,7 @@ const UsersPage: React.FC = () => {
   const { userLists = [], isLoading, totalUsers = 0 } = useSelector((state: RootState) => state.user);
 
   // Transform API response data to match table structure
-  // API returns: { id, board, email, firstName, lastName, standard }
+  // API returns: { id, board, email, firstName, lastName, standard, totalTestsGiven }
   // Table expects: { key, id, name, email, testsGiven, avatar, standard, board }
   const normalizedUserList: User[] = Array.isArray(userLists)
     ? userLists.map((user: any) => ({
@@ -52,7 +52,7 @@ const UsersPage: React.FC = () => {
       id: user.id,
       name: `${user.firstName} ${user.lastName}`,
       email: user.email,
-      testsGiven: user.testsGiven || 0, // Default to 0 if not provided
+      testsGiven: user.totalTestsGiven || 0, // Default to 0 if not provided
       avatar: user.avatar || '', // Default to empty string if not provided
       standard: user.standard,
       board: user.board,

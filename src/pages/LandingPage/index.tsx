@@ -1,23 +1,23 @@
 import React, { useEffect, useState, Suspense } from 'react';
-import { 
-  Layout, 
-  Typography, 
-  Button, 
-  Card, 
-  Row, 
-  Col, 
-  Form, 
-  Input, 
-  message, 
+import {
+  Layout,
+  Typography,
+  Button,
+  Card,
+  Row,
+  Col,
+  Form,
+  Input,
+  message,
   Menu,
   Drawer,
   List,
   Modal
 } from 'antd';
-import { 
-  BookOutlined, 
+import {
+  BookOutlined,
   FileDoneOutlined,
-  TrophyOutlined, 
+  TrophyOutlined,
   ReadOutlined,
   PhoneOutlined,
   MailOutlined,
@@ -28,10 +28,12 @@ import {
   CheckCircleOutlined,
   CloseOutlined
 } from '@ant-design/icons';
-import { Image as LucideImage } from 'lucide-react';
+// import { Image as LucideImage } from 'lucide-react';
 import './index.scss';
 import { useIsMobile } from '../../hooks/use-mobile';
 import professorIcon from '../../assets/professor-icon2.svg';
+import logo from '../../assets/white2.svg';
+import logo2 from '../../assets/website.svg';
 
 const LoginForm = React.lazy(() => import('../../components/Login/LoginLayoutBody'));
 const RegistrationForm = React.lazy(() => import('../../components/Login/RegisterLayoutBody'));
@@ -129,12 +131,12 @@ const LandingPage = () => {
 
   return (
     <Layout className="landing-page">
-      <Header 
-        style={{ 
-          background: scrollPosition > 50 ? 'rgba(255, 255, 255, 0.95)' : 'transparent', 
+      <Header
+        style={{
+          background: scrollPosition > 50 ? 'rgba(255, 255, 255, 0.95)' : 'transparent',
           boxShadow: scrollPosition > 50 ? '0 2px 8px rgba(0, 0, 0, 0.15)' : 'none',
-          position: 'fixed', 
-          width: '100%', 
+          position: 'fixed',
+          width: '100%',
           zIndex: 1000,
           transition: 'all 0.3s ease',
           padding: '0 20px'
@@ -142,24 +144,24 @@ const LandingPage = () => {
       >
         <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '100%' }}>
           <div className="logo" style={{ display: 'flex', alignItems: 'center' }}>
-            <LucideImage 
-              size={40}
-              color={scrollPosition > 50 ? '#222' : '#fff'} 
-              style={{ marginRight: '10px' }} 
-              
-            />
-            <Title level={3} style={{ margin: 0, color: scrollPosition > 50 ? '#222' : '#fff' }}>
-              Dev Classes
-            </Title>
+            <img src={scrollPosition > 50 ? logo2 : logo} alt="Logo" style={{ width: '60px', marginRight: '10px' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <Title level={1} style={{ margin: 0, color: scrollPosition > 50 ? '#222' : '#fff', lineHeight: '1', fontSize: isMobile ? '1.5rem' : '2rem' }}>
+                Dev Classes
+              </Title>
+              <Text style={{ margin: 0, color: scrollPosition > 50 ? '#222' : '#fff', fontSize: '12px', lineHeight: '1.4' }}>
+                Your companion in learning
+              </Text>
+            </div>
           </div>
-          
+
           {!isMobile ? (
-            <Menu 
-              mode="horizontal" 
-              style={{ 
-                background: 'transparent', 
-                borderBottom: 'none', 
-                flex: 1, 
+            <Menu
+              mode="horizontal"
+              style={{
+                background: 'transparent',
+                borderBottom: 'none',
+                flex: 1,
                 justifyContent: 'flex-end',
                 color: scrollPosition > 50 ? '#222' : '#fff'
               }}
@@ -172,10 +174,10 @@ const LandingPage = () => {
                 </Menu.Item>
               ))}
               <Menu.Item key="action">
-                <Button 
-                  type="primary" 
-                  shape="round" 
-                  size="middle" 
+                <Button
+                  type="primary"
+                  shape="round"
+                  size="middle"
                   className="primary-button"
                   onClick={navigateToLogin}
                 >
@@ -184,14 +186,14 @@ const LandingPage = () => {
               </Menu.Item>
             </Menu>
           ) : (
-            <Button 
-              type="text" 
-              icon={<MenuOutlined style={{ color: scrollPosition > 50 ? '#222' : '#fff', fontSize: '24px' }} />} 
+            <Button
+              type="text"
+              icon={<MenuOutlined style={{ color: scrollPosition > 50 ? '#222' : '#fff', fontSize: '24px' }} />}
               onClick={showDrawer}
             />
           )}
         </div>
-        
+
         <Drawer
           title="Menu"
           placement="right"
@@ -218,27 +220,27 @@ const LandingPage = () => {
           <div className="container">
             <Row align="middle" style={{ minHeight: '100vh' }}>
               <Col xs={24} md={12} className="content-container">
-                <Title 
+                <Title
                   className="hero-text"
-                  style={{ 
-                    color: 'white', 
-                    fontSize: isMobile ? '2.5rem' : '3.5rem',
+                  style={{
+                    color: 'white',
+                    fontSize: isMobile ? '1.5rem' : '2.0rem',
                     marginBottom: '1rem'
                   }}
                 >
-                  Master Commerce<br />
-                  Shape Your Future
+                  Accounting is the <br />
+                  language of business
                 </Title>
-                <Paragraph 
+                <Paragraph
                   className="hero-description"
-                  style={{ 
-                    color: 'white', 
+                  style={{
+                    color: 'white',
                     fontSize: isMobile ? '16px' : '18px',
                     marginBottom: '2rem',
                     opacity: 0
                   }}
                 >
-                  Comprehensive coaching for commerce students. Expert guidance, targeted preparation, and proven success strategies for board exams and competitive tests.
+                  Master the art of this language with us.
                 </Paragraph>
                 {/* <div className="hero-button" style={{ opacity: 0 }}>
                   <Button 
@@ -273,8 +275,8 @@ const LandingPage = () => {
               </Col>
               <Col xs={24} md={12} className="hero-image" style={{ display: isMobile ? 'none' : 'block' }}>
                 {!imageError ? (
-                  <img 
-                    alt="Commerce education" 
+                  <img
+                    alt="Commerce education"
                     src={commerceImageUrl}
                     srcSet="https://img.freepik.com/free-vector/financial-advisor-concept-illustration_114360-20542.jpg?w=400 400w, https://img.freepik.com/free-vector/financial-advisor-concept-illustration_114360-20542.jpg?w=740 740w"
                     sizes="(max-width: 600px) 100vw, 50vw"
@@ -284,8 +286,8 @@ const LandingPage = () => {
                     loading="lazy"
                   />
                 ) : (
-                  <img 
-                    alt="Commerce education" 
+                  <img
+                    alt="Commerce education"
                     src={fallbackImageUrl}
                     className="floating"
                     style={{ maxWidth: '100%', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}
@@ -301,7 +303,7 @@ const LandingPage = () => {
             <Title level={2} className="section-title slide-up">
               Why Choose Dev Classes?
             </Title>
-            
+
             <Row gutter={[32, 32]}>
               {features.map((feature, index) => (
                 <Col xs={24} sm={12} md={6} key={index} className={`slide-up delay-${index + 1}`}>
@@ -317,7 +319,7 @@ const LandingPage = () => {
             </Row>
           </div>
         </section>
-        
+
         {/* <section className="stats-section">
           <div className="container">
             <Row gutter={[32, 32]}>
@@ -367,17 +369,17 @@ const LandingPage = () => {
           </div>
         </section> */}
 
-        <section className="features-section" style={{ background: '#fff' }}>
+        <section id="key-offerings" className="features-section" style={{ background: '#fff' }}>
           <div className="container">
             <Title level={2} className="section-title slide-up">
               Key Offerings
             </Title>
-            
+
             <Row gutter={[32, 32]} align="middle">
               <Col xs={24} md={12} className="slide-up">
-                <img 
+                <img
                   src={professorIcon}
-                  alt="Teaching" 
+                  alt="Teaching"
                   style={{ width: '100%', maxWidth: '500px', margin: '0 auto', display: 'block' }}
                 />
               </Col>
@@ -454,14 +456,14 @@ const LandingPage = () => {
             <Title level={2} className="section-title slide-up">
               Get in Touch
             </Title>
-            
+
             <Row gutter={[32, 32]}>
               <Col xs={24} md={12} className="slide-up">
                 <div className="contact-info">
                   <Title level={4} style={{ marginBottom: '20px' }}>
                     Contact Information
                   </Title>
-                  
+
                   <div className="info-item">
                     <div className="icon">
                       <PhoneOutlined />
@@ -471,7 +473,7 @@ const LandingPage = () => {
                       <p>+91 98240 68390</p>
                     </div>
                   </div>
-                  
+
                   <div className="info-item">
                     <div className="icon">
                       <MailOutlined />
@@ -481,7 +483,7 @@ const LandingPage = () => {
                       <p>info@devclasses.in</p>
                     </div>
                   </div>
-                  
+
                   <div className="info-item">
                     <div className="icon">
                       <EnvironmentOutlined />
@@ -491,7 +493,7 @@ const LandingPage = () => {
                       <p>Dev Classes, Opp Gyanjyot Travels, Nr Prabhu Oil Mill, Kamlabaug<br />Porbandar, Gujarat 360575</p>
                     </div>
                   </div>
-                  
+
                   {/* <div style={{ marginTop: '30px' }}>
                     <Title level={5} style={{ marginBottom: '15px' }}>
                       Follow Us
@@ -505,13 +507,13 @@ const LandingPage = () => {
                   </div> */}
                 </div>
               </Col>
-              
+
               <Col xs={24} md={12} className="slide-up delay-2">
                 <div className="contact-form">
                   <Title level={4} style={{ marginBottom: '20px' }}>
                     Send us a Message
                   </Title>
-                  
+
                   <Form form={form} onFinish={onFinish} layout="vertical">
                     <Form.Item
                       name="name"
@@ -520,7 +522,7 @@ const LandingPage = () => {
                     >
                       <Input placeholder="Enter your name" size="large" />
                     </Form.Item>
-                    
+
                     <Form.Item
                       name="email"
                       label="Your Email"
@@ -531,7 +533,7 @@ const LandingPage = () => {
                     >
                       <Input placeholder="Enter your email" size="large" />
                     </Form.Item>
-                    
+
                     <Form.Item
                       name="phone"
                       label="Phone Number"
@@ -539,7 +541,7 @@ const LandingPage = () => {
                     >
                       <Input placeholder="Enter your phone number" size="large" />
                     </Form.Item>
-                    
+
                     <Form.Item
                       name="message"
                       label="Your Message"
@@ -547,7 +549,7 @@ const LandingPage = () => {
                     >
                       <Input.TextArea placeholder="Enter your message" rows={4} size="large" />
                     </Form.Item>
-                    
+
                     <Form.Item>
                       <Button type="primary" htmlType="submit" size="large" block className="primary-button">
                         Send Message
@@ -563,27 +565,27 @@ const LandingPage = () => {
 
       <Footer className="footer">
         <div className="container">
-          <Row gutter={[32, 32]}>
-            <Col xs={24} md={8}>
+          <Row gutter={[32, 32]} justify="space-between">
+            <Col xs={24} md={12}>
               <Title level={3} style={{ color: 'white', marginBottom: '15px' }}>
                 Dev Classes
               </Title>
               <Paragraph style={{ color: 'rgba(255, 255, 255, 0.65)' }}>
-                Empowering developers with quality education and career guidance. Our mission is to help developers excel in modern technologies and build a strong foundation for their future.
+                Our journey began with a vision to empower students empower students through quality education and career guidance in commerce. Over the years, more than 100 of our students have excelled in fields such as Chartered Accountancy, Banking, and Finance. Their success stories reflect our commitment to building strong foundations and shaping futures with knowledge, clarity, and confidence.
               </Paragraph>
             </Col>
-            
-            <Col xs={24} sm={12} md={8}>
+
+            <Col xs={24} sm={12} md={5}>
               <div className="footer-title">Quick Links</div>
               <ul className="footer-links">
                 <li><a href="#home">Home</a></li>
                 <li><a href="#features">Why Choose Us</a></li>
-                <li><a href="#courses">Courses</a></li>
-                <li><a href="#testimonials">Testimonials</a></li>
+                {/* <li><a href="#courses">Courses</a></li>
+                <li><a href="#testimonials">Testimonials</a></li> */}
                 <li><a href="#contact">Contact Us</a></li>
               </ul>
             </Col>
-            
+            {/* 
             <Col xs={24} sm={12} md={8}>
               <div className="footer-title">Our Courses</div>
               <ul className="footer-links">
@@ -593,9 +595,9 @@ const LandingPage = () => {
                 <li><a href="#">Mathematics</a></li>
                 <li><a href="#">Crash Courses</a></li>
               </ul>
-            </Col>
+            </Col> */}
           </Row>
-          
+
           <div className="copyright">
             <p>Dev Classes © {new Date().getFullYear()} | All Rights Reserved</p>
           </div>
@@ -622,7 +624,7 @@ const LandingPage = () => {
         <div className="modal-close-btn" onClick={handleModalClose}>
           <CloseOutlined />
         </div>
-        
+
         <div className="modal-content-wrapper">
           <div className="modal-image-section">
             <div className="image-overlay">
@@ -631,32 +633,32 @@ const LandingPage = () => {
                   {modalType === 'login' ? 'Welcome Back!' : modalType === 'register' ? 'Join Us Today!' : 'Reset Password'}
                 </h2>
                 <p className="image-subtitle">
-                  {modalType === 'login' 
-                    ? 'Sign in to access your personalized learning experience' 
-                    : modalType === 'register' 
-                    ? 'Create your account and start your learning journey' 
-                    : 'Enter your email to receive password reset instructions'
+                  {modalType === 'login'
+                    ? 'Sign in to access your personalized learning experience'
+                    : modalType === 'register'
+                      ? 'Create your account and start your learning journey'
+                      : 'Enter your email to receive password reset instructions'
                   }
                 </p>
               </div>
             </div>
           </div>
-          
+
           <div className="modal-form-section">
-            <Suspense fallback={<div style={{padding: '2rem', textAlign: 'center'}}>Loading...</div>}>
+            <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>}>
               {modalType === 'login' && (
-                <LoginForm 
+                <LoginForm
                   setIsRegister={() => setModalType('register')}
                   setIsForgotPassword={() => setModalType('forgot')}
                 />
               )}
               {modalType === 'register' && (
-                <RegistrationForm 
+                <RegistrationForm
                   setIsLogin={() => setModalType('login')}
                 />
               )}
               {modalType === 'forgot' && (
-                <ForgotPasswordForm 
+                <ForgotPasswordForm
                   setIsForgotPassword={() => setModalType('login')}
                 />
               )}

@@ -12,7 +12,8 @@ import {
   Space,
   Typography,
   Row,
-  Col
+  Col,
+  Checkbox
 } from 'antd';
 import {
   SearchOutlined,
@@ -118,8 +119,13 @@ const SubjectsPage: React.FC = () => {
     standardFilter: string | undefined = undefined
   ) => {
     try {
+      // Create payload with filters
+      const payload: any = {};
+      if (boardFilter) payload.board = boardFilter;
+      if (standardFilter) payload.standard = standardFilter;
+
       // Dispatch Redux action to fetch subjects from API
-      const result = await dispatch(getSubjectsAction({}));
+      const result = await dispatch(getSubjectsAction(payload));
 
       // Check if the action was fulfilled
       if (result.payload && result.payload.data) {
@@ -199,7 +205,7 @@ const SubjectsPage: React.FC = () => {
    * Updates filter state and refreshes data with new filters
    * @param filters - Object containing filter values from table columns
    */
-  const handleTableFilterChange = (filters: any) => {
+  const handleTableFilterChange = (pagination: any, filters: any, sorter: any) => {
     // Extract board and standard filter values from table filters
     const boardFilter = filters.board ? filters.board[0] : undefined;
     const standardFilter = filters.standard ? filters.standard[0] : undefined;
@@ -222,7 +228,7 @@ const SubjectsPage: React.FC = () => {
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchText(value);
-    
+
     // Auto-fetch when search is cleared
     if (value.trim() === '') {
       setPage(1);
@@ -336,11 +342,11 @@ const SubjectsPage: React.FC = () => {
           const updatedSubjects = subjects.map(subject =>
             subject.key === editingKey
               ? {
-                  ...subject,
-                  subjectName: values.subjectName,
-                  board: values.board,
-                  standard: values.standard,
-                }
+                ...subject,
+                subjectName: values.subjectName,
+                board: values.board,
+                standard: values.standard,
+              }
               : subject
           );
           setSubjects(updatedSubjects);
@@ -470,6 +476,50 @@ const SubjectsPage: React.FC = () => {
   };
 
   /**
+   * Custom filter dropdown to handle immediate reset
+   */
+  const customFilterDropdown = ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: any, options: DropdownOption[]) => (
+    <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '8px' }}>
+        {options.map((option) => (
+          <Checkbox
+            key={option.value}
+            checked={selectedKeys.includes(option.value)}
+            onChange={(e) => {
+              const newKeys = e.target.checked
+                ? [...selectedKeys, option.value]
+                : selectedKeys.filter((key: any) => key !== option.value);
+              setSelectedKeys(newKeys);
+            }}
+          >
+            {option.label}
+          </Checkbox>
+        ))}
+      </div>
+      <Space>
+        <Button
+          onClick={() => {
+            clearFilters && clearFilters();
+            confirm(); // Trigger onChange immediately
+          }}
+          size="small"
+          style={{ width: 90 }}
+        >
+          Reset
+        </Button>
+        <Button
+          type="primary"
+          onClick={() => confirm()}
+          size="small"
+          style={{ width: 90 }}
+        >
+          OK
+        </Button>
+      </Space>
+    </div>
+  );
+
+  /**
    * Table columns configuration
    * Includes: No., Subject Name, Board, Standard, and Action columns
    * Board and Standard columns have filter functionality
@@ -493,16 +543,18 @@ const SubjectsPage: React.FC = () => {
       dataIndex: 'board',
       key: 'board',
       width: 180,
-      filters: BOARD_OPTIONS.map(option => ({ text: option.label, value: option.value })),
-      onFilter: (value: any, record: Subject) => record.board === value,
+      filterDropdown: (props: any) => customFilterDropdown(props, BOARD_OPTIONS),
+      // filters: BOARD_OPTIONS.map(option => ({ text: option.label, value: option.value })),
+      // onFilter: (value: any, record: Subject) => record.board === value,
     },
     {
       title: 'Standard',
       dataIndex: 'standard',
       key: 'standard',
       width: 180,
-      filters: STANDARD_OPTIONS.map(option => ({ text: option.label, value: option.value })),
-      onFilter: (value: any, record: Subject) => record.standard === value,
+      filterDropdown: (props: any) => customFilterDropdown(props, STANDARD_OPTIONS),
+      // filters: STANDARD_OPTIONS.map(option => ({ text: option.label, value: option.value })),
+      // onFilter: (value: any, record: Subject) => record.standard === value,
     },
     {
       title: 'Action',
@@ -602,10 +654,10 @@ const SubjectsPage: React.FC = () => {
       </div>
 
       {/* Filters and Search Bar */}
-      <div className="filters-search-container" style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
+      <div className="filters-search-container" style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         gap: '20px',
         marginBottom: '18px',
         flexWrap: 'wrap'
@@ -628,12 +680,12 @@ const SubjectsPage: React.FC = () => {
             options={BOARD_OPTIONS}
           />
         </div> */}
-        
+
         {/* Search Section */}
-        <div className="search-section" style={{ 
-          display: 'flex', 
+        <div className="search-section" style={{
+          display: 'flex',
           flexDirection: 'column',
-          alignItems: 'flex-start', 
+          alignItems: 'flex-start',
           gap: '4px',
           flexShrink: 0,
           minWidth: 'fit-content'
@@ -643,8 +695,8 @@ const SubjectsPage: React.FC = () => {
               allowClear
               placeholder="Search subjects... (min 3 characters)"
               prefix={<SearchOutlined />}
-              style={{ 
-                minWidth: 300, 
+              style={{
+                minWidth: 300,
                 maxWidth: 400,
                 borderColor: searchText.length > 0 && searchText.length < 3 ? '#ff4d4f' : undefined
               }}
@@ -665,9 +717,9 @@ const SubjectsPage: React.FC = () => {
             </Button>
           </div>
           {searchText.length > 0 && searchText.length < 3 && (
-            <div style={{ 
-              color: '#ff4d4f', 
-              fontSize: '12px', 
+            <div style={{
+              color: '#ff4d4f',
+              fontSize: '12px',
               marginTop: '2px',
               marginLeft: '4px'
             }}>

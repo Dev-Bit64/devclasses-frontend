@@ -3,7 +3,7 @@
 import React from 'react';
 import { Menu } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import logo from '../../../assets/devclasses-logo.svg';
+import logo from '../../../assets/white2.svg';
 
 interface AppSidebarProps {
     collapsed: boolean;

@@ -6,7 +6,7 @@ import { Button, Table, Modal, Form, Input, Row, Col, Space, Popconfirm, Tooltip
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, ImportOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { getQuestionsAction, addQuestionAction, updateQuestionAction, deleteQuestionAction } from '../../redux/action/questionAction';
-import {  getSubjectsForDDAction, getchaptersBySubjectIdAction } from '../../redux/action/subjectAction';
+import { getSubjectsForDDAction, getchaptersBySubjectIdAction } from '../../redux/action/subjectAction';
 import { RootState, AppDispatch } from '../../redux/store';
 import { AddQuestionPayload, UpdateQuestionPayload } from '../../interfaces/interfaces';
 import ImportModal from '../../components/ImportModal';
@@ -35,10 +35,10 @@ const QuestionsPage: React.FC = () => {
   const { questionLists, isLoading } = useSelector((state: RootState) => state.questions);
   const { subjectDropdownList, chapterLists } = useSelector((state: RootState) => state.subject);
 
-  
+
   const questions = Array.isArray(questionLists?.questions) ? questionLists.questions : [];
 
-  
+
 
   const total = questionLists?.totalRecords || 0;
 
@@ -149,7 +149,7 @@ const QuestionsPage: React.FC = () => {
     }
   };
 
- 
+
 
   /**
    * Handle Subject filter change (for filter dropdown)
@@ -728,7 +728,7 @@ const QuestionsPage: React.FC = () => {
       width: 100,
       render: (_: any, record: any) => (
         <Space>
-          <Button style={{marginRight: '10px'}} icon={<EditOutlined />} onClick={() => handleEdit(record)} size="small" />
+          <Button style={{ marginRight: '10px' }} icon={<EditOutlined />} onClick={() => handleEdit(record)} size="small" />
           <Popconfirm
             title="Delete this question?"
             description="This action cannot be undone."
@@ -837,6 +837,17 @@ const QuestionsPage: React.FC = () => {
               size="middle"
             />
           </div>
+
+          {/* Common Clear Button - Appears when any filter is selected */}
+          {(filterSubject || filterChapter) && (
+            <Button
+              size="middle"
+              onClick={() => handleFilterSubjectChange('')}
+              style={{ height: '32px' }}
+            >
+              Clear Filters
+            </Button>
+          )}
         </div>
 
         {/* Search Section - Responsive search input and button */}

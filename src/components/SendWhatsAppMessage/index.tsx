@@ -2,9 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Form, Input, Button, message } from 'antd';
 import { WhatsAppOutlined } from '@ant-design/icons';
-import { useDispatch } from 'react-redux';
-import { AppDispatch } from '../../redux/store';
-import { sendWhatsAppMessageAction } from '../../redux/action/authAction';
+// import { useDispatch } from 'react-redux';
+// import { AppDispatch } from '../../redux/store';
+// import { sendWhatsAppMessageAction } from '../../redux/action/authAction';
 import './index.scss';
 
 const { TextArea } = Input;
@@ -23,7 +23,7 @@ const SendWhatsAppMessage: React.FC<SendWhatsAppMessageProps> = ({
     phoneNumber = '',
 }) => {
     const [form] = Form.useForm();
-    const dispatch = useDispatch<AppDispatch>();
+    // const dispatch = useDispatch<AppDispatch>();
     const [loading, setLoading] = useState(false);
 
     // Set initial values when modal opens
@@ -44,14 +44,22 @@ const SendWhatsAppMessage: React.FC<SendWhatsAppMessageProps> = ({
             const values = await form.validateFields();
             setLoading(true);
 
-            const payload = {
-                phoneNumber: values.phoneNumber,
-                message: values.message,
-            };
+            // const payload = {
+            //     phoneNumber: values.phoneNumber,
+            //     message: values.message,
+            // };
 
-            await dispatch(sendWhatsAppMessageAction(payload)).unwrap();
 
-            message.success('WhatsApp message sent successfully!');
+            // await dispatch(sendWhatsAppMessageAction(payload)).unwrap();
+
+            // message.success('WhatsApp message sent successfully!');
+
+            const waLink = `https://wa.me/${phoneNumber}?text=${values.message}`;
+
+            // Open WhatsApp
+            window.open(waLink, "_blank");
+
+            message.success("Opening WhatsApp...");
             handleClose();
         } catch (error: any) {
             console.error('Error sending WhatsApp message:', error);
