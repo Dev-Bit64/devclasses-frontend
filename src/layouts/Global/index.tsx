@@ -27,7 +27,7 @@ const getSidebarMenuItems = () => {
       { key: '/dashboard', icon: <DashboardOutlined />, label: 'Dashboard' },
       { key: '/questions', icon: <FileTextOutlined />, label: 'Questions' },
       { key: '/subjects', icon: <FileTextOutlined />, label: 'Subjects' },
-      { key: '/users', icon: <TrophyOutlined />, label: 'User' },
+      { key: '/users', icon: <TrophyOutlined />, label: 'Users' },
       // { key: '/uploadables', icon: <FileTextOutlined />, label: 'Uploadables' },
     ];
   }

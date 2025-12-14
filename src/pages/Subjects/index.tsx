@@ -205,7 +205,7 @@ const SubjectsPage: React.FC = () => {
    * Updates filter state and refreshes data with new filters
    * @param filters - Object containing filter values from table columns
    */
-  const handleTableFilterChange = (pagination: any, filters: any, sorter: any) => {
+  const handleTableFilterChange = (_pagination: any, filters: any, _sorter: any) => {
     // Extract board and standard filter values from table filters
     const boardFilter = filters.board ? filters.board[0] : undefined;
     const standardFilter = filters.standard ? filters.standard[0] : undefined;

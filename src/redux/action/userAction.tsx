@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { deleteApi, getApi, postApi } from "../apis";
+import { deleteApi, getApi, patchApi, postApi } from "../apis";
 import { APIEndpoints } from "../../constants/constants";
 import { GetUserResultsPayload, GetUsersPayload } from "../../interfaces/interfaces";
+import { message } from "antd";
 
 export const getUserProfileAction = createAsyncThunk(
     "GetUserProfile",
@@ -39,7 +40,7 @@ export const deleteUserAction = createAsyncThunk(
             const ids = Array.isArray(userIds) ? userIds : [userIds];
 
             // Send DELETE request with body
-            const response = await deleteApi(APIEndpoints.DeleteUser,  { userIds: ids } );
+            const response = await deleteApi(APIEndpoints.DeleteUser, { userIds: ids });
 
             // Check if deletion was successful
             if (response?.data?.statusCode === 200) {
@@ -107,9 +108,10 @@ export const updateUserProfileAction = createAsyncThunk(
     "UpdateUserProfile",
     async (payload: any, { rejectWithValue }) => {
         try {
-            const response = await postApi(APIEndpoints.GetUserResults, payload);
+            const response = await patchApi(APIEndpoints.UpdateUserProfile, payload);
             if (response?.data?.statusCode === 200) {
                 {
+                    message.success(response?.data?.message);
                     return response.data;
                 }
             } else {

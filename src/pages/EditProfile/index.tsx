@@ -25,7 +25,7 @@ import { Link } from 'react-router-dom';
 
 import './index.scss';
 // import { userData } from '../../constants/constants';
-import { getUserProfileAction } from '../../redux/action/userAction';
+import { getUserProfileAction, updateUserProfileAction } from '../../redux/action/userAction';
 import { AppDispatch, RootState } from '../../redux/store';
 
 const { Title } = Typography;
@@ -65,10 +65,29 @@ const EditProfile: React.FC = () => {
   const onFinish = async (values: any) => {
     console.log('Success:', values);
 
-    // Simulate API call
-    setTimeout(() => {
-      message.success('Profile updated successfully!');
-    }, 1500);
+    const userInfo = getUserInfo();
+
+
+    if (userInfo?.id) {
+      try {
+        const payload = {
+          userId: userInfo.id,
+          firstName: values.firstName,
+          lastName: values.lastName,
+          email: values.email,
+        }
+        dispatch(updateUserProfileAction(payload));
+      } catch (error: any) {
+        console.log(error);
+        message.error(error?.message ? error?.message : 'Failed to update profile. Please check the form.');
+      }
+
+    }
+
+    // // Simulate API call
+    // setTimeout(() => {
+    //   message.success('Profile updated successfully!');
+    // }, 1500);
   };
 
   const onFinishFailed = (errorInfo: any) => {

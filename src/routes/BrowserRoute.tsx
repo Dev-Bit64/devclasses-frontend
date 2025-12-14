@@ -14,6 +14,7 @@ import UsersPage from "../pages/Users";
 import QuestionsPage from "../pages/Questions";
 import SubjectsPage from "../pages/Subjects";
 import ResetPasswordPage from "../pages/ResetPassword";
+import Render from "../pages/Render";
 
 const router = createBrowserRouter([
     {
@@ -125,6 +126,10 @@ const router = createBrowserRouter([
     {
         path: "/reset-password",
         element: <ResetPasswordPage />,
+    },
+    {
+        path: "/render-test",
+        element: <Render />,
     },
 
     {
