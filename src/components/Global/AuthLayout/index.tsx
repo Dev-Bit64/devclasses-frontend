@@ -8,7 +8,7 @@ export const AuthLayout = () => {
     // const dispatch = useDispatch<AppDispatch>();
     const navigate = useNavigate();
 
-    const path = window.location.pathname;
+    // const path = window.location.pathname;
 
     // // To change the title.
     const { pathname } = useLocation();
