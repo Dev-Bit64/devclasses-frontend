@@ -137,3 +137,27 @@ export const exportExamResultToPDFAction = createAsyncThunk(
     }
 )
 
+/**
+ * Analyze Student Performance Action
+ * Fetches AI or rule-based analysis and insights for a given student
+ */
+export const analyzeStudentPerformanceAction = createAsyncThunk(
+    'AnalyzeStudentPerformance',
+    async (payload: { userId: string }, { rejectWithValue }) => {
+        try {
+            const response = await postApi(APIEndpoints.AnalyzeStudentPerformance, payload);
+            if (response?.data?.statusCode === 200) {
+                return response.data;
+            } else {
+                throw Error(response?.data?.message);
+            }
+        } catch (error: any) {
+            if (!error.response) {
+                throw error;
+            }
+            return rejectWithValue(error?.response?.data);
+        }
+    }
+)
+
+

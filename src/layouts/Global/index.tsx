@@ -12,6 +12,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import './index.scss';
 import AppHeader from '../../components/Global/AppHeader';
 import AppSidebar from '../../components/Global/AppSidebar';
+import SEO from '../../components/SEO/SEO';
 
 const { Content } = Layout;
 
@@ -46,6 +47,19 @@ const GlobalLayout: React.FC = () => {
   const location = useLocation();
 
   const sidebarMenuItems = getSidebarMenuItems();
+
+  const getPageTitle = (path: string) => {
+    if (path.startsWith('/dashboard')) return 'Dashboard | Dev Classes';
+    if (path.startsWith('/questions')) return 'Questions | Dev Classes';
+    if (path.startsWith('/subjects')) return 'Subjects | Dev Classes';
+    if (path.startsWith('/users')) return 'Users | Dev Classes';
+    if (path.startsWith('/quiz-details')) return 'Test Details | Dev Classes';
+    if (path.startsWith('/quiz')) return 'Test | Dev Classes';
+    if (path.startsWith('/results')) return 'Results | Dev Classes';
+    if (path.startsWith('/your-result')) return 'Your Result | Dev Classes';
+    if (path.startsWith('/profile')) return 'Profile | Dev Classes';
+    return 'Dev Classes';
+  };
 
   // Check if current route should hide sidebar
   const shouldHideSidebar = ['/quiz', '/your-result'].includes(location.pathname);
@@ -97,6 +111,7 @@ const GlobalLayout: React.FC = () => {
   if (shouldHideSidebar) {
     return (
       <div className="quiz-layout" style={{ width: '100%', minHeight: '100vh' }}>
+        <SEO title={getPageTitle(location.pathname)} />
         <Content className="content-area">
           <Outlet />
         </Content>
@@ -114,6 +129,7 @@ const GlobalLayout: React.FC = () => {
 
   return (
     <div className="dashboard-layout">
+      <SEO title={getPageTitle(location.pathname)} />
       {/* Desktop/Tablet Sidebar */}
       {!isMobile && (
         <AppSidebar

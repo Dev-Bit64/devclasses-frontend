@@ -118,6 +118,9 @@
       
       &.ant-table-row-selected > td {
         background: #f4eefd !important;
+      }
+      
+      &.ant-table-row-selected > td:first-child {
         border-left: 3px solid #722ed1;
       }
     }

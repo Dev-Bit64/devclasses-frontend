@@ -64,6 +64,7 @@ export enum APIEndpoints {
   ForgotPasswordMail = "/auth/sendForgotPassEmail",
   ResetPassword = "/auth/resetPassword",
   SendWhatsAppMessage = "/auth/sendWhatsappAlert",
+  SubmitInquiry = "/auth/inquiry",
 
   // QUIZ_LIST = "/quiz/list",
   // QUIZ_DETAILS = "/quiz/details",
@@ -110,5 +111,5 @@ export enum APIEndpoints {
   GetQuestion = "/exam/getQuestion",
   GenerateExamResult = "/exam/generateExamResult",
   ExportResultToPDF = "/exam/exportResultToPDF",
-
+  AnalyzeStudentPerformance = "/exam/analyzeStudentPerformance",
 }

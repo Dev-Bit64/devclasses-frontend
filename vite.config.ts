@@ -14,4 +14,16 @@ export default defineConfig({
     })
   ],
   assetsInclude: ['**/*.PNG', '**/*.png'],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          antd: ['antd', '@ant-design/icons'],
+          axios: ['axios'],
+          redux: ['@reduxjs/toolkit', 'react-redux'],
+        }
+      }
+    }
+  }
 })

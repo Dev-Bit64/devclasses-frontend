@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Tooltip, Input, Card, message, Popconfirm, Space } from 'antd';
+import { Table, Button, Tooltip, Input, Card, message, Popconfirm, Space, Skeleton } from 'antd';
 import { WhatsAppOutlined, EyeOutlined, SearchOutlined, DeleteOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useDispatch, useSelector } from 'react-redux';
@@ -229,255 +229,274 @@ const UsersPage: React.FC = () => {
     }
   };
 
-  const columns: ColumnsType<User> = [
-    {
-      title: 'No.',
-      dataIndex: 'key',
-      key: 'no',
-      align: 'center',
-      width: 60,
-      render: (_: any, __: User, index: number) => index + 1,
-      responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
-    },
-    {
-      title: 'Name',
-      dataIndex: 'name',
-      key: 'name',
-      align: 'left',
-      render: (text: string, _record: User) => (
-        <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {text}
-        </span>
-      ),
-      responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
-    },
-    {
-      title: 'Email',
-      dataIndex: 'email',
-      key: 'email',
-      align: 'left',
-      responsive: ['md', 'lg', 'xl'],
-    },
-    {
-      // Standard column with Ant Design column filter
-      title: 'Standard',
-      dataIndex: 'standard',
-      key: 'standard',
-      align: 'center',
-      width: 120,
-      responsive: ['sm', 'md', 'lg', 'xl'],
-      // Ant Design column filter configuration
-      filters: standardFilterOptions,
-      onFilter: (value: any, record: User) => record.standard === value,
-      filteredValue: standardFilters,
-      // Filter dropdown props with reset and close functionality
-      filterDropdownProps: {
-        onOpenChange: (open: boolean) => {
-          // Close dropdown after filter is applied
-          if (!open && standardFilters.length > 0) {
-            // Dropdown is closing, filter has been applied
-          }
-        },
+    const columns: ColumnsType<User> = [
+      {
+        title: 'No.',
+        dataIndex: 'key',
+        key: 'no',
+        align: 'center',
+        width: 60,
+        render: (_: any, __: User, index: number) => isLoading ? <Skeleton.Input active size="small" style={{ width: 30, minWidth: 30 }} /> : index + 1,
+        responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
       },
-      // Custom filter dropdown render with reset button
-      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters, close }: any) => (
-        <div style={{ padding: 8 }}>
-          <div style={{ marginBottom: 8 }}>
-            {standardFilterOptions.map((option) => (
-              <div key={option.value} style={{ marginBottom: 4 }}>
-                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={selectedKeys.includes(option.value)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedKeys([option.value]);
-                      } else {
-                        setSelectedKeys([]);
-                      }
-                    }}
-                    style={{ marginRight: 8 }}
-                  />
-                  {option.text}
-                </label>
-              </div>
-            ))}
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Button
-              type="primary"
-              size="small"
-              onClick={() => {
-                confirm();
-                // Close the filter dropdown after applying filter
-                close();
-              }}
-              style={{ flex: 1 }}
-            >
-              OK
-            </Button>
-            <Button
-              size="small"
-              onClick={() => {
-                if (clearFilters) {
-                  clearFilters();
-                }
-                setStandardFilters([]);
-                setPage(1);
-                // Fetch users with cleared filter, reset to page 1
-                fetchUsers(searchInput.trim(), '', boardFilters[0] || '', 1);
-                // Close the filter dropdown after reset
-                close();
-              }}
-              style={{ flex: 1 }}
-            >
-              Reset
-            </Button>
-          </div>
-        </div>
-      ),
-    },
-    {
-      // Board column with Ant Design column filter
-      title: 'Board',
-      dataIndex: 'board',
-      key: 'board',
-      align: 'center',
-      width: 120,
-      responsive: ['sm', 'md', 'lg', 'xl'],
-      // Ant Design column filter configuration
-      filters: boardFilterOptions,
-      onFilter: (value: any, record: User) => record.board === value,
-      filteredValue: boardFilters,
-      // Filter dropdown props with reset and close functionality
-      filterDropdownProps: {
-        onOpenChange: (open: boolean) => {
-          // Close dropdown after filter is applied
-          if (!open && boardFilters.length > 0) {
-            // Dropdown is closing, filter has been applied
-          }
-        },
+      {
+        title: 'Name',
+        dataIndex: 'name',
+        key: 'name',
+        align: 'left',
+        render: (text: string, _record: User) => isLoading ? <Skeleton.Input active size="small" style={{ width: 150, minWidth: 150 }} /> : (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {text}
+          </span>
+        ),
+        responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
       },
-      // Custom filter dropdown render with reset button
-      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters, close }: any) => (
-        <div style={{ padding: 8 }}>
-          <div style={{ marginBottom: 8 }}>
-            {boardFilterOptions.map((option) => (
-              <div key={option.value} style={{ marginBottom: 4 }}>
-                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={selectedKeys.includes(option.value)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedKeys([option.value]);
-                      } else {
-                        setSelectedKeys([]);
-                      }
-                    }}
-                    style={{ marginRight: 8 }}
-                  />
-                  {option.text}
-                </label>
-              </div>
-            ))}
+      {
+        title: 'Email',
+        dataIndex: 'email',
+        key: 'email',
+        align: 'left',
+        render: (text: string) => isLoading ? <Skeleton.Input active size="small" style={{ width: 180, minWidth: 180 }} /> : text,
+        responsive: ['md', 'lg', 'xl'],
+      },
+      {
+        // Standard column with Ant Design column filter
+        title: 'Standard',
+        dataIndex: 'standard',
+        key: 'standard',
+        align: 'center',
+        width: 120,
+        responsive: ['sm', 'md', 'lg', 'xl'],
+        // Ant Design column filter configuration
+        filters: standardFilterOptions,
+        onFilter: (value: any, record: User) => record.standard === value,
+        filteredValue: standardFilters,
+        // Filter dropdown props with reset and close functionality
+        filterDropdownProps: {
+          onOpenChange: (open: boolean) => {
+            // Close dropdown after filter is applied
+            if (!open && standardFilters.length > 0) {
+              // Dropdown is closing, filter has been applied
+            }
+          },
+        },
+        // Custom filter dropdown render with reset button
+        filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters, close }: any) => (
+          <div style={{ padding: 8 }}>
+            <div style={{ marginBottom: 8 }}>
+              {standardFilterOptions.map((option) => (
+                <div key={option.value} style={{ marginBottom: 4 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedKeys.includes(option.value)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedKeys([option.value]);
+                        } else {
+                          setSelectedKeys([]);
+                        }
+                      }}
+                      style={{ marginRight: 8 }}
+                    />
+                    {option.text}
+                  </label>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button
+                type="primary"
+                size="small"
+                onClick={() => {
+                  confirm();
+                  // Close the filter dropdown after applying filter
+                  close();
+                }}
+                style={{ flex: 1 }}
+              >
+                OK
+              </Button>
+              <Button
+                size="small"
+                onClick={() => {
+                  if (clearFilters) {
+                    clearFilters();
+                  }
+                  setStandardFilters([]);
+                  setPage(1);
+                  // Fetch users with cleared filter, reset to page 1
+                  fetchUsers(searchInput.trim(), '', boardFilters[0] || '', 1);
+                  // Close the filter dropdown after reset
+                  close();
+                }}
+                style={{ flex: 1 }}
+              >
+                Reset
+              </Button>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Button
-              type="primary"
-              size="small"
-              onClick={() => {
-                confirm();
-                // Close the filter dropdown after applying filter
-                close();
-              }}
-              style={{ flex: 1 }}
-            >
-              OK
-            </Button>
-            <Button
-              size="small"
-              onClick={() => {
-                if (clearFilters) {
-                  clearFilters();
-                }
-                setBoardFilters([]);
-                setPage(1);
-                // Fetch users with cleared filter, reset to page 1
-                fetchUsers(searchInput.trim(), standardFilters[0] || '', '', 1);
-                // Close the filter dropdown after reset
-                close();
-              }}
-              style={{ flex: 1 }}
-            >
-              Reset
-            </Button>
+        ),
+        render: (text: string) => isLoading ? <Skeleton.Input active size="small" style={{ width: 80, minWidth: 80 }} /> : text,
+      },
+      {
+        // Board column with Ant Design column filter
+        title: 'Board',
+        dataIndex: 'board',
+        key: 'board',
+        align: 'center',
+        width: 120,
+        responsive: ['sm', 'md', 'lg', 'xl'],
+        // Ant Design column filter configuration
+        filters: boardFilterOptions,
+        onFilter: (value: any, record: User) => record.board === value,
+        filteredValue: boardFilters,
+        // Filter dropdown props with reset and close functionality
+        filterDropdownProps: {
+          onOpenChange: (open: boolean) => {
+            // Close dropdown after filter is applied
+            if (!open && boardFilters.length > 0) {
+              // Dropdown is closing, filter has been applied
+            }
+          },
+        },
+        // Custom filter dropdown render with reset button
+        filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters, close }: any) => (
+          <div style={{ padding: 8 }}>
+            <div style={{ marginBottom: 8 }}>
+              {boardFilterOptions.map((option) => (
+                <div key={option.value} style={{ marginBottom: 4 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedKeys.includes(option.value)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedKeys([option.value]);
+                        } else {
+                          setSelectedKeys([]);
+                        }
+                      }}
+                      style={{ marginRight: 8 }}
+                    />
+                    {option.text}
+                  </label>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button
+                type="primary"
+                size="small"
+                onClick={() => {
+                  confirm();
+                  // Close the filter dropdown after applying filter
+                  close();
+                }}
+                style={{ flex: 1 }}
+              >
+                OK
+              </Button>
+              <Button
+                size="small"
+                onClick={() => {
+                  if (clearFilters) {
+                    clearFilters();
+                  }
+                  setBoardFilters([]);
+                  setPage(1);
+                  // Fetch users with cleared filter, reset to page 1
+                  fetchUsers(searchInput.trim(), standardFilters[0] || '', '', 1);
+                  // Close the filter dropdown after reset
+                  close();
+                }}
+                style={{ flex: 1 }}
+              >
+                Reset
+              </Button>
+            </div>
           </div>
-        </div>
-      ),
-    },
-    {
-      title: 'Test Given',
-      dataIndex: 'testsGiven',
-      key: 'testsGiven',
-      align: 'center',
-      width: 120,
-      responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
-    },
-    {
-      title: 'Results',
-      key: 'results',
-      align: 'center',
-      width: 140,
-      render: (_: any, record: User) => (
-        <Button
-          type="primary"
-          icon={<EyeOutlined />}
-          size="small"
-          style={{ borderRadius: 6 }}
-          onClick={() => handleViewResults(record)}
-        >
-          View
-        </Button>
-      ),
-      responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
-    },
-    {
-      title: 'Action',
-      key: 'action',
-      align: 'center',
-      width: 120,
-      render: (_: any, record: User) => (
-        <Space size="small">
-          {/* WhatsApp Alert Button */}
-          <Tooltip title="Send Whatsapp alert">
-            <Button
-              type="text"
-              icon={<WhatsAppOutlined style={{ color: '#25D366', fontSize: 18 }} />}
-              onClick={() => handleOpenWhatsAppModal(record)}
-            />
-          </Tooltip>
-          {/* Delete User Button */}
-          <Popconfirm
-            title="Delete User"
-            description="Are you sure you want to delete this user?"
-            onConfirm={() => handleDeleteUser(record.key)}
-            okText="Yes"
-            cancelText="No"
+        ),
+        render: (text: string) => isLoading ? <Skeleton.Input active size="small" style={{ width: 80, minWidth: 80 }} /> : text,
+      },
+      {
+        title: 'Test Given',
+        dataIndex: 'testsGiven',
+        key: 'testsGiven',
+        align: 'center',
+        width: 120,
+        render: (text: string) => isLoading ? <Skeleton.Input active size="small" style={{ width: 60, minWidth: 60 }} /> : text,
+        responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
+      },
+      {
+        title: 'Results',
+        key: 'results',
+        align: 'center',
+        width: 140,
+        render: (_: any, record: User) => isLoading ? <Skeleton.Input active size="small" style={{ width: 80, minWidth: 80 }} /> : (
+          <Button
+            type="primary"
+            icon={<EyeOutlined />}
+            size="small"
+            style={{ borderRadius: 6 }}
+            onClick={() => handleViewResults(record)}
           >
-            <Tooltip title="Delete user">
+            View
+          </Button>
+        ),
+        responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
+      },
+      {
+        title: 'Action',
+        key: 'action',
+        align: 'center',
+        width: 120,
+        render: (_: any, record: User) => isLoading ? <Skeleton.Input active size="small" style={{ width: 80, minWidth: 80 }} /> : (
+          <Space size="small">
+            {/* WhatsApp Alert Button */}
+            <Tooltip title="Send Whatsapp alert">
               <Button
                 type="text"
-                icon={<DeleteOutlined style={{ color: '#ff4d4f', fontSize: 18 }} />}
-                danger
+                icon={<WhatsAppOutlined style={{ color: '#25D366', fontSize: 18 }} />}
+                onClick={() => handleOpenWhatsAppModal(record)}
               />
             </Tooltip>
-          </Popconfirm>
-        </Space>
-      ),
-      responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
-    },
-  ];
+            {/* Delete User Button */}
+            <Popconfirm
+              title="Delete User"
+              description="Are you sure you want to delete this user?"
+              onConfirm={() => handleDeleteUser(record.key)}
+              okText="Yes"
+              cancelText="No"
+            >
+              <Tooltip title="Delete user">
+                <Button
+                  type="text"
+                  icon={<DeleteOutlined style={{ color: '#ff4d4f', fontSize: 18 }} />}
+                  danger
+                />
+              </Tooltip>
+            </Popconfirm>
+          </Space>
+        ),
+        responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
+      },
+    ];
+  
+    const tableData = isLoading 
+        ? Array.from({ length: 5 }).map((_, index) => ({
+            key: `skeleton-${index}`,
+            id: '',
+            name: '',
+            email: '',
+            testsGiven: 0,
+            avatar: '',
+            standard: '',
+            board: '',
+            firstName: '',
+            lastName: '',
+        } as User))
+        : normalizedUserList;
 
   return (
     <div className="users-page-container animate-fade-in">
@@ -558,8 +577,7 @@ const UsersPage: React.FC = () => {
       <div className="users-table-wrapper">
         <Table
           columns={columns}
-          dataSource={normalizedUserList}
-          loading={isLoading}
+          dataSource={tableData}
           pagination={{
             current: page,
             pageSize: DEFAULT_PAGE_SIZE,

@@ -197,6 +197,12 @@ export interface SubmitExamPayload {
 export interface DetailedQuestionResult {
     questionId: string;
     question: string;
+    options?: { // Option text values (A, B, C, D) for review page
+        A?: string;
+        B?: string;
+        C?: string;
+        D?: string;
+    } | null;
     selectedOption: string | null;
     correctOption: string;
     isCorrect: boolean;

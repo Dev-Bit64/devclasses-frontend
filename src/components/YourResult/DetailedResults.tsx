@@ -142,6 +142,73 @@ const DetailedResults: React.FC<DetailedResultsProps> = ({ detailedResults }) =>
                 </Paragraph>
               </div>
 
+              {/* Options List Review - Display all options text with correctness markers if available */}
+              {result.options && (
+                <div style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {Object.entries(result.options).map(([key, text]) => {
+                    if (!text) return null;
+                    const optionKeyUpper = key.toUpperCase();
+                    const isSelected = result.selectedOption === optionKeyUpper;
+                    const isCorrect = result.correctOption === optionKeyUpper;
+                    
+                    // Style options dynamically to highlight correct and selected incorrect answers
+                    let optionBg = '#ffffff';
+                    let optionBorder = '1px solid #f0f0f0';
+                    let optionBadgeColor = '#595959';
+                    let optionBadgeBg = '#f5f5f5';
+                    let prefixText = '';
+                    
+                    if (isCorrect) {
+                      optionBg = '#f6ffed';
+                      optionBorder = '1px solid #b7eb8f';
+                      optionBadgeColor = '#ffffff';
+                      optionBadgeBg = '#52c41a';
+                      prefixText = '✓ ';
+                    } else if (isSelected) {
+                      optionBg = '#fff1f0';
+                      optionBorder = '1px solid #ffa39e';
+                      optionBadgeColor = '#ffffff';
+                      optionBadgeBg = '#ff4d4f';
+                      prefixText = '✗ ';
+                    }
+                    
+                    return (
+                      <div 
+                        key={key}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          padding: '10px 14px',
+                          borderRadius: '8px',
+                          background: optionBg,
+                          border: optionBorder,
+                          transition: 'all 0.2s ease',
+                        }}
+                      >
+                        <div style={{
+                          width: '24px',
+                          height: '24px',
+                          borderRadius: '50%',
+                          background: optionBadgeBg,
+                          color: optionBadgeColor,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '12px',
+                          fontWeight: 'bold',
+                        }}>
+                          {optionKeyUpper}
+                        </div>
+                        <span style={{ fontSize: '14px', color: '#262626', fontWeight: isSelected || isCorrect ? 500 : 400 }}>
+                          {prefixText}{text}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* Answer Information */}
               <Row gutter={12}>
                 <Col xs={24} sm={result.isCorrect ? 24 : 12}>

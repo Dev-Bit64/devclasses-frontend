@@ -267,7 +267,7 @@ const TestPage: React.FC = () => {
               value={Date.now() + timeLeft}
               format="mm:ss"
               valueStyle={{
-                color: timeLeft < 5 * 60 * 1000 ? '#ff4d4f' : '#3E69E7',
+                color: timeLeft < 1 * 60 * 1000 ? '#ff4d4f' : '#3E69E7',
                 fontSize: '20px',
                 fontWeight: 'bold'
               }}
@@ -300,14 +300,7 @@ const TestPage: React.FC = () => {
 
             <div className="options-container">
               <Radio.Group
-                value={(() => {
-                  // Reverse transform for display: "OPTIONA" -> "A"
-                  const storedValue = selectedAnswers[questionData.id];
-                  if (storedValue && storedValue.startsWith('OPTION')) {
-                    return storedValue.replace('OPTION', '');
-                  }
-                  return storedValue;
-                })()}
+                value={selectedAnswers[questionData.id] || ''} // Match direct standardized OPTION[A-D] format
                 onChange={(e) => handleAnswerChange(e.target.value)}
                 className="quiz-radio-group"
               >
@@ -316,11 +309,13 @@ const TestPage: React.FC = () => {
                     // Handle both formats: "A" or "OPTIONA"
                     // Extract letter for display: "OPTIONA" -> "A", or "A" -> "A"
                     const optionLetter = key.startsWith('OPTION') ? key.replace('OPTION', '') : key;
+                    // Normalize option value to standard OPTION[A-D] format for consistent selection matching
+                    const optionValue = key.toUpperCase().startsWith('OPTION') ? key.toUpperCase() : `OPTION${key.toUpperCase()}`;
 
                     return (
                       <Radio
                         key={key}
-                        value={key}
+                        value={optionValue} // Store standardized option value
                         className="quiz-radio-option"
                       >
                         <span className="option-label">

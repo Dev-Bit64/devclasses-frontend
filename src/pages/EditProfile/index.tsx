@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   Form,
@@ -35,6 +35,14 @@ const EditProfile: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { isLoading, data: userProfileData } = useSelector((state: RootState) => state.user);
   const [form] = Form.useForm();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Reset isSubmitting when loading finishes
+  useEffect(() => {
+    if (!isLoading) {
+      setIsSubmitting(false);
+    }
+  }, [isLoading]);
 
   // Get user ID from localStorage
   const getUserInfo = () => {
@@ -64,6 +72,7 @@ const EditProfile: React.FC = () => {
 
   const onFinish = async (values: any) => {
     console.log('Success:', values);
+    setIsSubmitting(true);
 
     const userInfo = getUserInfo();
 
@@ -170,7 +179,7 @@ const EditProfile: React.FC = () => {
   );
 
   // Show loading skeleton when data is being fetched
-  if (isLoading && !userProfileData?.data) {
+  if (isLoading && !isSubmitting) {
     return <LoadingSkeleton />;
   }
 
@@ -320,12 +329,12 @@ const EditProfile: React.FC = () => {
                 <Button
                   type="primary"
                   htmlType="submit"
-                  loading={isLoading}
+                  loading={isLoading && isSubmitting}
                   icon={<SaveOutlined />}
                   className="save-button hover-scale"
                   size="large"
                 >
-                  {isLoading ? 'Saving...' : 'Save Changes'}
+                  {(isLoading && isSubmitting) ? 'Saving...' : 'Save Changes'}
                 </Button>
               </Form.Item>
             </Form>

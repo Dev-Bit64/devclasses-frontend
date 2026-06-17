@@ -34,6 +34,9 @@ import { useIsMobile } from '../../hooks/use-mobile';
 import professorIcon from '../../assets/professor-icon2.svg';
 import logo from '../../assets/white2.svg';
 import logo2 from '../../assets/website.svg';
+import SEO from '../../components/SEO/SEO';
+import { postApi } from '../../redux/apis';
+import { APIEndpoints } from '../../constants/constants';
 
 const LoginForm = React.lazy(() => import('../../components/Login/LoginLayoutBody'));
 const RegistrationForm = React.lazy(() => import('../../components/Login/RegisterLayoutBody'));
@@ -51,6 +54,7 @@ const LandingPage = () => {
   const isMobile = useIsMobile();
   const [scrollPosition, setScrollPosition] = useState(0);
   const [imageError, setImageError] = useState(false);
+  const [submittingInquiry, setSubmittingInquiry] = useState(false);
 
   const showDrawer = () => {
     setVisible(true);
@@ -70,9 +74,33 @@ const LandingPage = () => {
     setModalType('login');
   };
 
-  const onFinish = () => {
-    message.success('Thank you for your interest! We will contact you soon.');
-    form.resetFields();
+  // Submit inquiry details to the backend API and show feedback to the user
+  const onFinish = async (values: any) => {
+    setSubmittingInquiry(true);
+    try {
+      // Map frontend fields (e.g. phone) to the backend expected structure (phoneNumber)
+      const payload = {
+        name: values.name,
+        email: values.email,
+        phoneNumber: values.phone,
+        message: values.message,
+      };
+
+      const response = await postApi(APIEndpoints.SubmitInquiry, payload);
+
+      if (response?.data?.statusCode === 200) {
+        message.success('Thank you for your interest! We will contact you soon.');
+        form.resetFields();
+      } else {
+        message.error(response?.data?.message || 'Failed to submit inquiry. Please try again.');
+      }
+    } catch (error: any) {
+      console.error('Error submitting inquiry form:', error);
+      const errMsg = error?.response?.data?.message || 'An error occurred. Please try again later.';
+      message.error(errMsg);
+    } finally {
+      setSubmittingInquiry(false);
+    }
   };
 
   const handleImageError = () => {
@@ -130,11 +158,19 @@ const LandingPage = () => {
   const fallbackImageUrl = "https://img.freepik.com/free-vector/financial-data-analysis-accounting-banner_107791-11871.jpg?w=1380&t=st=1713880600~exp=1713881200~hmac=9b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7";
 
   return (
-    <Layout className="landing-page">
-      <Header
+    <>
+      <SEO 
+        title="Dev Classes - Your companion in learning Accounting" 
+        description="Master the art of Accounting with Dev Classes. We offer comprehensive online MCQ assessments, regular tests, and doubt clearing sessions for Commerce subjects." 
+        keywords="Commerce Classes, Accounting Education, MCQs, Online Assessment, Commerce Tuition, Accountancy Basics" 
+      />
+      <Layout className="landing-page">
+        <Header
         style={{
-          background: scrollPosition > 50 ? 'rgba(255, 255, 255, 0.95)' : 'transparent',
-          boxShadow: scrollPosition > 50 ? '0 2px 8px rgba(0, 0, 0, 0.15)' : 'none',
+          background: scrollPosition > 50 ? 'rgba(255, 255, 255, 0.85)' : 'transparent',
+          backdropFilter: scrollPosition > 50 ? 'blur(12px)' : 'none',
+          WebkitBackdropFilter: scrollPosition > 50 ? 'blur(12px)' : 'none',
+          boxShadow: scrollPosition > 50 ? '0 4px 20px rgba(0, 0, 0, 0.08)' : 'none',
           position: 'fixed',
           width: '100%',
           zIndex: 1000,
@@ -283,7 +319,7 @@ const LandingPage = () => {
                     className="floating"
                     style={{ maxWidth: '100%', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}
                     onError={handleImageError}
-                    loading="lazy"
+                    fetchPriority="high"
                   />
                 ) : (
                   <img
@@ -291,6 +327,7 @@ const LandingPage = () => {
                     src={fallbackImageUrl}
                     className="floating"
                     style={{ maxWidth: '100%', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}
+                    fetchPriority="high"
                   />
                 )}
               </Col>
@@ -381,6 +418,7 @@ const LandingPage = () => {
                   src={professorIcon}
                   alt="Teaching"
                   style={{ width: '100%', maxWidth: '500px', margin: '0 auto', display: 'block' }}
+                  loading="lazy"
                 />
               </Col>
               <Col xs={24} md={12}>
@@ -551,7 +589,7 @@ const LandingPage = () => {
                     </Form.Item>
 
                     <Form.Item>
-                      <Button type="primary" htmlType="submit" size="large" block className="primary-button">
+                      <Button type="primary" htmlType="submit" size="large" block className="primary-button" loading={submittingInquiry}>
                         Send Message
                       </Button>
                     </Form.Item>
@@ -667,6 +705,7 @@ const LandingPage = () => {
         </div>
       </Modal>
     </Layout>
+    </>
   );
 };
 

@@ -46,11 +46,11 @@ const UserSlice = createSlice({
         });
         builder.addCase(getUsersAction.fulfilled, (state, action) => {
             state.isLoading = false;
-            // Extract users array and pagination metadata from nested data structure
-            state.userLists = action?.payload?.data?.users || [];
-            state.totalUsers = action?.payload?.data?.totalUsers || 0;
-            state.currentPage = action?.payload?.data?.page || 1;
-            state.totalPages = action?.payload?.data?.totalPages || 1;
+            // Extract users array and pagination metadata from standardized API response
+            state.userLists = action?.payload?.data || [];
+            state.totalUsers = action?.payload?.totalRecords || 0;
+            state.currentPage = action?.payload?.page || 1;
+            state.totalPages = action?.payload?.totalPages || 1;
             state.message = action?.payload?.message;
             // toastText(action?.payload?.message, "success");
         });

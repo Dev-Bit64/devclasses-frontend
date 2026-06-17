@@ -1,14 +1,34 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import axios from "axios";
 import { handleLogout } from "../utils/auth";
-// import { useDispatch } from "react-redux";
+import { encryptData } from "../utils/cryptoHelper";
 
 const endPoint = import.meta.env.VITE_REACT_APP_API_ENDPOINT;
 
 // Create axios instance
 const axiosInstance = axios.create();
 
-const path = window.location.pathname;
+// Intercept outgoing requests to encrypt payload if conditions are met
+axiosInstance.interceptors.request.use(
+  async (config) => {
+    const contentType = config.headers?.["Content-Type"] || config.headers?.["content-type"];
+    const isMultipart = typeof contentType === "string" && contentType.includes("multipart/form-data");
+
+    if (config.data && !isMultipart && config.method !== "get" && config.method !== "GET") {
+      try {
+        const encrypted = await encryptData(config.data);
+        config.data = { payload: encrypted };
+        config.headers["x-payload-encrypted"] = "true";
+      } catch (err) {
+        console.error("Payload encryption failed:", err);
+      }
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
 // Add response interceptor to handle 401 unauthorized
 axiosInstance.interceptors.response.use(
@@ -16,11 +36,12 @@ axiosInstance.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (error.response?.status === 401) {
-      if (path !== "/") {
+    // Check both standard HTTP status and standardized API statusCode
+    if (error.response?.status === 401 || error.response?.data?.statusCode === 401) {
+      // Access path dynamically to avoid static freeze at page load
+      if (window.location.pathname !== "/") {
         handleLogout();
       }
-
     }
     return Promise.reject(error);
   }

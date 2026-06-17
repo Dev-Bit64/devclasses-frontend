@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Button, Table, Modal, Form, Input, Row, Col, Space, Popconfirm, Tooltip, message, Radio } from 'antd';
+import { Button, Table, Modal, Form, Input, Row, Col, Space, Popconfirm, Tooltip, message, Radio, Skeleton, Grid } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, ImportOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { getQuestionsAction, addQuestionAction, updateQuestionAction, deleteQuestionAction } from '../../redux/action/questionAction';
@@ -29,6 +29,7 @@ const STANDARD_OPTIONS = [
 const DEFAULT_PAGE_SIZE = 20;
 
 const QuestionsPage: React.FC = () => {
+  const screens = Grid.useBreakpoint(); // Ant Design hook for responsive screen sizing
   const dispatch = useDispatch<AppDispatch>();
 
   // Redux selectors for questions and subjects
@@ -517,6 +518,7 @@ const QuestionsPage: React.FC = () => {
         if (!rec) return false;
         return String(rec).toLowerCase() === String(value).toLowerCase();
       },
+      render: (val: any) => isLoading ? <Skeleton.Input active size="small" style={{ width: 80, minWidth: 80 }} /> : val,
     },
     {
       title: 'Standard',
@@ -525,6 +527,7 @@ const QuestionsPage: React.FC = () => {
       width: 100,
       responsive: ['md'] as Breakpoint[],
       render: (val: any, record: any) => {
+        if (isLoading) return <Skeleton.Input active size="small" style={{ width: 80, minWidth: 80 }} />;
         const std = record.standard ?? val;
         if (!std) return '';
         if (typeof std === 'string') return std;
@@ -589,6 +592,7 @@ const QuestionsPage: React.FC = () => {
       key: 'subject',
       width: 120,
       render: (val: any, record: any) => {
+        if (isLoading) return <Skeleton.Input active size="small" style={{ width: 100, minWidth: 100 }} />;
         const sub = record.subject ?? val;
         if (!sub) return '';
         if (typeof sub === 'string') return sub;
@@ -603,6 +607,7 @@ const QuestionsPage: React.FC = () => {
       width: 120,
       responsive: ['lg'] as Breakpoint[],
       render: (val: any, record: any) => {
+        if (isLoading) return <Skeleton.Input active size="small" style={{ width: 100, minWidth: 100 }} />;
         const ch = record.chapter ?? val;
         if (!ch) return '';
         if (typeof ch === 'string') return ch;
@@ -617,12 +622,11 @@ const QuestionsPage: React.FC = () => {
       ellipsis: {
         showTitle: false,
       },
-      render: (text: string) => (
+      render: (text: string) => isLoading ? <Skeleton.Input active size="small" block /> : (
         <Tooltip title={text}>
           <div style={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
             {text}
           </div>
-          {/* {text} */}
         </Tooltip>
       ),
     },
@@ -635,12 +639,11 @@ const QuestionsPage: React.FC = () => {
       ellipsis: {
         showTitle: false,
       },
-      render: (text: string) => (
+      render: (text: string) => isLoading ? <Skeleton.Input active size="small" block /> : (
         <Tooltip title={text}>
           <div style={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
             {text}
           </div>
-          {/* {text} */}
         </Tooltip>
       ),
     },
@@ -653,12 +656,11 @@ const QuestionsPage: React.FC = () => {
       ellipsis: {
         showTitle: false,
       },
-      render: (text: string) => (
+      render: (text: string) => isLoading ? <Skeleton.Input active size="small" block /> : (
         <Tooltip title={text}>
           <div style={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
             {text}
           </div>
-          {/* {text} */}
         </Tooltip>
       ),
     },
@@ -671,12 +673,11 @@ const QuestionsPage: React.FC = () => {
       ellipsis: {
         showTitle: false,
       },
-      render: (text: string) => (
+      render: (text: string) => isLoading ? <Skeleton.Input active size="small" block /> : (
         <Tooltip title={text}>
           <div style={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
             {text}
           </div>
-          {/* {text} */}
         </Tooltip>
       ),
     },
@@ -689,12 +690,11 @@ const QuestionsPage: React.FC = () => {
       ellipsis: {
         showTitle: false,
       },
-      render: (text: string) => (
+      render: (text: string) => isLoading ? <Skeleton.Input active size="small" block /> : (
         <Tooltip title={text}>
           <div style={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
             {text}
           </div>
-          {/* {text} */}
         </Tooltip>
       ),
     },
@@ -704,6 +704,7 @@ const QuestionsPage: React.FC = () => {
       key: 'correctAnswer',
       width: 300,
       render: (val: any, record: any) => {
+        if (isLoading) return <Skeleton.Input active size="small" block />;
         // val may be 'optionC' or just 'C' — handle both
         let key = '';
         if (!val) return '';
@@ -726,7 +727,7 @@ const QuestionsPage: React.FC = () => {
       key: 'actions',
       fixed: 'right' as const,
       width: 100,
-      render: (_: any, record: any) => (
+      render: (_: any, record: any) => isLoading ? <Skeleton.Input active size="small" style={{ width: 60 }} /> : (
         <Space>
           <Button style={{ marginRight: '10px' }} icon={<EditOutlined />} onClick={() => handleEdit(record)} size="small" />
           <Popconfirm
@@ -742,6 +743,23 @@ const QuestionsPage: React.FC = () => {
       ),
     },
   ];
+  
+  const tableData = isLoading 
+      ? Array.from({ length: 5 }).map((_, index) => ({
+          key: `skeleton-${index}`,
+          id: `skeleton-${index}`,
+          board: '',
+          standard: '',
+          subject: '',
+          chapter: '',
+          question: '',
+          optionA: '',
+          optionB: '',
+          optionC: '',
+          optionD: '',
+          correctAnswer: '',
+      } as any))
+      : questions;
 
   return (
     <div className="questions-page-container animate-fade-in">
@@ -901,8 +919,7 @@ const QuestionsPage: React.FC = () => {
       <div className="questions-table-wrapper">
         <Table
           columns={columns}
-          dataSource={questions}
-          loading={isLoading}
+          dataSource={tableData}
           pagination={{
             current: page,
             pageSize: DEFAULT_PAGE_SIZE,
@@ -923,7 +940,7 @@ const QuestionsPage: React.FC = () => {
         open={modalVisible}
         onCancel={handleModalCancel}
         footer={null}
-        width={window.innerWidth < 768 ? '95%' : window.innerWidth < 1024 ? '85%' : 1000}
+        width={!screens.md ? '95%' : !screens.lg ? '85%' : 1000} // Responsive width logic using breakpoints
         style={{
           maxHeight: '90vh',
           overflowY: 'auto',

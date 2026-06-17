@@ -13,7 +13,8 @@ import {
   Typography,
   Row,
   Col,
-  Checkbox
+  Checkbox,
+  Skeleton
 } from 'antd';
 import {
   SearchOutlined,
@@ -531,12 +532,14 @@ const SubjectsPage: React.FC = () => {
       key: 'no',
       width: 40,
       align: 'center' as const,
+      render: (text: any) => isLoading ? <Skeleton.Input active size="small" style={{ width: 30, minWidth: 30 }} /> : text,
     },
     {
       title: 'Subject Name',
       dataIndex: 'subjectName',
       key: 'subjectName',
       sorter: (a: Subject, b: Subject) => a.subjectName.localeCompare(b.subjectName),
+      render: (text: any) => isLoading ? <Skeleton.Input active size="small" style={{ width: 150, minWidth: 150 }} /> : text,
     },
     {
       title: 'Board',
@@ -544,6 +547,7 @@ const SubjectsPage: React.FC = () => {
       key: 'board',
       width: 180,
       filterDropdown: (props: any) => customFilterDropdown(props, BOARD_OPTIONS),
+      render: (text: any) => isLoading ? <Skeleton.Input active size="small" style={{ width: 80, minWidth: 80 }} /> : text,
       // filters: BOARD_OPTIONS.map(option => ({ text: option.label, value: option.value })),
       // onFilter: (value: any, record: Subject) => record.board === value,
     },
@@ -553,6 +557,7 @@ const SubjectsPage: React.FC = () => {
       key: 'standard',
       width: 180,
       filterDropdown: (props: any) => customFilterDropdown(props, STANDARD_OPTIONS),
+      render: (text: any) => isLoading ? <Skeleton.Input active size="small" style={{ width: 80, minWidth: 80 }} /> : text,
       // filters: STANDARD_OPTIONS.map(option => ({ text: option.label, value: option.value })),
       // onFilter: (value: any, record: Subject) => record.standard === value,
     },
@@ -561,7 +566,7 @@ const SubjectsPage: React.FC = () => {
       key: 'action',
       width: 120,
       align: 'center' as const,
-      render: (_: any, record: Subject) => (
+      render: (_: any, record: Subject) => isLoading ? <Skeleton.Input active size="small" style={{ width: 80, minWidth: 80 }} /> : (
         <Space size="small">
           <Button
             type="text"
@@ -588,6 +593,18 @@ const SubjectsPage: React.FC = () => {
       ),
     },
   ];
+  
+  const tableData = isLoading 
+      ? Array.from({ length: 5 }).map((_, index) => ({
+          key: `skeleton-${index}`,
+          id: '',
+          no: index + 1,
+          subjectName: '',
+          board: '',
+          standard: '',
+          chapters: [],
+      } as unknown as Subject))
+      : subjects;
 
   /**
    * Generate chapter table columns with subject key
@@ -733,8 +750,7 @@ const SubjectsPage: React.FC = () => {
       <div className="subjects-table-wrapper">
         <Table
           columns={columns}
-          dataSource={subjects}
-          loading={isLoading}
+          dataSource={tableData}
           onChange={handleTableFilterChange}
           pagination={{
             current: page,

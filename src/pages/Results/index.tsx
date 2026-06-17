@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Table, DatePicker, Row, Col, Tooltip as AntdTooltip, Spin, message } from 'antd';
+import { Table, DatePicker, Row, Col, Tooltip as AntdTooltip, Skeleton, message } from 'antd';
 import type { TableProps } from 'antd';
 import dayjs from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween';
@@ -147,13 +147,14 @@ const ResultsPage: React.FC = () => {
             key: 'no',
             sorter: (a, b) => a.no - b.no,
             align: 'center' as const,
+            render: (text) => isLoading ? <Skeleton.Input active size="small" style={{ width: 30, minWidth: 30 }} /> : text,
         },
         {
             title: 'Subject',
             dataIndex: 'subject',
             key: 'subject',
             sorter: (a, b) => a.subject.localeCompare(b.subject),
-            render: subject => (
+            render: subject => isLoading ? <Skeleton.Input active size="small" style={{ width: 150, minWidth: 150 }} /> : (
                 <AntdTooltip title={subject}>
                     <span style={{ cursor: 'help' }}>{subject}</span>
                 </AntdTooltip>
@@ -165,6 +166,7 @@ const ResultsPage: React.FC = () => {
             key: 'correctAnswers',
             align: 'center' as const,
             sorter: (a, b) => a.correctAnswers - b.correctAnswers,
+            render: (text) => isLoading ? <Skeleton.Input active size="small" style={{ width: 50, minWidth: 50 }} /> : text,
         },
         {
             title: 'Wrong Answers',
@@ -172,6 +174,7 @@ const ResultsPage: React.FC = () => {
             key: 'wrongAnswers',
             align: 'center' as const,
             sorter: (a, b) => a.wrongAnswers - b.wrongAnswers,
+            render: (text) => isLoading ? <Skeleton.Input active size="small" style={{ width: 50, minWidth: 50 }} /> : text,
         },
         {
             title: 'Total Questions',
@@ -179,19 +182,32 @@ const ResultsPage: React.FC = () => {
             key: 'totalQuestions',
             align: 'center' as const,
             sorter: (a, b) => a.totalQuestions - b.totalQuestions,
+            render: (text) => isLoading ? <Skeleton.Input active size="small" style={{ width: 50, minWidth: 50 }} /> : text,
         },
         {
             title: 'Date',
             dataIndex: 'date',
             key: 'date',
             sorter: (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-            render: (text) => (
+            render: (text) => isLoading ? <Skeleton.Input active size="small" style={{ width: 100, minWidth: 100 }} /> : (
                 <AntdTooltip title={dayjs(text).format('MMMM D, YYYY')}>
                     <span style={{ cursor: 'help' }}>{dayjs(text).format('MMM D, YYYY')}</span>
                 </AntdTooltip>
             ),
         },
     ];
+
+    const tableData = isLoading 
+        ? Array.from({ length: 5 }).map((_, index) => ({
+            key: `skeleton-${index}`,
+            no: index + 1,
+            subject: '',
+            correctAnswers: 0,
+            wrongAnswers: 0,
+            totalQuestions: 0,
+            date: new Date().toISOString(),
+        } as DataType))
+        : resultsData;
 
     return (
         <div className="results-page">
@@ -228,29 +244,27 @@ const ResultsPage: React.FC = () => {
                 </Row>
             </div>
             <div className="results-table">
-                <Spin spinning={isLoading}>
-                    <Table
-                        columns={columns}
-                        dataSource={resultsData}
-                        pagination={{
-                            current: currentPage,
-                            pageSize: pageSize,
-                            total: totalResults,
-                            responsive: true,
-                            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
-                            onChange: (page) => setCurrentPage(page),
-                        }}
-                        scroll={{ x: 'max-content' }}
-                        size="middle"
-                        rowClassName={record =>
-                            record.key === selectedRowKey ? 'ant-table-row-selected' : ''
-                        }
-                        onRow={record => ({
-                            onClick: () => setSelectedRowKey(record.key),
-                            onMouseEnter: () => { },
-                        })}
-                    />
-                </Spin>
+                <Table
+                    columns={columns}
+                    dataSource={tableData}
+                    pagination={{
+                        current: currentPage,
+                        pageSize: pageSize,
+                        total: totalResults,
+                        responsive: true,
+                        showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+                        onChange: (page) => setCurrentPage(page),
+                    }}
+                    scroll={{ x: 'max-content' }}
+                    size="middle"
+                    rowClassName={record =>
+                        record.key === selectedRowKey ? 'ant-table-row-selected' : ''
+                    }
+                    onRow={record => ({
+                        onClick: () => !isLoading && setSelectedRowKey(record.key),
+                        onMouseEnter: () => { },
+                    })}
+                />
             </div>
         </div>
     );
