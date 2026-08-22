@@ -1,12 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Drawer, Table, Button, message, Typography, Row, Col, Skeleton, Tabs, Tag, Card, Divider, Spin } from 'antd';
-import { FilePdfOutlined, ReloadOutlined, InfoCircleOutlined, BulbOutlined, CheckCircleOutlined, CloseCircleOutlined, StarOutlined } from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
+import {
+  BarChart3,
+  CheckCircle2,
+  FileText,
+  Info,
+  Lightbulb,
+  RefreshCw,
+  Sparkles,
+  XCircle,
+} from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { getUserResultByIdAction } from '../../redux/action/userAction';
 import { RootState, AppDispatch } from '../../redux/store';
-import './index.scss';
 import { exportExamResultToPDFAction, analyzeStudentPerformanceAction } from '../../redux/action/examAction';
 import {
   ResponsiveContainer,
@@ -23,8 +29,18 @@ import {
   PieChart,
   Pie
 } from 'recharts';
-
-const { Title, Text } = Typography;
+import { Sheet, SheetContent } from '../ui/sheet';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Card } from '../ui/card';
+import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
+import { Spinner } from '../ui/spinner';
+import { Skeleton } from '../ui/skeleton';
+import { Separator } from '../ui/separator';
+import { DataTable, type DataTableColumn } from '../common/DataTable';
+import { EmptyState } from '../common/EmptyState';
+import { LoadingState } from '../common/LoadingState';
+import { toastText } from '../../utils/toast';
 
 // Interface for user result data from API
 interface UserResult {
@@ -61,6 +77,20 @@ interface UserResultsModalProps {
   userName: string;
   userId: string | number;
 }
+
+/**
+ * Recharts needs literal colour values, so the design tokens are mirrored here.
+ * Keep in sync with the --dc-* palette in styles/tailwind.css.
+ */
+const CHART_COLORS = {
+  primary: '#1d4ed8',
+  success: '#16a34a',
+  warning: '#d97706',
+  destructive: '#dc2626',
+  secondary: '#7c3aed',
+  grid: '#e2e8f0',
+  axis: '#64748b',
+};
 
 const UserResultsModal: React.FC<UserResultsModalProps> = ({
   visible,
@@ -113,7 +143,7 @@ const UserResultsModal: React.FC<UserResultsModalProps> = ({
       }
     } catch (error: any) {
       console.error('Error fetching user results:', error);
-      message.error(error?.message || 'Failed to fetch user results');
+      toastText(error?.message || 'Failed to fetch user results', 'error');
       setUserResults([]);
       setTotalResults(0);
     }
@@ -163,7 +193,7 @@ const UserResultsModal: React.FC<UserResultsModalProps> = ({
       }
     } catch (error: any) {
       console.error('Error fetching student insights:', error);
-      message.error('Failed to load academic insights');
+      toastText('Failed to load academic insights', 'error');
     } finally {
       setLoadingInsights(false);
     }
@@ -223,10 +253,12 @@ const UserResultsModal: React.FC<UserResultsModalProps> = ({
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      message.success('Result PDF exported successfully!');
-    } catch (error) {
+      toastText('Result PDF exported successfully!', 'success');
+    } catch (error: any) {
       console.error('Error exporting PDF:', error);
-      message.error('Failed to export PDF result report.');
+      // Prefer the message returned by the API, else fall back to a generic one
+      const apiMessage = error?.statusCode ? error?.message : '';
+      toastText(apiMessage || 'Failed to export PDF result report.', 'error');
     } finally {
       setLoadingExamId(null);
     }
@@ -276,8 +308,8 @@ const UserResultsModal: React.FC<UserResultsModalProps> = ({
       totalWrong += r.wrongAnswers;
     });
     return [
-      { name: 'Correct', value: totalCorrect, color: '#52c41a' },
-      { name: 'Wrong', value: totalWrong, color: '#ff4d4f' }
+      { name: 'Correct', value: totalCorrect, color: CHART_COLORS.success },
+      { name: 'Wrong', value: totalWrong, color: CHART_COLORS.destructive }
     ];
   }, [allResults]);
 
@@ -322,44 +354,38 @@ const UserResultsModal: React.FC<UserResultsModalProps> = ({
     return { totalExams, totalCorrect, avgScore };
   }, [allResults, userResults, totalResults]);
 
-  // Ant Design Table Columns Config
-  const columns: ColumnsType<UserResult> = [
+  // Table columns config
+  const columns: DataTableColumn<UserResult>[] = [
     {
       title: 'No.',
-      dataIndex: 'key',
       key: 'no',
       align: 'center',
-      width: 60,
-      render: (_: any, __: UserResult, index: number) => isLoadingResults ? <Skeleton.Input active size="small" style={{ width: 30, minWidth: 30 }} /> : index + 1 + (page - 1) * PAGE_SIZE,
-      responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
+      width: 64,
+      render: (_: any, __: UserResult, index: number) => index + 1 + (page - 1) * PAGE_SIZE,
     },
     {
       title: 'Exam Date',
       dataIndex: 'examDate',
       key: 'examDate',
       align: 'center',
-      width: 120,
+      width: 130,
       render: (date: string) => {
-        if (isLoadingResults) return <Skeleton.Input active size="small" style={{ width: 80, minWidth: 80 }} />;
         const d = new Date(date);
         const month = String(d.getMonth() + 1).padStart(2, '0');
         const day = String(d.getDate()).padStart(2, '0');
         const year = d.getFullYear();
-        return `${day}-${month}-${year}`;
+        return <span className="dc-numeric whitespace-nowrap">{`${day}-${month}-${year}`}</span>;
       },
-      responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
     },
     {
       title: 'Subject',
       dataIndex: 'subject',
       key: 'subject',
       align: 'center',
-      width: 130,
-      responsive: ['sm', 'md', 'lg', 'xl'],
-      render: (subject: any) => isLoadingResults ? <Skeleton.Input active size="small" style={{ width: 80, minWidth: 80 }} /> : (
-        <span style={{ color: '#1890ff', fontWeight: '500' }}>
-          {subject?.subname || 'N/A'}
-        </span>
+      width: 140,
+      hideBelow: 'lg',
+      render: (subject: any) => (
+        <span className="font-medium text-primary">{subject?.subname || 'N/A'}</span>
       ),
     },
     {
@@ -367,12 +393,10 @@ const UserResultsModal: React.FC<UserResultsModalProps> = ({
       dataIndex: 'chapter',
       key: 'chapter',
       align: 'center',
-      width: 170,
-      responsive: ['md', 'lg', 'xl'],
-      render: (chapter: any) => isLoadingResults ? <Skeleton.Input active size="small" style={{ width: 100, minWidth: 100 }} /> : (
-        <span style={{ color: '#722ed1', fontWeight: '500' }}>
-          {chapter?.name || 'N/A'}
-        </span>
+      width: 180,
+      hideBelow: 'xl',
+      render: (chapter: any) => (
+        <span className="font-medium text-secondary">{chapter?.name || 'N/A'}</span>
       ),
     },
     {
@@ -380,12 +404,10 @@ const UserResultsModal: React.FC<UserResultsModalProps> = ({
       dataIndex: 'totalQuestions',
       key: 'totalQuestions',
       align: 'center',
-      width: 100,
-      responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
-      render: (totalQuestions: number) => isLoadingResults ? <Skeleton.Input active size="small" style={{ width: 40, minWidth: 40 }} /> : (
-        <span style={{ color: '#595959', fontWeight: '500' }}>
-          {totalQuestions}
-        </span>
+      width: 110,
+      hideBelow: 'lg',
+      render: (totalQuestions: number) => (
+        <span className="dc-numeric text-muted-foreground">{totalQuestions}</span>
       ),
     },
     {
@@ -393,26 +415,18 @@ const UserResultsModal: React.FC<UserResultsModalProps> = ({
       dataIndex: 'correctAnswers',
       key: 'correctAnswers',
       align: 'center',
-      width: 90,
-      render: (correct: number) => isLoadingResults ? <Skeleton.Input active size="small" style={{ width: 40, minWidth: 40 }} /> : (
-        <span style={{ color: '#52c41a', fontWeight: 'bold' }}>
-          {correct}
-        </span>
-      ),
-      responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
+      width: 96,
+      render: (correct: number) => <span className="dc-numeric font-bold text-success">{correct}</span>,
     },
     {
       title: 'Wrong',
       dataIndex: 'wrongAnswers',
       key: 'wrongAnswers',
       align: 'center',
-      width: 90,
-      render: (wrong: number) => isLoadingResults ? <Skeleton.Input active size="small" style={{ width: 40, minWidth: 40 }} /> : (
-        <span style={{ color: '#ff4d4f', fontWeight: 'bold' }}>
-          {wrong}
-        </span>
+      width: 96,
+      render: (wrong: number) => (
+        <span className="dc-numeric font-bold text-destructive">{wrong}</span>
       ),
-      responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
     },
     {
       title: 'Score %',
@@ -420,446 +434,343 @@ const UserResultsModal: React.FC<UserResultsModalProps> = ({
       align: 'center',
       width: 100,
       render: (_: any, record: UserResult) => {
-        if (isLoadingResults) return <Skeleton.Input active size="small" style={{ width: 40, minWidth: 40 }} />;
         const percentage = record.totalQuestions > 0 ? ((record.correctAnswers / record.totalQuestions) * 100).toFixed(1) : '0.0';
-        const color = parseFloat(percentage) >= 70 ? '#52c41a' : parseFloat(percentage) >= 50 ? '#faad14' : '#ff4d4f';
-        return (
-          <span style={{ color, fontWeight: 'bold' }}>
-            {percentage}%
-          </span>
-        );
+        // Thresholds are unchanged; only the colours now come from design tokens.
+        const tone = parseFloat(percentage) >= 70
+          ? 'text-success'
+          : parseFloat(percentage) >= 50
+            ? 'text-warning'
+            : 'text-destructive';
+        return <span className={`dc-numeric font-bold ${tone}`}>{percentage}%</span>;
       },
-      responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
     },
     {
       title: 'Action',
       key: 'action',
       align: 'center',
-      width: 110,
-      render: (_: any, record: UserResult) => isLoadingResults ? <Skeleton.Input active size="small" style={{ width: 80, minWidth: 80 }} /> : (
+      width: 120,
+      render: (_: any, record: UserResult) => (
         <Button
-          type="primary"
-          icon={<FilePdfOutlined />}
-          size="small"
-          loading={loadingExamId === record.examSessionId}
+          size="sm"
+          variant="secondary"
+          disabled={loadingExamId === record.examSessionId}
           onClick={() => handleExportToPDF(record)}
-          style={{
-            borderRadius: 6,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto',
-            gap: 4
-          }}
         >
-          <span>Export</span>
+          {loadingExamId === record.examSessionId ? <Spinner /> : <FileText aria-hidden="true" />}
+          Export
         </Button>
       ),
-      responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
     },
   ];
-
-  const tableData = isLoadingResults
-    ? Array.from({ length: 5 }).map((_, index) => ({
-      id: `skeleton-${index}`,
-      examDate: '',
-      examSessionId: '',
-      totalQuestions: 0,
-      correctAnswers: 0,
-      wrongAnswers: 0,
-      totalTestsGiven: 0,
-      subject: { subname: '' },
-      chapter: { name: '' },
-      standard: '',
-      board: '',
-    } as UserResult))
-    : userResults;
 
   // Custom tooltips for Recharts
   const CustomRechartsTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="custom-recharts-tooltip" style={{
-          background: 'rgba(255, 255, 255, 0.95)',
-          padding: '8px 12px',
-          border: '1px solid #d9d9d9',
-          borderRadius: 4,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-        }}>
-          <p style={{ margin: 0, fontWeight: 'bold', color: '#1f1f1f' }}>{data.fullChapter || data.subject || data.name}</p>
-          {data.date && <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#8c8c8c' }}>Date: {data.date}</p>}
-          <p style={{ margin: '4px 0 0 0', fontWeight: '600', color: '#1890ff' }}>
-            Score: {payload[0].value}%
+        <div className="rounded-lg border border-border bg-popover px-3 py-2 shadow-dc-lg">
+          <p className="text-sm font-semibold text-foreground">
+            {data.fullChapter || data.subject || data.name}
           </p>
+          {data.date && <p className="dc-caption mt-1">Date: {data.date}</p>}
+          <p className="mt-1 text-sm font-semibold text-primary">Score: {payload[0].value}%</p>
         </div>
       );
     }
     return null;
   };
 
+  // Shared stat strip used at the top of both tabs.
+  const StatStrip = () => (
+    <div className="grid grid-cols-1 gap-3 rounded-xl border border-border bg-muted/50 p-4 sm:grid-cols-3">
+      <div className="text-center">
+        <p className="dc-numeric text-3xl font-bold text-primary">{overallStats.totalExams}</p>
+        <p className="dc-label mt-1">Total Quizzes Taken</p>
+      </div>
+      <div className="text-center">
+        <p className="dc-numeric text-3xl font-bold text-success">{overallStats.totalCorrect}</p>
+        <p className="dc-label mt-1">Correct Answers</p>
+      </div>
+      <div className="text-center">
+        <p className="dc-numeric text-3xl font-bold text-warning">{overallStats.avgScore}%</p>
+        <p className="dc-label mt-1">Average Test Score</p>
+      </div>
+    </div>
+  );
+
   return (
-    <Drawer
-      title={
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <BulbOutlined style={{ color: '#722ed1', fontSize: 22 }} />
-            <div>
-              <Title level={4} style={{ margin: 0 }}>
-                {userName}'s Academic Profile
-              </Title>
-              <Text type="secondary" style={{ fontSize: 12 }}>Detailed diagnostics & exam results analytics</Text>
+    <Sheet open={visible} onOpenChange={(open) => !open && handleClose()}>
+      <SheetContent
+        side="right"
+        title={`${userName} academic profile`}
+        className="flex w-full max-w-none flex-col gap-0 p-0 sm:w-[92%] lg:w-[85%]"
+      >
+        {/* Header */}
+        {/* Right padding is kept at both breakpoints so the sheet close button never overlaps the header */}
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4 pr-14 sm:px-6 sm:pr-14">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-secondary/10 text-secondary">
+              <Lightbulb aria-hidden="true" className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="dc-h3 truncate">{userName}&apos;s Academic Profile</h2>
+              <p className="dc-caption">Detailed diagnostics &amp; exam results analytics</p>
             </div>
           </div>
+          <Badge variant="outline" size="md" className="hidden sm:inline-flex">
+            Student Profile View
+          </Badge>
         </div>
-      }
-      placement="right"
-      width="85%"
-      onClose={handleClose}
-      open={visible}
-      destroyOnClose
-      className="user-results-drawer"
-      extra={
-        <Tag color="purple" style={{ marginRight: 8, fontSize: 13, padding: '2px 8px' }}>
-          Student Profile View
-        </Tag>
-      }
-    >
-      <div className="user-results-content">
-        <Tabs
-          defaultActiveKey="1"
-          type="card"
-          items={[
-            {
-              key: '1',
-              label: (
-                <span>
-                  <BulbOutlined />
-                  Performance Analytics
-                </span>
-              ),
-              children: (
-                <div className="analytics-tab-pane">
-                  {loadingAllResults ? (
-                    <div style={{ padding: 40, textAlign: 'center' }}>
-                      <Spin size="large" tip="Loading analytics and compiling academic metrics..." />
-                    </div>
-                  ) : allResults.length === 0 ? (
-                    <Card style={{ textAlign: 'center', padding: 40, borderRadius: 12 }}>
-                      <InfoCircleOutlined style={{ fontSize: 48, color: '#bfbfbf', marginBottom: 16 }} />
-                      <Title level={4}>No Test Data Available</Title>
-                      <Text type="secondary">This student hasn't completed any quizzes or exam sessions yet.</Text>
-                    </Card>
-                  ) : (
-                    <>
-                      {/* Top Row: Key stats summaries */}
-                      <div className="results-summary" style={{
-                        marginBottom: 24,
-                        padding: '20px 16px',
-                        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
-                        borderRadius: 12,
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
-                      }}>
-                        <Row gutter={[16, 16]} align="middle">
-                          <Col xs={24} sm={8}>
-                            <div style={{ textAlign: 'center' }}>
-                              <div style={{ fontSize: 32, fontWeight: 'bold', color: '#1890ff', lineHeight: 1.2 }}>
-                                {overallStats.totalExams}
-                              </div>
-                              <Text strong type="secondary" style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>Total Quizzes Taken</Text>
-                            </div>
-                          </Col>
-                          <Col xs={24} sm={8}>
-                            <div style={{ textAlign: 'center' }}>
-                              <div style={{ fontSize: 32, fontWeight: 'bold', color: '#52c41a', lineHeight: 1.2 }}>
-                                {overallStats.totalCorrect}
-                              </div>
-                              <Text strong type="secondary" style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>Correct Answers</Text>
-                            </div>
-                          </Col>
-                          <Col xs={24} sm={8}>
-                            <div style={{ textAlign: 'center' }}>
-                              <div style={{ fontSize: 32, fontWeight: 'bold', color: '#faad14', lineHeight: 1.2 }}>
-                                {overallStats.avgScore}%
-                              </div>
-                              <Text strong type="secondary" style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>Average Test Score</Text>
-                            </div>
-                          </Col>
-                        </Row>
-                      </div>
 
-                      {/* AI Diagnostics Card */}
-                      <Card
-                        className="ai-insights-card"
-                        style={{ marginBottom: 24, borderRadius: 12, border: '1px solid #d3adf7', boxShadow: '0 4px 12px rgba(114, 46, 209, 0.05)' }}
-                        title={
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <StarOutlined style={{ color: '#722ed1', fontSize: 18 }} />
-                            <span style={{ fontSize: 16, fontWeight: 'bold' }}>
-                              AI Diagnostic Insights & Recommendations
-                            </span>
-                          </div>
-                        }
-                        extra={
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            {insights && (
-                              <Tag color={insights.isAI ? 'purple' : 'blue'} style={{ margin: 0, padding: '2px 8px', borderRadius: 4, display: 'inline-flex', alignItems: 'center' }}>
-                                {insights.isAI ? 'Gemini AI active' : 'Academic Analyzer'}
-                              </Tag>
-                            )}
-                            <Button
-                              type="primary"
-                              ghost
-                              size="small"
-                              icon={<ReloadOutlined />}
-                              loading={loadingInsights}
-                              onClick={fetchAIInsights}
-                              style={{ borderRadius: 6, display: 'inline-flex', alignItems: 'center' }}
-                            >
-                              Refresh
-                            </Button>
-                          </div>
-                        }
-                      >
-                        {loadingInsights ? (
-                          <Skeleton active paragraph={{ rows: 4 }} />
-                        ) : insights ? (
-                          <div className="insights-content">
-                            <div className="insight-section summary-box" style={{ padding: 12, backgroundColor: '#f9f0ff', borderRadius: 8, marginBottom: 16 }}>
-                              <Text style={{ fontSize: 14, color: '#4a154b', fontStyle: 'italic' }}>
-                                "{insights.summary}"
-                              </Text>
-                            </div>
+        {/* Body */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+          <Tabs defaultValue="analytics">
+            <TabsList>
+              <TabsTrigger value="analytics">
+                <BarChart3 aria-hidden="true" className="mr-1.5 inline size-4" />
+                Performance Analytics
+              </TabsTrigger>
+              <TabsTrigger value="log">
+                <FileText aria-hidden="true" className="mr-1.5 inline size-4" />
+                Exam Results Log
+              </TabsTrigger>
+            </TabsList>
 
-                            <Row gutter={[20, 20]}>
-                              <Col xs={24} md={12}>
-                                <Title level={5} style={{ color: '#52c41a', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                  <CheckCircleOutlined /> Key Strengths
-                                </Title>
-                                <ul style={{ paddingLeft: 20, margin: 0 }}>
-                                  {insights.strengths.map((s, idx) => (
-                                    <li key={idx} style={{ marginBottom: 6, color: '#434343' }}>{s}</li>
-                                  ))}
-                                </ul>
-                              </Col>
-                              <Col xs={24} md={12}>
-                                <Title level={5} style={{ color: '#ff4d4f', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                  <CloseCircleOutlined /> Areas for Improvement
-                                </Title>
-                                <ul style={{ paddingLeft: 20, margin: 0 }}>
-                                  {insights.weaknesses.map((w, idx) => (
-                                    <li key={idx} style={{ marginBottom: 6, color: '#434343' }}>{w}</li>
-                                  ))}
-                                </ul>
-                              </Col>
-                            </Row>
-                            <Divider style={{ margin: '16px 0' }} />
-                            <div>
-                              <Title level={5} style={{ color: '#1890ff', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <BulbOutlined /> Actionable Study Plan
-                              </Title>
-                              <ol style={{ paddingLeft: 20, margin: 0 }}>
-                                {insights.recommendations.map((r, idx) => (
-                                  <li key={idx} style={{ marginBottom: 6, fontWeight: '500', color: '#262626' }}>{r}</li>
-                                ))}
-                              </ol>
-                            </div>
-                          </div>
-                        ) : (
-                          <div style={{ textAlign: 'center', padding: 20 }}>
-                            <Button type="primary" onClick={fetchAIInsights} loading={loadingInsights}>
-                              Generate Student Insights
-                            </Button>
-                          </div>
+            <TabsContent value="analytics">
+              {loadingAllResults ? (
+                <LoadingState label="Loading analytics and compiling academic metrics..." />
+              ) : allResults.length === 0 ? (
+                <EmptyState
+                  icon={Info}
+                  title="No Test Data Available"
+                  description="This student hasn't completed any quizzes or exam sessions yet."
+                />
+              ) : (
+                <div className="flex flex-col gap-5">
+                  {/* Top Row: Key stats summaries */}
+                  <StatStrip />
+
+                  {/* AI Diagnostics Card */}
+                  <Card className="flex flex-col">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4 sm:p-5">
+                      <h3 className="dc-h4 flex items-center gap-2">
+                        <Sparkles aria-hidden="true" className="size-[18px] text-secondary" />
+                        AI Diagnostic Insights &amp; Recommendations
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        {insights && (
+                          <Badge variant={insights.isAI ? 'default' : 'outline'} size="md">
+                            {insights.isAI ? 'Gemini AI active' : 'Academic Analyzer'}
+                          </Badge>
                         )}
-                      </Card>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={loadingInsights}
+                          onClick={fetchAIInsights}
+                        >
+                          {loadingInsights ? (
+                            <Spinner />
+                          ) : (
+                            <RefreshCw aria-hidden="true" />
+                          )}
+                          Refresh
+                        </Button>
+                      </div>
+                    </div>
 
-                      {/* Charts Grid */}
-                      <Row gutter={[20, 20]}>
-                        {/* Score Trend Line Chart */}
-                        <Col xs={24} lg={12}>
-                          <Card title="Progress Trend (Score %)" style={{ borderRadius: 12 }}>
-                            <div style={{ width: '100%', height: 300 }}>
-                              <ResponsiveContainer>
-                                <LineChart data={trendData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                                  <CartesianGrid strokeDasharray="3 3" />
-                                  <XAxis dataKey="name" />
-                                  <YAxis unit="%" domain={[0, 100]} />
-                                  <RechartsTooltip content={<CustomRechartsTooltip />} />
-                                  <Legend />
-                                  <Line type="monotone" dataKey="score" stroke="#1890ff" strokeWidth={3} activeDot={{ r: 8 }} name="Accuracy" />
-                                </LineChart>
-                              </ResponsiveContainer>
-                            </div>
-                          </Card>
-                        </Col>
-
-                        {/* Subject Breakdown Bar Chart */}
-                        <Col xs={24} lg={12}>
-                          <Card title="Subject Accuracy Breakdown" style={{ borderRadius: 12 }}>
-                            <div style={{ width: '100%', height: 300 }}>
-                              <ResponsiveContainer>
-                                <BarChart data={subjectData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                                  <CartesianGrid strokeDasharray="3 3" />
-                                  <XAxis dataKey="subject" />
-                                  <YAxis unit="%" domain={[0, 100]} />
-                                  <RechartsTooltip content={<CustomRechartsTooltip />} />
-                                  <Legend />
-                                  <Bar dataKey="accuracy" name="Average Accuracy" radius={[4, 4, 0, 0]}>
-                                    {subjectData.map((entry, index) => (
-                                      <Cell key={`cell-${index}`} fill={entry.accuracy >= 70 ? '#52c41a' : entry.accuracy >= 50 ? '#faad14' : '#ff4d4f'} />
-                                    ))}
-                                  </Bar>
-                                </BarChart>
-                              </ResponsiveContainer>
-                            </div>
-                          </Card>
-                        </Col>
-
-                        {/* Chapter Accuracy Bar Chart */}
-                        <Col xs={24} lg={12}>
-                          <Card title="Chapter Performance Heatmap" style={{ borderRadius: 12 }}>
-                            <div style={{ width: '100%', height: 300 }}>
-                              <ResponsiveContainer>
-                                <BarChart data={chapterData} layout="vertical" margin={{ top: 10, right: 10, left: 15, bottom: 5 }}>
-                                  <CartesianGrid strokeDasharray="3 3" />
-                                  <XAxis type="number" unit="%" domain={[0, 100]} />
-                                  <YAxis
-                                    type="category"
-                                    dataKey="chapter"
-                                    width={210}
-                                    tick={(props: any) => {
-                                      const { x, y, payload } = props;
-                                      return (
-                                        <text x={x - 6} y={y} dy={4} textAnchor="end" fill="#595959" style={{ fontSize: 9, fontFamily: 'sans-serif' }}>
-                                          {payload.value}
-                                        </text>
-                                      );
-                                    }}
-                                  />
-                                  <RechartsTooltip content={<CustomRechartsTooltip />} />
-                                  <Legend />
-                                  <Bar dataKey="accuracy" name="Chapter Accuracy" radius={[0, 4, 4, 0]}>
-                                    {chapterData.map((entry, index) => (
-                                      <Cell key={`cell-${index}`} fill={entry.accuracy >= 70 ? '#722ed1' : entry.accuracy >= 50 ? '#faad14' : '#ff4d4f'} />
-                                    ))}
-                                  </Bar>
-                                </BarChart>
-                              </ResponsiveContainer>
-                            </div>
-                          </Card>
-                        </Col>
-
-                        {/* Overall Correct vs Wrong Answers Pie */}
-                        <Col xs={24} lg={12}>
-                          <Card title="Overall Accuracy Ratio" style={{ borderRadius: 12 }}>
-                            <div style={{ width: '100%', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <ResponsiveContainer>
-                                <PieChart>
-                                  <Pie
-                                    data={accuracyData}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={60}
-                                    outerRadius={90}
-                                    paddingAngle={5}
-                                    dataKey="value"
-                                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                                  >
-                                    {accuracyData.map((entry, index) => (
-                                      <Cell key={`cell-${index}`} fill={entry.color} />
-                                    ))}
-                                  </Pie>
-                                  <RechartsTooltip />
-                                  <Legend verticalAlign="bottom" height={36} />
-                                </PieChart>
-                              </ResponsiveContainer>
-                            </div>
-                          </Card>
-                        </Col>
-                      </Row>
-                    </>
-                  )}
-                </div>
-              )
-            },
-            {
-              key: '2',
-              label: (
-                <span>
-                  <FilePdfOutlined />
-                  Exam Results Log
-                </span>
-              ),
-              children: (
-                <div className="results-table-pane">
-                  {/* Results Stats Banner */}
-                  <div className="results-summary" style={{
-                    marginBottom: 24,
-                    padding: 16,
-                    background: '#f8f9fa',
-                    borderRadius: 8,
-                    border: '1px solid #e9ecef'
-                  }}>
-                    <Row gutter={[16, 16]}>
-                      <Col xs={24} sm={8}>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>
-                            {overallStats.totalExams}
-                          </div>
-                          <div style={{ color: '#666' }}>Total Exams</div>
+                    <div className="p-4 sm:p-5">
+                      {loadingInsights ? (
+                        <div className="flex flex-col gap-2.5">
+                          <Skeleton className="h-4 w-full" />
+                          <Skeleton className="h-4 w-11/12" />
+                          <Skeleton className="h-4 w-4/5" />
+                          <Skeleton className="h-4 w-2/3" />
                         </div>
-                      </Col>
-                      <Col xs={24} sm={8}>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
-                            {overallStats.totalCorrect}
-                          </div>
-                          <div style={{ color: '#666' }}>Total Correct</div>
-                        </div>
-                      </Col>
-                      <Col xs={24} sm={8}>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: 24, fontWeight: 'bold', color: '#faad14' }}>
-                            {overallStats.avgScore}%
-                          </div>
-                          <div style={{ color: '#666' }}>Average Score</div>
-                        </div>
-                      </Col>
-                    </Row>
-                  </div>
+                      ) : insights ? (
+                        <div className="flex flex-col gap-4">
+                          <blockquote className="rounded-lg bg-secondary/5 p-3.5 text-sm italic leading-relaxed text-foreground">
+                            &ldquo;{insights.summary}&rdquo;
+                          </blockquote>
 
-                  {/* Results Log Table */}
-                  <div className="results-table-wrapper" style={{ overflowX: 'auto' }}>
-                    <Table
-                      columns={columns}
-                      dataSource={tableData}
-                      pagination={{
-                        current: page,
-                        pageSize: PAGE_SIZE,
-                        total: totalResults,
-                        showSizeChanger: false,
-                        showQuickJumper: true,
-                        showTotal: (total, range) =>
-                          `${range[0]}-${range[1]} of ${total} results`,
-                        onChange: (newPage) => setPage(newPage),
-                      }}
-                      bordered
-                      rowKey={(record) => record.id || record.examDate}
-                      scroll={{ x: 800 }}
-                      size="middle"
-                      locale={{
-                        emptyText: 'No exam results found for this user'
-                      }}
-                    />
+                          <div className="grid gap-5 md:grid-cols-2">
+                            <div className="flex flex-col gap-2">
+                              <h4 className="flex items-center gap-1.5 text-sm font-semibold text-success">
+                                <CheckCircle2 aria-hidden="true" className="size-4" /> Key Strengths
+                              </h4>
+                              <ul className="flex list-disc flex-col gap-1.5 pl-5">
+                                {insights.strengths.map((s, idx) => (
+                                  <li key={idx} className="text-sm text-foreground">{s}</li>
+                                ))}
+                              </ul>
+                            </div>
+                            <div className="flex flex-col gap-2">
+                              <h4 className="flex items-center gap-1.5 text-sm font-semibold text-destructive">
+                                <XCircle aria-hidden="true" className="size-4" /> Areas for Improvement
+                              </h4>
+                              <ul className="flex list-disc flex-col gap-1.5 pl-5">
+                                {insights.weaknesses.map((w, idx) => (
+                                  <li key={idx} className="text-sm text-foreground">{w}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+
+                          <Separator />
+
+                          <div className="flex flex-col gap-2">
+                            <h4 className="flex items-center gap-1.5 text-sm font-semibold text-primary">
+                              <Lightbulb aria-hidden="true" className="size-4" /> Actionable Study Plan
+                            </h4>
+                            <ol className="flex list-decimal flex-col gap-1.5 pl-5">
+                              {insights.recommendations.map((r, idx) => (
+                                <li key={idx} className="text-sm font-medium text-foreground">{r}</li>
+                              ))}
+                            </ol>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex justify-center py-4">
+                          <Button onClick={fetchAIInsights} disabled={loadingInsights}>
+                            {loadingInsights && <Spinner />}
+                            Generate Student Insights
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+
+                  {/* Charts Grid */}
+                  <div className="grid gap-5 xl:grid-cols-2">
+                    {/* Score Trend Line Chart */}
+                    <Card className="flex flex-col">
+                      <h3 className="dc-h4 border-b border-border p-4">Progress Trend (Score %)</h3>
+                      <div className="h-[300px] w-full p-4">
+                        <ResponsiveContainer>
+                          <LineChart data={trendData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} />
+                            <XAxis dataKey="name" stroke={CHART_COLORS.axis} fontSize={12} />
+                            <YAxis unit="%" domain={[0, 100]} stroke={CHART_COLORS.axis} fontSize={12} />
+                            <RechartsTooltip content={<CustomRechartsTooltip />} />
+                            <Legend />
+                            <Line type="monotone" dataKey="score" stroke={CHART_COLORS.primary} strokeWidth={3} activeDot={{ r: 8 }} name="Accuracy" />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </Card>
+
+                    {/* Subject Breakdown Bar Chart */}
+                    <Card className="flex flex-col">
+                      <h3 className="dc-h4 border-b border-border p-4">Subject Accuracy Breakdown</h3>
+                      <div className="h-[300px] w-full p-4">
+                        <ResponsiveContainer>
+                          <BarChart data={subjectData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} />
+                            <XAxis dataKey="subject" stroke={CHART_COLORS.axis} fontSize={12} />
+                            <YAxis unit="%" domain={[0, 100]} stroke={CHART_COLORS.axis} fontSize={12} />
+                            <RechartsTooltip content={<CustomRechartsTooltip />} />
+                            <Legend />
+                            <Bar dataKey="accuracy" name="Average Accuracy" radius={[4, 4, 0, 0]}>
+                              {subjectData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.accuracy >= 70 ? CHART_COLORS.success : entry.accuracy >= 50 ? CHART_COLORS.warning : CHART_COLORS.destructive} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </Card>
+
+                    {/* Chapter Accuracy Bar Chart */}
+                    <Card className="flex flex-col">
+                      <h3 className="dc-h4 border-b border-border p-4">Chapter Performance Heatmap</h3>
+                      <div className="h-[300px] w-full p-4">
+                        <ResponsiveContainer>
+                          <BarChart data={chapterData} layout="vertical" margin={{ top: 10, right: 10, left: 15, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} />
+                            <XAxis type="number" unit="%" domain={[0, 100]} stroke={CHART_COLORS.axis} fontSize={12} />
+                            <YAxis
+                              type="category"
+                              dataKey="chapter"
+                              width={180}
+                              tick={(props: any) => {
+                                const { x, y, payload } = props;
+                                return (
+                                  <text x={x - 6} y={y} dy={4} textAnchor="end" fill={CHART_COLORS.axis} style={{ fontSize: 10 }}>
+                                    {payload.value}
+                                  </text>
+                                );
+                              }}
+                            />
+                            <RechartsTooltip content={<CustomRechartsTooltip />} />
+                            <Legend />
+                            <Bar dataKey="accuracy" name="Chapter Accuracy" radius={[0, 4, 4, 0]}>
+                              {chapterData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.accuracy >= 70 ? CHART_COLORS.secondary : entry.accuracy >= 50 ? CHART_COLORS.warning : CHART_COLORS.destructive} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </Card>
+
+                    {/* Overall Correct vs Wrong Answers Pie */}
+                    <Card className="flex flex-col">
+                      <h3 className="dc-h4 border-b border-border p-4">Overall Accuracy Ratio</h3>
+                      <div className="h-[300px] w-full p-4">
+                        <ResponsiveContainer>
+                          <PieChart>
+                            <Pie
+                              data={accuracyData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={60}
+                              outerRadius={90}
+                              paddingAngle={5}
+                              dataKey="value"
+                              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                            >
+                              {accuracyData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            <RechartsTooltip />
+                            <Legend verticalAlign="bottom" height={36} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </Card>
                   </div>
                 </div>
-              )
-            }
-          ]}
-        />
-      </div>
-    </Drawer>
+              )}
+            </TabsContent>
+
+            <TabsContent value="log">
+              <div className="flex flex-col gap-5">
+                {/* Results Stats Banner */}
+                <StatStrip />
+
+                {/* Results Log Table */}
+                <DataTable<UserResult>
+                  columns={columns}
+                  dataSource={userResults}
+                  rowKey={(record) => record.id || record.examDate}
+                  loading={isLoadingResults}
+                  skeletonRows={5}
+                  emptyTitle="No exam results found for this user"
+                  pagination={{
+                    current: page,
+                    pageSize: PAGE_SIZE,
+                    total: totalResults,
+                    onChange: (newPage) => setPage(newPage),
+                    showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} results`,
+                  }}
+                />
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 };
 

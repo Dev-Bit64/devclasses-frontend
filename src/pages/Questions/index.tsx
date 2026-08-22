@@ -1,9 +1,10 @@
-/* eslint-disable @typescript-eslint/no-unused-expressions */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Button, Table, Modal, Form, Input, Row, Col, Space, Popconfirm, Tooltip, message, Radio, Skeleton, Grid } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, ImportOutlined } from '@ant-design/icons';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Pencil, Plus, Search, Trash2, Upload } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { getQuestionsAction, addQuestionAction, updateQuestionAction, deleteQuestionAction } from '../../redux/action/questionAction';
 import { getSubjectsForDDAction, getchaptersBySubjectIdAction } from '../../redux/action/subjectAction';
@@ -11,8 +12,27 @@ import { RootState, AppDispatch } from '../../redux/store';
 import { AddQuestionPayload, UpdateQuestionPayload } from '../../interfaces/interfaces';
 import ImportModal from '../../components/ImportModal';
 import CustomDropdown from '../../components/ImportModal/CustomDropdown';
-import './index.scss';
-import type { Breakpoint } from 'antd/es/_util/responsiveObserver';
+import { PageShell } from '../../components/common/PageShell';
+import { PageHeader } from '../../components/common/PageHeader';
+import { DataTable, type DataTableColumn } from '../../components/common/DataTable';
+import { ColumnFilter } from '../../components/common/ColumnFilter';
+import { ConfirmDialog } from '../../components/common/ConfirmDialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../../components/ui/dialog';
+import { Card } from '../../components/ui/card';
+import { Input } from '../../components/ui/input';
+import { Textarea } from '../../components/ui/textarea';
+import { Button } from '../../components/ui/button';
+import { Spinner } from '../../components/ui/spinner';
+import { Badge } from '../../components/ui/badge';
+import { FormField } from '../../components/ui/form-field';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
+import { toastText } from '../../utils/toast';
 
 // Board options for filtering
 const BOARD_OPTIONS = [
@@ -26,27 +46,63 @@ const STANDARD_OPTIONS = [
   { label: '12th', value: '12th' },
 ];
 
+// Column filter options use the {text,value} shape the shared filter expects.
+const BOARD_FILTER_OPTIONS = BOARD_OPTIONS.map((o) => ({ text: o.label, value: o.value }));
+const STANDARD_FILTER_OPTIONS = STANDARD_OPTIONS.map((o) => ({ text: o.label, value: o.value }));
+
 const DEFAULT_PAGE_SIZE = 20;
 
+// Same rules the previous antd form enforced, transcribed message-for-message.
+const questionSchema = z.object({
+  board: z.string().min(1, 'Please select board'),
+  standard: z.string().min(1, 'Please select standard'),
+  subject: z.string().min(1, 'Please select subject'),
+  chapter: z.string().min(1, 'Please select chapter'),
+  question: z
+    .string()
+    .min(1, 'Please enter question')
+    .min(10, 'Question must be at least 10 characters long')
+    .max(500, 'Question cannot exceed 500 characters'),
+  optionA: z.string().min(1, 'Please enter option A').max(300, 'Option A cannot exceed 300 characters'),
+  optionB: z.string().min(1, 'Please enter option B').max(300, 'Option B cannot exceed 300 characters'),
+  optionC: z.string().min(1, 'Please enter option C').max(300, 'Option C cannot exceed 300 characters'),
+  optionD: z.string().min(1, 'Please enter option D').max(300, 'Option D cannot exceed 300 characters'),
+  correctAnswer: z.string().min(1, 'Please select correct answer'),
+});
+
+type QuestionValues = z.infer<typeof questionSchema>;
+
+const CORRECT_ANSWER_OPTIONS = [
+  { label: 'Option A', value: 'A' },
+  { label: 'Option B', value: 'B' },
+  { label: 'Option C', value: 'C' },
+  { label: 'Option D', value: 'D' },
+];
+
+// Reads a label off a value that the API may return as a string or an object.
+const readLabel = (value: any, keys: string[]): string => {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  for (const key of keys) {
+    if (value[key]) return value[key];
+  }
+  return '';
+};
+
 const QuestionsPage: React.FC = () => {
-  const screens = Grid.useBreakpoint(); // Ant Design hook for responsive screen sizing
   const dispatch = useDispatch<AppDispatch>();
 
   // Redux selectors for questions and subjects
   const { questionLists, isLoading } = useSelector((state: RootState) => state.questions);
   const { subjectDropdownList, chapterLists } = useSelector((state: RootState) => state.subject);
 
-
   const questions = Array.isArray(questionLists?.questions) ? questionLists.questions : [];
-
-
 
   const total = questionLists?.totalRecords || 0;
 
-  // Modal and form state
+  // Modal state
   const [modalVisible, setModalVisible] = useState(false);
   const [importModalVisible, setImportModalVisible] = useState(false);
-  const [form] = Form.useForm();
 
   // Question editing state
   const [editingKey, setEditingKey] = useState<number | null>(null);
@@ -65,16 +121,39 @@ const QuestionsPage: React.FC = () => {
   const [searchText, setSearchText] = useState<string>(''); // Input field value
   const [appliedSearch, setAppliedSearch] = useState<string>(''); // Actual search term used for API calls
   const [page, setPage] = useState<number>(1);
-  const [sortField, setSortField] = useState<string>('createdAt');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  // Sort is fixed server-side; no column exposes a sort control.
+  const [sortField] = useState<string>('createdAt');
+  const [sortOrder] = useState<'asc' | 'desc'>('desc');
 
-  // Selection state for bulk operations - managed by Ant Design Table's rowSelection
+  // Selection state for bulk operations
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+
+  const {
+    control,
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<QuestionValues>({
+    resolver: zodResolver(questionSchema),
+    defaultValues: {
+      board: 'GSEB',
+      standard: '11th',
+      subject: '',
+      chapter: '',
+      question: '',
+      optionA: '',
+      optionB: '',
+      optionC: '',
+      optionD: '',
+      correctAnswer: '',
+    },
+  });
 
   /**
    * Fetch subjects on component mount
-   * - Retrieves all available subjects from the API
-   * - Used to populate the subject dropdown in the form
    */
   useEffect(() => {
     dispatch(getSubjectsForDDAction());
@@ -82,7 +161,6 @@ const QuestionsPage: React.FC = () => {
 
   /**
    * Fetch questions based on current filters and pagination
-   * - Called when page, appliedSearch, sort field, sort order or any filter changes
    * - Uses appliedSearch (not searchText) so API is only called when search button is clicked
    */
   const fetchQuestions = useCallback(() => {
@@ -106,15 +184,13 @@ const QuestionsPage: React.FC = () => {
   /**
    * Handle search button click
    * - Validates that search text is at least 3 characters
-   * - Only triggers API call on button click (not on input change)
-   * - Sets appliedSearch which triggers fetchQuestions via useEffect
    */
   const handleSearch = () => {
     const trimmedSearch = searchText.trim();
 
     // Validate minimum 3 characters for search (if not empty)
     if (trimmedSearch.length > 0 && trimmedSearch.length < 3) {
-      message.warning('Search text must be at least 3 characters long');
+      toastText('Search text must be at least 3 characters long', 'error');
       return;
     }
 
@@ -125,7 +201,6 @@ const QuestionsPage: React.FC = () => {
 
   /**
    * Handle search input change
-   * - Updates the search text state
    * - If input is cleared and search was previously applied, reset the search
    */
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -140,25 +215,8 @@ const QuestionsPage: React.FC = () => {
   };
 
   /**
-   * Handle search input key press
-   * - Triggers search when Enter key is pressed
-   * - Provides better UX for keyboard users
-   */
-  const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
-  };
-
-
-
-  /**
    * Handle Subject filter change (for filter dropdown)
-   * - Updates subject filter state
-   * - Fetches chapters for the selected subject from the API
-   * - Clears chapter filter when subject changes
-   * - Resets pagination to page 1
-   * - Triggers API call to fetch filtered questions (via fetchQuestions effect)
+   * - Fetches chapters for the selected subject and clears the chapter filter
    */
   const handleFilterSubjectChange = (value: string) => {
     const newSubject = value || undefined;
@@ -176,9 +234,6 @@ const QuestionsPage: React.FC = () => {
 
   /**
    * Handle Chapter filter change
-   * - Updates chapter filter state
-   * - Resets pagination to page 1
-   * - Triggers API call to fetch filtered questions (via fetchQuestions effect)
    */
   const handleChapterChange = (value: string) => {
     const newChapter = value || undefined;
@@ -187,20 +242,43 @@ const QuestionsPage: React.FC = () => {
     // fetchQuestions effect will run
   };
 
+  // Board and Standard column filters drive the server query, as before.
+  const applyBoardFilter = (values: string[]) => {
+    setFilterBoard(values[0] || undefined);
+    setPage(1);
+  };
+
+  const applyStandardFilter = (values: string[]) => {
+    setFilterStandard(values[0] || undefined);
+    setPage(1);
+  };
+
   /**
    * Show Add Question modal
-   * - Resets form fields
-   * - Clears editing state
-   * - Sets default subject to first available subject from the list
-   * - Fetches chapters for the default subject
+   * - Resets form fields and sets default subject to the first available subject
    */
   const showModal = () => {
     setEditingKey(null);
-    form.resetFields();
 
     // Set default subject to the first subject in the list if available
-    if (Array.isArray(subjectDropdownList) && subjectDropdownList.length > 0) {
-      const firstSubjectId = subjectDropdownList[0].id;
+    const firstSubjectId = Array.isArray(subjectDropdownList) && subjectDropdownList.length > 0
+      ? subjectDropdownList[0].id
+      : '';
+
+    reset({
+      board: 'GSEB',
+      standard: '11th',
+      subject: firstSubjectId,
+      chapter: '',
+      question: '',
+      optionA: '',
+      optionB: '',
+      optionC: '',
+      optionD: '',
+      correctAnswer: '',
+    });
+
+    if (firstSubjectId) {
       setSelectedSubject(firstSubjectId);
       setSelectedSubjectId(firstSubjectId);
 
@@ -221,11 +299,7 @@ const QuestionsPage: React.FC = () => {
 
   /**
    * Handle edit button click
-   * - Loads question data into the form
-   * - Sets the subject and fetches corresponding chapters
-   * - Opens the modal for editing
-   *
-   * @param record - The question record to edit
+   * - Loads question data into the form and fetches the matching chapters
    */
   const handleEdit = (record: any) => {
     setEditingKey(record.id);
@@ -244,25 +318,25 @@ const QuestionsPage: React.FC = () => {
     }
 
     // Load form values from the record with proper ID mapping
-    form.setFieldsValue({
-      ...record,
-      subject: subjectId,
-      chapter: chapterId,
+    reset({
+      board: record.board ?? '',
+      standard: readLabel(record.standard, ['name', 'label', 'value']),
+      subject: subjectId ?? '',
+      chapter: chapterId ?? '',
+      question: record.question ?? '',
+      optionA: record.optionA ?? '',
+      optionB: record.optionB ?? '',
+      optionC: record.optionC ?? '',
+      optionD: record.optionD ?? '',
+      correctAnswer: record.correctAnswer ?? '',
     });
     setModalVisible(true);
   };
 
   /**
    * Handle delete one or multiple questions
-   * - Accepts a single question ID or array of IDs
    * - For single deletion: sends ids as string
    * - For multiple deletion: sends ids as array
-   * - Dispatches deleteQuestionAction with appropriate format
-   * - Redux slice removes the question(s) from the list and updates total count
-   * - Shows success/error message via Redux toast notifications
-   * - Supports both single deletion (from Actions column) and bulk deletion
-   *
-   * @param questionIds - Single question ID or array of question IDs to delete
    */
   const handleDelete = async (questionIds: string | string[]) => {
     try {
@@ -284,28 +358,24 @@ const QuestionsPage: React.FC = () => {
     } catch (error) {
       // Handle unexpected errors
       console.error('Error in handleDelete:', error);
-      message.error('An unexpected error occurred while deleting question(s).');
+      toastText('An unexpected error occurred while deleting question(s).', 'error');
     }
   };
 
   const handleModalCancel = () => {
     setModalVisible(false);
     setEditingKey(null);
-    form.resetFields();
+    reset();
   };
 
   /**
    * Handle subject change in the form
-   * - Updates the selected subject state
-   * - Fetches chapters for the selected subject from the API
-   * - Clears the chapter field when subject changes
-   *
-   * @param value - The selected subject ID
+   * - Fetches chapters for the selected subject and clears the chapter field
    */
   const handleSubjectChange = (value: string) => {
     setSelectedSubject(value);
     setSelectedSubjectId(value);
-    form.setFieldsValue({ chapter: undefined });
+    setValue('chapter', '');
 
     // Fetch chapters for the selected subject
     if (value) {
@@ -315,32 +385,10 @@ const QuestionsPage: React.FC = () => {
 
   /**
    * Handle form submission for adding/editing questions
-   *
-   * This function integrates with the addQuestion and updateQuestion APIs.
-   * It follows the AddQuestionPayload/UpdateQuestionPayload interface structure and includes:
-   * - Form validation and data preparation
-   * - Proper subjectId and chapterId mapping from selected values
-   * - API call using Redux Toolkit's createAsyncThunk
-   * - Loading state management
-   * - Success/error handling with user feedback
-   * - Automatic refresh of questions list after successful operation
-   *
-   * @param values - Form values containing question data
-   * @param values.board - Educational board (GSEB/CBSE)
-   * @param values.subject - Subject ID (from dropdown)
-   * @param values.chapter - Chapter ID (from dropdown)
-   * @param values.standard - Educational standard/grade
-   * @param values.question - The question text
-   * @param values.optionA - Option A text
-   * @param values.optionB - Option B text
-   * @param values.optionC - Option C text
-   * @param values.optionD - Option D text
-   * @param values.correctAnswer - Correct answer (A/B/C/D)
+   * Payloads follow the AddQuestionPayload/UpdateQuestionPayload interfaces exactly.
    */
-  const handleFinish = async (values: any) => {
-    debugger
+  const handleFinish = async (values: QuestionValues) => {
     try {
-      debugger
       // Handle Edit Question
       if (editingKey !== null) {
         // Prepare payload for updateQuestion API according to UpdateQuestionPayload interface
@@ -367,7 +415,7 @@ const QuestionsPage: React.FC = () => {
           // Redux slice automatically updates the questions list in state
           setModalVisible(false);
           setEditingKey(null);
-          form.resetFields();
+          reset();
         } else {
           // Handle API error - error message will be shown by the slice
           console.error('Failed to update question:', resultAction.payload);
@@ -400,7 +448,7 @@ const QuestionsPage: React.FC = () => {
         // Redux slice automatically adds the question to the questions list in state
         setModalVisible(false);
         setEditingKey(null);
-        form.resetFields();
+        reset();
       } else {
         // Handle API error - error message will be shown by the slice
         console.error('Failed to add question:', resultAction.payload);
@@ -408,788 +456,517 @@ const QuestionsPage: React.FC = () => {
     } catch (error) {
       // Handle unexpected errors
       console.error('Error in handleFinish:', error);
-      message.error('An unexpected error occurred. Please try again.');
+      toastText('An unexpected error occurred. Please try again.', 'error');
     }
   };
 
-  const handleTableChange = (pagination: any, filters: any, sorter: any) => {
-    // Pagination from table (keep current page)
-    setPage(pagination.current);
+  const subjectOptions = useMemo(
+    () =>
+      Array.isArray(subjectDropdownList)
+        ? subjectDropdownList.map((subject: any) => ({ label: subject.subname, value: subject.id }))
+        : [],
+    [subjectDropdownList]
+  );
 
-    // Server-side sort handling
-    if (sorter && sorter.field) {
-      setSortField(sorter.field);
-      setSortOrder(sorter.order === 'descend' ? 'desc' : 'asc');
+  const chapterOptions = useMemo(
+    () =>
+      Array.isArray(chapterLists)
+        ? chapterLists.map((chapter: any) => ({ label: chapter.name, value: chapter.id }))
+        : [],
+    [chapterLists]
+  );
+
+  // Resolves the correct answer text, handling both "optionC" and "C" formats.
+  const renderCorrectAnswer = (val: any, record: any) => {
+    let key = '';
+    if (!val) return '';
+    if (typeof val === 'string' && val.toLowerCase().startsWith('option')) {
+      key = val;
+    } else {
+      // single letter like 'A'|'B'|'C'|'D'
+      key = `option${String(val)}`;
     }
-
-    // Read column filters (AntD supplies arrays)
-    const boardFilter = Array.isArray(filters.board) && filters.board.length > 0 ? String(filters.board[0]) : undefined;
-    const standardFilter = Array.isArray(filters.standard) && filters.standard.length > 0 ? String(filters.standard[0]) : undefined;
-
-    // Update local filter state (only if changed)
-    setFilterBoard(prev => (prev !== boardFilter ? boardFilter : prev));
-    setFilterStandard(prev => (prev !== standardFilter ? standardFilter : prev));
-
-    // If any column filter actually changed (including cleared -> undefined),
-    // reset to first page. Do NOT dispatch here — fetchQuestions effect will run once
-    // because state updates are batched.
-    if (boardFilter !== filterBoard || standardFilter !== filterStandard) {
-      setPage(1);
-    }
+    const answer = record[key] || record[key.toLowerCase()] || '';
+    return <div className="break-words">{answer}</div>;
   };
 
-  /**
-   * Table columns configuration with optimized widths for better readability
-   * - Board, Standard, Subject, Chapter: Filter columns (responsive)
-   * - Question: Main content column with increased width (200px)
-   * - Option A, B, C, D: Answer options with increased width (150px each)
-   * - Correct Answer: Correct option indicator
-   * - Actions: Edit and Delete buttons (fixed right)
-   * - Horizontal scroll enabled for proper display on smaller screens
-   */
-  /**
-   * Memoized row selection configuration to prevent lag
-   * - Only recreates when selectedRowKeys changes
-   * - Improves performance when selecting multiple rows
-   */
-  const rowSelection = useMemo(() => ({
-    selectedRowKeys,
-    onChange: (keys: React.Key[]) => setSelectedRowKeys(keys),
-    type: 'checkbox' as const,
-    preserveSelectedRowKeys: true,
-  }), [selectedRowKeys]);
+  // Row actions, shared by the desktop table and the mobile card list.
+  const renderRowActions = (record: any) => (
+    <TooltipProvider delayDuration={150}>
+      <div className="flex items-center justify-center gap-1">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label="Edit question" onClick={() => handleEdit(record)}>
+              <Pencil aria-hidden="true" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Edit</TooltipContent>
+        </Tooltip>
 
-  const columns = [
+        <ConfirmDialog
+          variant="destructive"
+          title="Delete this question?"
+          description="This action cannot be undone."
+          confirmLabel="Yes"
+          cancelLabel="No"
+          onConfirm={() => handleDelete(record.id)}
+          trigger={
+            <Button variant="ghost" size="icon" aria-label="Delete question">
+              <Trash2 aria-hidden="true" className="text-destructive" />
+            </Button>
+          }
+        />
+      </div>
+    </TooltipProvider>
+  );
+
+  const columns: DataTableColumn<any>[] = [
     {
       title: 'Board',
       dataIndex: 'board',
       key: 'board',
-      width: 100,
-      responsive: ['md'] as Breakpoint[],
-      // custom filter dropdown: single-select radio (vertical) like Standard
-      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: any) => {
-        // selectedKeys may be an array; we only allow single selection here
-        const current = Array.isArray(selectedKeys) && selectedKeys.length > 0 ? selectedKeys[0] : undefined;
-        return (
-          <div style={{ padding: 8 }}>
-            <Radio.Group
-              onChange={(e) => {
-                setSelectedKeys(e.target ? [e.target.value] : []);
-              }}
-              value={current}
-            >
-              {BOARD_OPTIONS.map(o => (
-                <Radio key={o.value} value={o.value} style={{ display: 'block', marginBottom: 6 }}>
-                  {o.label}
-                </Radio>
-              ))}
-            </Radio.Group>
-            <div style={{ marginTop: 8, textAlign: 'right' }}>
-              <Button
-                size="small"
-                onClick={() => {
-                  // Clear filters and close dropdown — Table.onChange will be called by confirm
-                  clearFilters && clearFilters();
-                  confirm && confirm();
-                }}
-                style={{ marginRight: 8 }}
-              >
-                Reset
-              </Button>
-              <Button
-                type="primary"
-                size="small"
-                onClick={() => {
-                  // Close dropdown and let Table.onChange update state and trigger API once
-                  confirm && confirm();
-                }}
-              >
-                Apply
-              </Button>
-            </div>
-          </div>
-        );
-      },
-      // show the active filter in column header
-      filteredValue: filterBoard ? [filterBoard] : undefined,
-      // optional client-side filter fallback
-      onFilter: (value: any, record: any) => {
-        const rec = record.board ?? record;
-        if (!rec) return false;
-        return String(rec).toLowerCase() === String(value).toLowerCase();
-      },
-      render: (val: any) => isLoading ? <Skeleton.Input active size="small" style={{ width: 80, minWidth: 80 }} /> : val,
+      width: 110,
+      hideBelow: 'md',
+      filter: (
+        <ColumnFilter
+          label="Board"
+          options={BOARD_FILTER_OPTIONS}
+          value={filterBoard ? [filterBoard] : []}
+          onApply={applyBoardFilter}
+          onReset={() => applyBoardFilter([])}
+        />
+      ),
     },
     {
       title: 'Standard',
       dataIndex: 'standard',
       key: 'standard',
-      width: 100,
-      responsive: ['md'] as Breakpoint[],
-      render: (val: any, record: any) => {
-        if (isLoading) return <Skeleton.Input active size="small" style={{ width: 80, minWidth: 80 }} />;
-        const std = record.standard ?? val;
-        if (!std) return '';
-        if (typeof std === 'string') return std;
-        return std.name || std.label || std.value || '';
-      },
-      // custom filter dropdown with radio (single-select). Do NOT dispatch here.
-      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: any) => {
-        const current = Array.isArray(selectedKeys) && selectedKeys.length > 0 ? selectedKeys[0] : undefined;
-        return (
-          <div style={{ padding: 8 }}>
-            <Radio.Group
-              onChange={(e) => {
-                setSelectedKeys(e.target ? [e.target.value] : []);
-              }}
-              value={current}
-            >
-              {STANDARD_OPTIONS.map(o => (
-                <Radio key={o.value} value={o.value} style={{ display: 'block', marginBottom: 6 }}>
-                  {o.label}
-                </Radio>
-              ))}
-            </Radio.Group>
-            <div style={{ marginTop: 8, textAlign: 'right' }}>
-              <Button
-                size="small"
-                onClick={() => {
-                  // Clear filters and close dropdown — Table.onChange will be invoked by confirm
-                  clearFilters && clearFilters();
-                  confirm && confirm();
-                }}
-                style={{ marginRight: 8 }}
-              >
-                Reset
-              </Button>
-              <Button
-                type="primary"
-                size="small"
-                onClick={() => {
-                  // Close dropdown and let Table.onChange handle updating state + API
-                  confirm && confirm();
-                }}
-              >
-                Apply
-              </Button>
-            </div>
-          </div>
-        );
-      },
-      filteredValue: filterStandard ? [filterStandard] : undefined,
-      filterMultiple: false,
-      onFilter: (value: any, record: any) => {
-        const std = record.standard ?? record;
-        if (!std) return false;
-        if (typeof std === 'string') return String(std).toLowerCase() === String(value).toLowerCase();
-        const v = std.name || std.label || std.value;
-        return String(v).toLowerCase() === String(value).toLowerCase();
-      },
+      width: 120,
+      hideBelow: 'md',
+      render: (val: any, record: any) => readLabel(record.standard ?? val, ['name', 'label', 'value']),
+      filter: (
+        <ColumnFilter
+          label="Standard"
+          options={STANDARD_FILTER_OPTIONS}
+          value={filterStandard ? [filterStandard] : []}
+          onApply={applyStandardFilter}
+          onReset={() => applyStandardFilter([])}
+        />
+      ),
     },
     {
       title: 'Subject',
       dataIndex: 'subject',
       key: 'subject',
-      width: 120,
-      render: (val: any, record: any) => {
-        if (isLoading) return <Skeleton.Input active size="small" style={{ width: 100, minWidth: 100 }} />;
-        const sub = record.subject ?? val;
-        if (!sub) return '';
-        if (typeof sub === 'string') return sub;
-        // support multiple possible keys returned from API
-        return sub.subjectName || sub.subname || sub.name || sub.label || '';
-      },
+      width: 140,
+      hideBelow: 'lg',
+      render: (val: any, record: any) =>
+        readLabel(record.subject ?? val, ['subjectName', 'subname', 'name', 'label']),
     },
     {
       title: 'Chapter',
       dataIndex: 'chapter',
       key: 'chapter',
-      width: 120,
-      responsive: ['lg'] as Breakpoint[],
-      render: (val: any, record: any) => {
-        if (isLoading) return <Skeleton.Input active size="small" style={{ width: 100, minWidth: 100 }} />;
-        const ch = record.chapter ?? val;
-        if (!ch) return '';
-        if (typeof ch === 'string') return ch;
-        return ch.chapterName || ch.name || ch.label || '';
-      },
+      width: 150,
+      hideBelow: 'xl',
+      render: (val: any, record: any) =>
+        readLabel(record.chapter ?? val, ['chapterName', 'name', 'label']),
     },
     {
       title: 'Question',
       dataIndex: 'question',
       key: 'question',
-      width: 400,
-      ellipsis: {
-        showTitle: false,
-      },
-      render: (text: string) => isLoading ? <Skeleton.Input active size="small" block /> : (
-        <Tooltip title={text}>
-          <div style={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
-            {text}
-          </div>
-        </Tooltip>
+      width: 340,
+      render: (text: string) => (
+        <div title={text} className="line-clamp-3 break-words">{text}</div>
       ),
     },
-    {
-      title: 'Option A',
-      dataIndex: 'optionA',
-      key: 'optionA',
-      width: 300,
-      responsive: ['lg'] as Breakpoint[],
-      ellipsis: {
-        showTitle: false,
-      },
-      render: (text: string) => isLoading ? <Skeleton.Input active size="small" block /> : (
-        <Tooltip title={text}>
-          <div style={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
-            {text}
-          </div>
-        </Tooltip>
+    ...(['A', 'B', 'C', 'D'] as const).map((opt) => ({
+      title: `Option ${opt}`,
+      dataIndex: `option${opt}`,
+      key: `option${opt}`,
+      width: 200,
+      hideBelow: 'xl' as const,
+      render: (text: string) => (
+        <div title={text} className="line-clamp-2 break-words">{text}</div>
       ),
-    },
-    {
-      title: 'Option B',
-      dataIndex: 'optionB',
-      key: 'optionB',
-      width: 300,
-      responsive: ['lg'] as Breakpoint[],
-      ellipsis: {
-        showTitle: false,
-      },
-      render: (text: string) => isLoading ? <Skeleton.Input active size="small" block /> : (
-        <Tooltip title={text}>
-          <div style={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
-            {text}
-          </div>
-        </Tooltip>
-      ),
-    },
-    {
-      title: 'Option C',
-      dataIndex: 'optionC',
-      key: 'optionC',
-      width: 300,
-      responsive: ['lg'] as Breakpoint[],
-      ellipsis: {
-        showTitle: false,
-      },
-      render: (text: string) => isLoading ? <Skeleton.Input active size="small" block /> : (
-        <Tooltip title={text}>
-          <div style={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
-            {text}
-          </div>
-        </Tooltip>
-      ),
-    },
-    {
-      title: 'Option D',
-      dataIndex: 'optionD',
-      key: 'optionD',
-      width: 300,
-      responsive: ['lg'] as Breakpoint[],
-      ellipsis: {
-        showTitle: false,
-      },
-      render: (text: string) => isLoading ? <Skeleton.Input active size="small" block /> : (
-        <Tooltip title={text}>
-          <div style={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
-            {text}
-          </div>
-        </Tooltip>
-      ),
-    },
+    })),
     {
       title: 'Correct Answer',
       dataIndex: 'correctAnswer',
       key: 'correctAnswer',
-      width: 300,
-      render: (val: any, record: any) => {
-        if (isLoading) return <Skeleton.Input active size="small" block />;
-        // val may be 'optionC' or just 'C' — handle both
-        let key = '';
-        if (!val) return '';
-        if (typeof val === 'string' && val.toLowerCase().startsWith('option')) {
-          key = val;
-        } else {
-          // single letter like 'A'|'B'|'C'|'D'
-          key = `option${String(val)}`;
-        }
-        const answer = record[key] || record[key.toLowerCase()] || '';
-        return (
-          <div style={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
-            {answer}
-          </div>
-        );
-      },
+      width: 200,
+      render: renderCorrectAnswer,
     },
     {
       title: 'Actions',
       key: 'actions',
-      fixed: 'right' as const,
-      width: 100,
-      render: (_: any, record: any) => isLoading ? <Skeleton.Input active size="small" style={{ width: 60 }} /> : (
-        <Space>
-          <Button style={{ marginRight: '10px' }} icon={<EditOutlined />} onClick={() => handleEdit(record)} size="small" />
-          <Popconfirm
-            title="Delete this question?"
-            description="This action cannot be undone."
-            onConfirm={() => handleDelete(record.id)}
-            okText="Yes"
-            cancelText="No"
-          >
-            <Button icon={<DeleteOutlined />} danger size="small" />
-          </Popconfirm>
-        </Space>
-      ),
+      align: 'center',
+      width: 110,
+      render: (_: any, record: any) => renderRowActions(record),
     },
   ];
-  
-  const tableData = isLoading 
-      ? Array.from({ length: 5 }).map((_, index) => ({
-          key: `skeleton-${index}`,
-          id: `skeleton-${index}`,
-          board: '',
-          standard: '',
-          subject: '',
-          chapter: '',
-          question: '',
-          optionA: '',
-          optionB: '',
-          optionC: '',
-          optionD: '',
-          correctAnswer: '',
-      } as any))
-      : questions;
+
+  const questionLength = watch('question')?.length ?? 0;
 
   return (
-    <div className="questions-page-container animate-fade-in">
-      <div className="questions-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h1 className="welcome-title" style={{ margin: 0 }}>Questions</h1>
-        <Space size="middle">
-          {selectedRowKeys.length > 0 && (
-            <Popconfirm
-              title={`Delete ${selectedRowKeys.length} question${selectedRowKeys.length > 1 ? 's' : ''}?`}
-              description="This action cannot be undone."
-              onConfirm={() => {
-                handleDelete(selectedRowKeys as string[]);
-                setSelectedRowKeys([]);
-              }}
-              okText="Yes"
-              cancelText="No"
-            >
-              <Button
-                danger
-                icon={<DeleteOutlined />}
-                className="bulk-delete-button"
-              >
-                Delete ({selectedRowKeys.length})
-              </Button>
-            </Popconfirm>
-          )}
-          <Tooltip title="Import questions from Excel">
-            <Button
-              icon={<ImportOutlined />}
-              onClick={showImportModal}
-              className="import-button"
-            >
+    <PageShell>
+      <PageHeader
+        title="Questions"
+        description="The question bank powering every practice test."
+        actions={
+          <>
+            {selectedRowKeys.length > 0 && (
+              <ConfirmDialog
+                variant="destructive"
+                title={`Delete ${selectedRowKeys.length} question${selectedRowKeys.length > 1 ? 's' : ''}?`}
+                description="This action cannot be undone."
+                confirmLabel="Yes"
+                cancelLabel="No"
+                onConfirm={() => {
+                  handleDelete(selectedRowKeys as string[]);
+                  setSelectedRowKeys([]);
+                }}
+                trigger={
+                  <Button variant="destructive">
+                    <Trash2 aria-hidden="true" />
+                    Delete ({selectedRowKeys.length})
+                  </Button>
+                }
+              />
+            )}
+            <Button variant="secondary" onClick={showImportModal}>
+              <Upload aria-hidden="true" />
               Import
             </Button>
-          </Tooltip>
-          <Button type="primary" icon={<PlusOutlined />} onClick={showModal} className="primary-button">
-            Add Question
-          </Button>
-        </Space>
-      </div>
-      {/* Filters and Search Bar - Responsive layout for all screen sizes */}
-      <div className="filters-search-container" style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        gap: '20px',
-        marginBottom: '18px',
-        flexWrap: 'wrap'
-      }}>
-        {/* Filters Section - Subject and Chapter only (Board & Standard filters moved into table columns) */}
-        <div className="filters-section" style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '12px',
-          alignItems: 'center',
-          flex: '1',
-          minWidth: 'fit-content'
-        }}>
+            <Button onClick={showModal}>
+              <Plus aria-hidden="true" />
+              Add Question
+            </Button>
+          </>
+        }
+      />
 
-          {/* Subject Filter Dropdown - Triggers API call on change, clears chapter filter */}
-          <div className="filter-dropdown-wrapper">
+      {/* Filters and Search Bar */}
+      <Card className="p-4 sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          {/* Subject and Chapter filters */}
+          <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:max-w-lg">
             <CustomDropdown
-              options={
-                Array.isArray(subjectDropdownList)
-                  ? subjectDropdownList.map((subject: any) => ({
-                    label: subject.subname,
-                    value: subject.id,
-                  }))
-                  : []
-              }
+              options={subjectOptions}
               value={filterSubject || ''}
               onChange={handleFilterSubjectChange}
               placeholder="Subject"
-              size="middle"
             />
-          </div>
-
-          {/* Chapter Filter Dropdown - Disabled if no subject selected, triggers API call on change */}
-          <div className="filter-dropdown-wrapper">
             <CustomDropdown
-              options={
-                filterSubject && Array.isArray(chapterLists)
-                  ? chapterLists.map((chapter: any) => ({
-                    label: chapter.name,
-                    value: chapter.id,
-                  }))
-                  : []
-              }
+              options={filterSubject ? chapterOptions : []}
               value={filterChapter || ''}
               onChange={handleChapterChange}
               placeholder="Chapter"
               disabled={!filterSubject}
-              size="middle"
             />
+            {/* Common Clear Button - Appears when any filter is selected */}
+            {(filterSubject || filterChapter) && (
+              <Button
+                variant="secondary"
+                className="sm:col-span-2 sm:justify-self-start"
+                onClick={() => handleFilterSubjectChange('')}
+              >
+                Clear Filters
+              </Button>
+            )}
           </div>
 
-          {/* Common Clear Button - Appears when any filter is selected */}
-          {(filterSubject || filterChapter) && (
-            <Button
-              size="middle"
-              onClick={() => handleFilterSubjectChange('')}
-              style={{ height: '32px' }}
-            >
-              Clear Filters
-            </Button>
-          )}
-        </div>
-
-        {/* Search Section - Responsive search input and button */}
-        <div className="search-section" style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'flex-start',
-          gap: '4px',
-          flex: '0 1 auto',
-          minWidth: '0',
-          width: '100%'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', width: '100%', minWidth: '0' }}>
-            <Input
-              allowClear
-              placeholder="Search question... (min 3 characters)"
-              prefix={<SearchOutlined />}
-              style={{
-                flex: '1',
-                minWidth: '0',
-                borderColor: searchText.length > 0 && searchText.length < 3 ? '#ff4d4f' : undefined
-              }}
-              value={searchText}
-              onChange={handleSearchInputChange}
-              onPressEnter={handleSearchKeyPress}
-              status={searchText.length > 0 && searchText.length < 3 ? 'error' : undefined}
-            />
-            <Button
-              type="primary"
-              icon={<SearchOutlined />}
-              onClick={handleSearch}
-              className="search-button"
-              style={{ flexShrink: 0, marginLeft: '4px', height: '36px', whiteSpace: 'nowrap' }}
-              disabled={searchText.length > 0 && searchText.length < 3}
-            >
-              Search
-            </Button>
-          </div>
-          {searchText.length > 0 && searchText.length < 3 && (
-            <div style={{
-              color: '#ff4d4f',
-              fontSize: '12px',
-              marginTop: '2px',
-              marginLeft: '4px'
-            }}>
-              Please enter at least 3 characters to search
+          {/* Search Section */}
+          <div className="flex w-full flex-col gap-1.5 lg:max-w-md">
+            <div className="flex items-start gap-2">
+              <div className="relative min-w-0 flex-1">
+                <Search
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                />
+                <Input
+                  aria-label="Search questions"
+                  placeholder="Search question... (min 3 characters)"
+                  className="pl-10"
+                  value={searchText}
+                  onChange={handleSearchInputChange}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSearch();
+                  }}
+                  invalid={searchText.length > 0 && searchText.length < 3}
+                />
+              </div>
+              <Button
+                onClick={handleSearch}
+                disabled={searchText.length > 0 && searchText.length < 3}
+              >
+                <Search aria-hidden="true" />
+                <span className="hidden sm:inline">Search</span>
+              </Button>
             </div>
-          )}
+            {searchText.length > 0 && searchText.length < 3 && (
+              <p role="alert" className="text-xs font-medium text-destructive">
+                Please enter at least 3 characters to search
+              </p>
+            )}
+          </div>
         </div>
-      </div>
-      <div className="questions-table-wrapper">
-        <Table
-          columns={columns}
-          dataSource={tableData}
-          pagination={{
-            current: page,
-            pageSize: DEFAULT_PAGE_SIZE,
-            total,
-            showSizeChanger: false,
-            onChange: (p) => setPage(p),
-          }}
-          bordered
-          rowKey="id"
-          scroll={{ x: 'max-content' }}
-          onChange={handleTableChange}
-          rowSelection={rowSelection}
-        />
-      </div>
+      </Card>
 
-      {/* Add/Edit Question Modal with responsive design */}
-      <Modal
-        open={modalVisible}
-        onCancel={handleModalCancel}
-        footer={null}
-        width={!screens.md ? '95%' : !screens.lg ? '85%' : 1000} // Responsive width logic using breakpoints
-        style={{
-          maxHeight: '90vh',
-          overflowY: 'auto',
-        }}
-        centered
-        className="question-modal"
-        destroyOnClose
-        maskClosable={false}
-        title={
-          <div
-            style={{
-              fontSize: 20,
-              fontWeight: 600,
-              textAlign: 'left',
-              color: '#222',
-              letterSpacing: 0.5,
-              padding: '8px 0',
-              background: 'transparent',
-            }}
-          >
-            {editingKey !== null ? 'Update Question' : 'Add Question'}
-          </div>
+      <DataTable<any>
+        columns={columns}
+        dataSource={questions}
+        rowKey="id"
+        loading={isLoading}
+        skeletonRows={5}
+        emptyTitle="No questions found"
+        emptyDescription="Add a question or import a set from Excel to get started."
+        emptyAction={
+          <Button onClick={showModal}>
+            <Plus aria-hidden="true" />
+            Add Question
+          </Button>
         }
-      >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleFinish}
-          initialValues={{
-            board: 'GSEB',
-            standard: '11th',
-            // Set default subject to first available subject ID
-            subject: Array.isArray(subjectDropdownList) && subjectDropdownList.length > 0 ? subjectDropdownList[0].id : undefined
-          }}
-          className="question-form"
-        >
-          {/* ---------------- Basic Information Section ---------------- */}
-          <div className="form-section">
-            <h4 className="section-title">Basic Information</h4>
-            <Row gutter={[16, 16]}>
-              <Col xs={24} sm={12} md={6}>
-                <Form.Item
-                  name="board"
-                  label="Board"
-                  rules={[{ required: true, message: 'Please select board' }]}
-                >
-                  <CustomDropdown
-                    options={BOARD_OPTIONS}
-                    placeholder="Select Board"
-                    size="large"
-                    style={{ width: '100%' }}
-                  />
-                </Form.Item>
-              </Col>
-              <Col xs={24} sm={12} md={6}>
-                <Form.Item
-                  name="standard"
-                  label="Standard"
-                  rules={[{ required: true, message: 'Please select standard' }]}
-                >
-                  <CustomDropdown
-                    options={STANDARD_OPTIONS}
-                    placeholder="Select Standard"
-                    size="large"
-                    style={{ width: '100%' }}
-                  />
-                </Form.Item>
-              </Col>
-              <Col xs={24} sm={12} md={6}>
-                <Form.Item
-                  name="subject"
-                  label="Subject"
-                  rules={[{ required: true, message: 'Please select subject' }]}
-                >
-                  <CustomDropdown
-                    options={
-                      Array.isArray(subjectDropdownList)
-                        ? subjectDropdownList.map((subject: any) => ({
-                          label: subject.subname,
-                          value: subject.id,
-                        }))
-                        : []
-                    }
-                    placeholder="Select Subject"
-                    onChange={handleSubjectChange}
-                    size="large"
-                    style={{ width: '100%' }}
-                  />
-                </Form.Item>
-              </Col>
-              <Col xs={24} sm={12} md={6}>
-                <Form.Item
-                  name="chapter"
-                  label="Chapter"
-                  rules={[{ required: true, message: 'Please select chapter' }]}
-                >
-                  <CustomDropdown
-                    placeholder="Select Chapter"
-                    options={
-                      selectedSubject && Array.isArray(chapterLists)
-                        ? chapterLists.map((chapter: any) => ({
-                          label: chapter.name,
-                          value: chapter.id,
-                        }))
-                        : []
-                    }
-                    size="large"
-                    disabled={!selectedSubject}
-                    style={{ width: '100%' }}
-                  />
-                </Form.Item>
-              </Col>
-            </Row>
-          </div>
+        rowSelection={{
+          selectedRowKeys,
+          onChange: (keys) => setSelectedRowKeys(keys),
+        }}
+        pagination={{
+          current: page,
+          pageSize: DEFAULT_PAGE_SIZE,
+          total,
+          onChange: (p) => setPage(p),
+          showTotal: (t, range) => `${range[0]}-${range[1]} of ${t} questions`,
+        }}
+        // Below `md` each question becomes a card; the full row is far too wide for a phone.
+        renderMobileCard={(record: any) => (
+          <Card className="flex flex-col gap-3 p-4">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Badge size="sm">{record.board}</Badge>
+                <Badge variant="outline" size="sm">
+                  {readLabel(record.standard, ['name', 'label', 'value'])}
+                </Badge>
+              </div>
+              {renderRowActions(record)}
+            </div>
+            <p className="break-words text-sm font-medium text-foreground">{record.question}</p>
+            <div className="flex flex-col gap-1">
+              <span className="dc-label">Correct answer</span>
+              <span className="break-words text-sm text-success">
+                {renderCorrectAnswer(record.correctAnswer, record)}
+              </span>
+            </div>
+          </Card>
+        )}
+      />
 
-          {/* ---------------- Question Section ---------------- */}
-          <div className="form-section">
-            <h4 className="section-title">Question</h4>
-            <Row>
-              <Col span={24}>
-                <Form.Item
-                  name="question"
-                  rules={[
-                    { required: true, message: 'Please enter question' },
-                    { min: 10, message: 'Question must be at least 10 characters long' },
-                    { max: 500, message: 'Question cannot exceed 500 characters' },
-                  ]}
-                >
-                  <Input.TextArea
-                    placeholder="Enter your question here (minimum 10 characters)"
-                    showCount
-                    maxLength={500}
-                    autoSize={{ minRows: 4, maxRows: 6 }} // flexible but controlled height
-                    style={{
-                      fontSize: 15,
-                      resize: 'none', // fix broken design
-                      borderRadius: 6,
-                      paddingRight: 40, // space for character counter
-                    }}
-                  />
-                </Form.Item>
-              </Col>
-            </Row>
-          </div>
+      {/* Add/Edit Question Modal */}
+      <Dialog open={modalVisible} onOpenChange={(open) => !open && handleModalCancel()}>
+        <DialogContent className="max-w-4xl gap-0 p-0">
+          <DialogHeader className="shrink-0 border-b border-border p-5 pr-14">
+            <DialogTitle>{editingKey !== null ? 'Update Question' : 'Add Question'}</DialogTitle>
+          </DialogHeader>
 
-          {/* ---------------- Answer Options Section ---------------- */}
-          <div className="form-section">
-            <h4 className="section-title">Answer Options</h4>
-            <Row gutter={[16, 16]}>
-              {['A', 'B', 'C', 'D'].map((opt) => (
-                <Col span={24} key={opt}>
-                  <Form.Item
-                    name={`option${opt}`}
-                    label={`Option ${opt}`}
-                    rules={[
-                      { required: true, message: `Please enter option ${opt}` },
-                      { max: 300, message: `Option ${opt} cannot exceed 300 characters` },
-                    ]}
-                  >
-                    <Input.TextArea
-                      placeholder={`Enter option ${opt}`}
-                      showCount
-                      maxLength={300}
-                      autoSize={{ minRows: 2, maxRows: 4 }}
-                      style={{
-                        fontSize: 15,
-                        resize: 'none',
-                        borderRadius: 6,
-                        paddingRight: 40, // ensures counter doesn’t overlap
-                      }}
+          <form
+            noValidate
+            onSubmit={handleSubmit(handleFinish)}
+            className="flex min-h-0 flex-1 flex-col"
+          >
+            <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-5">
+              {/* ---------------- Basic Information Section ---------------- */}
+              <section className="flex flex-col gap-3">
+                <h4 className="dc-label">Basic Information</h4>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <FormField id="q-board" label="Board" required error={errors.board?.message}>
+                    {(aria) => (
+                      <Controller
+                        name="board"
+                        control={control}
+                        render={({ field }) => (
+                          <CustomDropdown
+                            id={aria.id}
+                            options={BOARD_OPTIONS}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Select Board"
+                            size="large"
+                          />
+                        )}
+                      />
+                    )}
+                  </FormField>
+
+                  <FormField id="q-standard" label="Standard" required error={errors.standard?.message}>
+                    {(aria) => (
+                      <Controller
+                        name="standard"
+                        control={control}
+                        render={({ field }) => (
+                          <CustomDropdown
+                            id={aria.id}
+                            options={STANDARD_OPTIONS}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Select Standard"
+                            size="large"
+                          />
+                        )}
+                      />
+                    )}
+                  </FormField>
+
+                  <FormField id="q-subject" label="Subject" required error={errors.subject?.message}>
+                    {(aria) => (
+                      <Controller
+                        name="subject"
+                        control={control}
+                        render={({ field }) => (
+                          <CustomDropdown
+                            id={aria.id}
+                            options={subjectOptions}
+                            value={field.value}
+                            onChange={(value) => {
+                              field.onChange(value);
+                              handleSubjectChange(value);
+                            }}
+                            placeholder="Select Subject"
+                            size="large"
+                          />
+                        )}
+                      />
+                    )}
+                  </FormField>
+
+                  <FormField id="q-chapter" label="Chapter" required error={errors.chapter?.message}>
+                    {(aria) => (
+                      <Controller
+                        name="chapter"
+                        control={control}
+                        render={({ field }) => (
+                          <CustomDropdown
+                            id={aria.id}
+                            options={selectedSubject ? chapterOptions : []}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Select Chapter"
+                            size="large"
+                            disabled={!selectedSubject}
+                          />
+                        )}
+                      />
+                    )}
+                  </FormField>
+                </div>
+              </section>
+
+              {/* ---------------- Question Section ---------------- */}
+              <section className="flex flex-col gap-3">
+                <h4 className="dc-label">Question</h4>
+                <FormField
+                  id="q-question"
+                  label="Question text"
+                  required
+                  error={errors.question?.message}
+                  hint={`${questionLength}/500 characters`}
+                >
+                  {(aria) => (
+                    <Textarea
+                      {...aria}
+                      {...register('question')}
+                      rows={4}
+                      maxLength={500}
+                      placeholder="Enter your question here (minimum 10 characters)"
+                      invalid={Boolean(errors.question)}
                     />
-                  </Form.Item>
-                </Col>
-              ))}
-            </Row>
-          </div>
+                  )}
+                </FormField>
+              </section>
 
+              {/* ---------------- Answer Options Section ---------------- */}
+              <section className="flex flex-col gap-3">
+                <h4 className="dc-label">Answer Options</h4>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {(['A', 'B', 'C', 'D'] as const).map((opt) => (
+                    <FormField
+                      key={opt}
+                      id={`q-option${opt}`}
+                      label={`Option ${opt}`}
+                      required
+                      error={errors[`option${opt}` as keyof QuestionValues]?.message}
+                    >
+                      {(aria) => (
+                        <Textarea
+                          {...aria}
+                          {...register(`option${opt}` as keyof QuestionValues)}
+                          rows={2}
+                          maxLength={300}
+                          placeholder={`Enter option ${opt}`}
+                          invalid={Boolean(errors[`option${opt}` as keyof QuestionValues])}
+                        />
+                      )}
+                    </FormField>
+                  ))}
+                </div>
+              </section>
 
-          {/* ---------------- Correct Answer Section ---------------- */}
-          <div className="form-section">
-            <h4 className="section-title">Correct Answer</h4>
-            <Row gutter={[16, 16]}>
-              <Col xs={24} sm={12} md={6}>
-                <Form.Item
-                  name="correctAnswer"
-                  label="Select Correct Answer"
-                  rules={[{ required: true, message: 'Please select correct answer' }]}
-                >
-                  <CustomDropdown
-                    options={
-                      [
-                        { label: 'Option A', value: 'A' },
-                        { label: 'Option B', value: 'B' },
-                        { label: 'Option C', value: 'C' },
-                        { label: 'Option D', value: 'D' },
-                      ]
-                    }
-                    placeholder="Choose correct option"
-                    size="large"
-                    style={{ width: '100%' }}
-                  />
-                </Form.Item>
-              </Col>
-            </Row>
-          </div>
+              {/* ---------------- Correct Answer Section ---------------- */}
+              <section className="flex flex-col gap-3">
+                <h4 className="dc-label">Correct Answer</h4>
+                <div className="grid grid-cols-1 gap-4 sm:max-w-xs">
+                  <FormField
+                    id="q-correct"
+                    label="Select Correct Answer"
+                    required
+                    error={errors.correctAnswer?.message}
+                  >
+                    {(aria) => (
+                      <Controller
+                        name="correctAnswer"
+                        control={control}
+                        render={({ field }) => (
+                          <CustomDropdown
+                            id={aria.id}
+                            options={CORRECT_ANSWER_OPTIONS}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Choose correct option"
+                            size="large"
+                          />
+                        )}
+                      />
+                    )}
+                  </FormField>
+                </div>
+              </section>
+            </div>
 
-          {/* ---------------- Action Buttons ---------------- */}
-          <div className="form-actions" style={{ marginTop: 24 }}>
-            <Row justify="end" gutter={12}>
-              <Col>
-                <Button
-                  onClick={handleModalCancel}
-                  className="cancel-button"
-                  disabled={isLoading}
-                  size="large"
-                  style={{ minWidth: 100 }}
-                >
-                  Cancel
-                </Button>
-              </Col>
-              <Col>
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  className="primary-button"
-                  loading={isLoading}
-                  disabled={isLoading}
-                  size="large"
-                  style={{ minWidth: 140 }}
-                >
-                  {isLoading
-                    ? editingKey !== null
-                      ? 'Updating...'
-                      : 'Adding...'
-                    : editingKey !== null
-                      ? 'Update Question'
-                      : 'Add Question'}
-                </Button>
-              </Col>
-            </Row>
-          </div>
-        </Form>
-      </Modal>
+            {/* ---------------- Action Buttons ---------------- */}
+            <DialogFooter className="shrink-0 border-t border-border p-5">
+              <Button variant="secondary" onClick={handleModalCancel} disabled={isLoading}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading && <Spinner />}
+                {isLoading
+                  ? editingKey !== null
+                    ? 'Updating...'
+                    : 'Adding...'
+                  : editingKey !== null
+                    ? 'Update Question'
+                    : 'Add Question'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <ImportModal
         visible={importModalVisible}
         onClose={handleImportModalClose}
       />
-    </div>
+    </PageShell>
   );
 };
 

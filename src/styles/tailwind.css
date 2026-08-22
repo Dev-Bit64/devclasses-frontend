@@ -1,0 +1,233 @@
+/* Tailwind layers. Preflight is disabled in tailwind.config.ts; the reset below is scoped to
+   `.dc-public` (public site) and `.dc-app` (authenticated app) so any page still rendering Ant
+   Design keeps its existing global styles until it has been migrated. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------------------------------------------------------------------------
+   Dev Classes design tokens
+   All tokens are `--dc-*` prefixed so they cannot collide with the pre-existing
+   `--primary-color` / `--font-family` variables used by the dashboard.
+   --------------------------------------------------------------------------- */
+@layer base {
+  :root {
+    /* Surfaces */
+    --dc-background: 0 0% 100%;
+    --dc-foreground: 222 47% 11%;
+    --dc-card: 0 0% 100%;
+    --dc-card-foreground: 222 47% 11%;
+    --dc-popover: 0 0% 100%;
+    --dc-popover-foreground: 222 47% 11%;
+    /* Page ground behind cards on the authenticated app. */
+    --dc-surface-subtle: 210 40% 98%;
+
+    /* Brand */
+    --dc-primary: 224 76% 48%;
+    --dc-primary-hover: 224 76% 42%;
+    --dc-primary-foreground: 0 0% 100%;
+    --dc-secondary: 262 83% 58%;
+    --dc-secondary-foreground: 0 0% 100%;
+
+    /* Neutrals */
+    --dc-muted: 210 40% 96%;
+    --dc-muted-foreground: 215 16% 47%;
+    --dc-accent: 214 95% 96%;
+    --dc-accent-foreground: 224 76% 40%;
+
+    /* Feedback */
+    --dc-destructive: 0 72% 51%;
+    --dc-destructive-foreground: 0 0% 100%;
+    --dc-success: 142 71% 40%;
+    --dc-success-foreground: 0 0% 100%;
+    --dc-warning: 38 92% 45%;
+    --dc-warning-foreground: 0 0% 100%;
+    --dc-info: 217 91% 55%;
+    --dc-info-foreground: 0 0% 100%;
+
+    /* Sidebar owns a dark scale of its own so the app shell reads as one surface. */
+    --dc-sidebar: 222 47% 11%;
+    --dc-sidebar-foreground: 213 27% 84%;
+    --dc-sidebar-accent: 224 76% 48%;
+    --dc-sidebar-border: 217 33% 20%;
+    --dc-sidebar-ring: 224 76% 60%;
+
+    /* Lines & focus */
+    --dc-border: 214 32% 91%;
+    --dc-input: 214 32% 91%;
+    --dc-ring: 224 76% 48%;
+
+    --dc-radius: 0.75rem;
+  }
+
+  /* -------------------------------------------------------------------------
+     Scoped reset — stands in for Tailwind Preflight on migrated surfaces only.
+     `.dc-public` wraps the landing page and auth pages; `.dc-app` wraps the
+     authenticated shell. Radix portals re-apply one of the two.
+
+     IMPORTANT: element selectors are wrapped in `:where()` so each rule stays at
+     specificity 0,1,0 — high enough to beat antd/dist/reset.css (0,0,1) but never
+     high enough to beat a Tailwind utility class. Writing these as `.dc-public h2`
+     would be 0,1,1 and would silently override every `text-*`/`font-*` utility.
+     `:is(.dc-public, .dc-app)` also resolves to 0,1,0, so adding the app scope
+     does not change the specificity balance the public surface relies on.
+     Living in `@layer base` also puts these before the utilities layer.
+     ------------------------------------------------------------------------- */
+  :is(.dc-public, .dc-app),
+  :is(.dc-public, .dc-app) :where(*),
+  :is(.dc-public, .dc-app) :where(*)::before,
+  :is(.dc-public, .dc-app) :where(*)::after {
+    /* Tailwind's `border-*` utilities only set width, so a default style/colour is required. */
+    border-width: 0;
+    border-style: solid;
+    border-color: hsl(var(--dc-border));
+    box-sizing: border-box;
+  }
+
+  /* Deliberately no background-color. This selector also matches full-viewport overlay
+     wrappers that carry the scope for token inheritance — the react-hot-toast container is
+     `position: fixed; inset: 16px; z-index: 9999` — and an opaque background there paints a
+     white sheet over the whole app. Each layout sets its own ground with a `bg-background`
+     or `bg-surface` utility instead. */
+  :is(.dc-public, .dc-app) {
+    font-family: 'Inter', 'Poppins', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    color: hsl(var(--dc-foreground));
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  :is(.dc-public, .dc-app) :where(h1, h2, h3, h4, h5, h6) {
+    font-size: inherit;
+    font-weight: inherit;
+    margin: 0;
+  }
+
+  :is(.dc-public, .dc-app) :where(p, figure, blockquote, dl, dd) {
+    margin: 0;
+  }
+
+  :is(.dc-public, .dc-app) :where(ul, ol) {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  :is(.dc-public, .dc-app) :where(a) {
+    color: inherit;
+    text-decoration: inherit;
+  }
+
+  :is(.dc-public, .dc-app) :where(img, svg, video, canvas) {
+    display: block;
+    max-width: 100%;
+  }
+
+  :is(.dc-public, .dc-app) :where(img, video) {
+    height: auto;
+  }
+
+  :is(.dc-public, .dc-app) :where(button, input, select, textarea, optgroup) {
+    font: inherit;
+    color: inherit;
+    margin: 0;
+    padding: 0;
+    background-color: transparent;
+    border-radius: 0;
+  }
+
+  :is(.dc-public, .dc-app) :where(button, select) {
+    text-transform: none;
+  }
+
+  :is(.dc-public, .dc-app) :where(button) {
+    cursor: pointer;
+    background-image: none;
+  }
+
+  :is(.dc-public, .dc-app) :where(:disabled) {
+    cursor: default;
+  }
+
+  :is(.dc-public, .dc-app) :where(input, textarea)::placeholder {
+    opacity: 1;
+    color: hsl(var(--dc-muted-foreground));
+  }
+
+  :is(.dc-public, .dc-app) :where(table) {
+    border-collapse: collapse;
+    text-indent: 0;
+    border-color: inherit;
+  }
+
+  :is(.dc-public, .dc-app) :where(hr) {
+    height: 0;
+    color: inherit;
+    border-top-width: 1px;
+  }
+
+  /* Native selects render their own option list; give it a readable default. */
+  :is(.dc-public, .dc-app) :where(option) {
+    color: hsl(var(--dc-foreground));
+    background-color: hsl(var(--dc-background));
+  }
+}
+
+@layer components {
+  /* Hide the scrollbar on horizontal rails without losing scrollability. */
+  .dc-no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .dc-no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* -------------------------------------------------------------------------
+     Typography scale — pages compose these instead of hand-picking sizes, so the
+     hierarchy stays consistent across every screen.
+     ------------------------------------------------------------------------- */
+  .dc-h1 {
+    @apply text-2xl font-bold tracking-[-0.02em] text-foreground sm:text-[1.75rem];
+  }
+  .dc-h2 {
+    @apply text-xl font-bold tracking-[-0.015em] text-foreground sm:text-2xl;
+  }
+  .dc-h3 {
+    @apply text-base font-semibold tracking-[-0.01em] text-foreground sm:text-lg;
+  }
+  .dc-h4 {
+    @apply text-sm font-semibold text-foreground sm:text-base;
+  }
+  .dc-body {
+    @apply text-sm leading-relaxed text-foreground;
+  }
+  .dc-small {
+    @apply text-[0.8rem] leading-relaxed text-muted-foreground;
+  }
+  .dc-caption {
+    @apply text-xs leading-normal text-muted-foreground;
+  }
+  .dc-label {
+    @apply text-xs font-semibold uppercase tracking-wider text-muted-foreground;
+  }
+  /* Numeric readouts (timer, scores, counts) must not jitter as digits change. */
+  .dc-numeric {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Reduced motion — collapses every animation to a plain state change.
+   Kept outside the layers so it always wins.
+   --------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  :is(.dc-public, .dc-app) *,
+  :is(.dc-public, .dc-app) *::before,
+  :is(.dc-public, .dc-app) *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

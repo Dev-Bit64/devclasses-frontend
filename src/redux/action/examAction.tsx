@@ -132,7 +132,16 @@ export const exportExamResultToPDFAction = createAsyncThunk(
             if (!error.response) {
                 throw error;
             }
-            return rejectWithValue(error?.response?.data);
+            const errorData = error?.response?.data;
+            // Errors of a blob request arrive as a Blob, so read the JSON body out of it
+            if (errorData instanceof Blob) {
+                try {
+                    return rejectWithValue(JSON.parse(await errorData.text()));
+                } catch {
+                    return rejectWithValue(errorData);
+                }
+            }
+            return rejectWithValue(errorData);
         }
     }
 )

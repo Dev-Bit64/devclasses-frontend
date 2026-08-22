@@ -3,7 +3,7 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 import { deleteApi, getApi, patchApi, postApi } from "../apis";
 import { APIEndpoints } from "../../constants/constants";
 import { GetUserResultsPayload, GetUsersPayload } from "../../interfaces/interfaces";
-import { message } from "antd";
+import { toastText } from "../../utils/toast";
 
 export const getUserProfileAction = createAsyncThunk(
     "GetUserProfile",
@@ -111,7 +111,7 @@ export const updateUserProfileAction = createAsyncThunk(
             const response = await patchApi(APIEndpoints.UpdateUserProfile, payload);
             if (response?.data?.statusCode === 200) {
                 {
-                    message.success(response?.data?.message);
+                    toastText(response?.data?.message, "success");
                     return response.data;
                 }
             } else {

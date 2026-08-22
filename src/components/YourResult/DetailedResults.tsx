@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
-import { Card, Tag, Typography, Space, Collapse, Row, Col } from 'antd';
-import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
-import { DetailedQuestionResult } from '../../interfaces/interfaces';
-
-const { Text, Paragraph } = Typography;
-const { Panel } = Collapse;
+import React from "react";
+import { CheckCircle2, XCircle } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../ui/accordion";
+import { Card } from "../ui/card";
+import { DetailedQuestionResult } from "../../interfaces/interfaces";
+import { cn } from "../../libs/utils";
 
 /**
  * Props interface for DetailedResults component
@@ -14,283 +13,190 @@ interface DetailedResultsProps {
 }
 
 /**
+ * Format option label (e.g., "OPTIONA" -> "A")
+ * Handles null values for unanswered questions
+ */
+const formatOption = (option: string | null): string => {
+  if (!option) {
+    return "Not Answered";
+  }
+  if (option.startsWith("OPTION")) {
+    return option.replace("OPTION", "");
+  }
+  return option;
+};
+
+/**
  * DetailedResults Component
- * Displays question-by-question breakdown of exam results
- * Shows each question with selected answer, correct answer, and whether it was correct
- * Redesigned with better layout and responsiveness
- *
- * @param detailedResults - Array of detailed question results from exam
+ * Displays a question-by-question breakdown: the question, every option with the correct
+ * and selected ones marked, and the answers side by side.
  */
 const DetailedResults: React.FC<DetailedResultsProps> = ({ detailedResults }) => {
-  const [activeKey, setActiveKey] = useState<string | string[]>([]);
-
-  /**
-   * Get color for option tag based on correctness
-   */
-  const getOptionColor = (isCorrect: boolean): string => {
-    return isCorrect ? 'success' : 'error';
-  };
-
-  /**
-   * Format option label (e.g., "OPTIONA" -> "A")
-   * Handles null values for unanswered questions
-   */
-  const formatOption = (option: string | null): string => {
-    if (!option) {
-      return 'Not Answered';
-    }
-    if (option.startsWith('OPTION')) {
-      return option.replace('OPTION', '');
-    }
-    return option;
-  };
-
-  const correctCount = detailedResults.filter(r => r.isCorrect).length;
-  const wrongCount = detailedResults.filter(r => !r.isCorrect).length;
+  const correctCount = detailedResults.filter((r) => r.isCorrect).length;
+  const wrongCount = detailedResults.filter((r) => !r.isCorrect).length;
 
   return (
-    <Card
-      className="detailed-results-card"
-      title={
-        <Space>
-          <span style={{ fontSize: '18px' }}>📝</span>
-          <span style={{ fontSize: '18px', fontWeight: 600 }}>
-            Question-by-Question Breakdown
+    <Card className="overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4 sm:p-5">
+        <h2 className="dc-h3">Question-by-Question Breakdown</h2>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">
+            <CheckCircle2 aria-hidden="true" className="size-3.5" />
+            {correctCount} correct
           </span>
-        </Space>
-      }
-      extra={
-        <Space size={8}>
-          <Tag color="success" style={{ margin: 0 }}>
-            <CheckCircleOutlined /> {correctCount}
-          </Tag>
-          <Tag color="error" style={{ margin: 0 }}>
-            <CloseCircleOutlined /> {wrongCount}
-          </Tag>
-        </Space>
-      }
-      style={{
-        borderRadius: '12px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-        border: '1px solid #f0f0f0'
-      }}
-    >
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-semibold text-destructive">
+            <XCircle aria-hidden="true" className="size-3.5" />
+            {wrongCount} wrong
+          </span>
+        </div>
+      </div>
 
-      {/* Questions Collapse */}
-      <Collapse
-        activeKey={activeKey}
-        onChange={setActiveKey}
-        bordered={false}
-        style={{ background: 'transparent' }}
-        expandIconPosition="end"
-      >
+      {/* Multiple panels may be open at once, as the previous Collapse allowed. */}
+      <Accordion type="multiple" className="flex flex-col gap-2.5 p-3 sm:p-4">
         {detailedResults.map((result, index) => (
-          <Panel
+          <AccordionItem
             key={result.questionId}
-            header={
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '12px', flexWrap: 'wrap' }}>
-                <Space size={12}>
-                  <div style={{
-                    background: result.isCorrect ? '#52c41a' : '#ff4d4f',
-                    color: 'white',
-                    minWidth: '32px',
-                    height: '32px',
-                    borderRadius: '8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '14px',
-                    fontWeight: 700,
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                  }}>
-                    {index + 1}
-                  </div>
-                  <Text strong style={{ fontSize: '15px' }}>Question {index + 1}</Text>
-                </Space>
-                {result.isCorrect ? (
-                  <Tag icon={<CheckCircleOutlined />} color="success" style={{ margin: 0, fontSize: '13px', padding: '2px 10px' }}>
-                    Correct
-                  </Tag>
-                ) : (
-                  <Tag icon={<CloseCircleOutlined />} color="error" style={{ margin: 0, fontSize: '13px', padding: '2px 10px' }}>
-                    Wrong
-                  </Tag>
-                )}
-              </div>
-            }
-            style={{
-              marginBottom: '10px',
-              borderRadius: '10px',
-              border: `1px solid ${result.isCorrect ? '#d9f7be' : '#ffccc7'}`,
-              background: '#fff',
-              overflow: 'hidden',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-            }}
-            className="detailed-result-panel"
+            value={result.questionId}
+            className={cn(
+              "border",
+              result.isCorrect ? "border-success/30" : "border-destructive/30"
+            )}
           >
-            <div style={{ padding: '4px 0' }}>
-              {/* Question Text */}
-              <div style={{
-                padding: '14px',
-                background: '#fafafa',
-                borderRadius: '8px',
-                marginBottom: '14px',
-                borderLeft: `3px solid ${result.isCorrect ? '#52c41a' : '#ff4d4f'}`
-              }}>
-                <Paragraph style={{ marginBottom: '0', fontSize: '14px', lineHeight: '1.7', color: '#262626' }}>
+            <AccordionTrigger className="px-4 py-3.5">
+              <span className="flex min-w-0 flex-1 items-center gap-3">
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "grid size-8 shrink-0 place-items-center rounded-lg text-sm font-bold text-white",
+                    result.isCorrect ? "bg-success" : "bg-destructive"
+                  )}
+                >
+                  {index + 1}
+                </span>
+                <span className="truncate">Question {index + 1}</span>
+                <span
+                  className={cn(
+                    "ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                    result.isCorrect
+                      ? "bg-success/10 text-success"
+                      : "bg-destructive/10 text-destructive"
+                  )}
+                >
+                  {result.isCorrect ? (
+                    <CheckCircle2 aria-hidden="true" className="size-3.5" />
+                  ) : (
+                    <XCircle aria-hidden="true" className="size-3.5" />
+                  )}
+                  {result.isCorrect ? "Correct" : "Wrong"}
+                </span>
+              </span>
+            </AccordionTrigger>
+
+            <AccordionContent className="px-4 pb-4">
+              <div className="flex flex-col gap-4">
+                {/* Question Text */}
+                <p
+                  className={cn(
+                    "break-words rounded-lg border-l-[3px] bg-muted/50 p-3.5 text-sm leading-relaxed text-foreground",
+                    result.isCorrect ? "border-l-success" : "border-l-destructive"
+                  )}
+                >
                   {result.question}
-                </Paragraph>
-              </div>
+                </p>
 
-              {/* Options List Review - Display all options text with correctness markers if available */}
-              {result.options && (
-                <div style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {Object.entries(result.options).map(([key, text]) => {
-                    if (!text) return null;
-                    const optionKeyUpper = key.toUpperCase();
-                    const isSelected = result.selectedOption === optionKeyUpper;
-                    const isCorrect = result.correctOption === optionKeyUpper;
-                    
-                    // Style options dynamically to highlight correct and selected incorrect answers
-                    let optionBg = '#ffffff';
-                    let optionBorder = '1px solid #f0f0f0';
-                    let optionBadgeColor = '#595959';
-                    let optionBadgeBg = '#f5f5f5';
-                    let prefixText = '';
-                    
-                    if (isCorrect) {
-                      optionBg = '#f6ffed';
-                      optionBorder = '1px solid #b7eb8f';
-                      optionBadgeColor = '#ffffff';
-                      optionBadgeBg = '#52c41a';
-                      prefixText = '✓ ';
-                    } else if (isSelected) {
-                      optionBg = '#fff1f0';
-                      optionBorder = '1px solid #ffa39e';
-                      optionBadgeColor = '#ffffff';
-                      optionBadgeBg = '#ff4d4f';
-                      prefixText = '✗ ';
-                    }
-                    
-                    return (
-                      <div 
-                        key={key}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '12px',
-                          padding: '10px 14px',
-                          borderRadius: '8px',
-                          background: optionBg,
-                          border: optionBorder,
-                          transition: 'all 0.2s ease',
-                        }}
-                      >
-                        <div style={{
-                          width: '24px',
-                          height: '24px',
-                          borderRadius: '50%',
-                          background: optionBadgeBg,
-                          color: optionBadgeColor,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '12px',
-                          fontWeight: 'bold',
-                        }}>
-                          {optionKeyUpper}
-                        </div>
-                        <span style={{ fontSize: '14px', color: '#262626', fontWeight: isSelected || isCorrect ? 500 : 400 }}>
-                          {prefixText}{text}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                {/* Options List Review - all options with correctness markers if available */}
+                {result.options && (
+                  <ul className="flex flex-col gap-2">
+                    {Object.entries(result.options).map(([key, text]) => {
+                      if (!text) return null;
+                      const optionKeyUpper = key.toUpperCase();
+                      const isSelected = result.selectedOption === optionKeyUpper;
+                      const isCorrect = result.correctOption === optionKeyUpper;
 
-              {/* Answer Information */}
-              <Row gutter={12}>
-                <Col xs={24} sm={result.isCorrect ? 24 : 12}>
-                  <div style={{
-                    background: result.isCorrect ? '#f6ffed' : '#fff1f0',
-                    padding: '14px',
-                    borderRadius: '8px',
-                    border: `1px solid ${result.isCorrect ? '#b7eb8f' : '#ffa39e'}`,
-                    height: '100%'
-                  }}>
-                    <Text type="secondary" style={{ fontSize: '11px', fontWeight: 600, display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      Your Answer
-                    </Text>
-                    <Tag
-                      color={getOptionColor(result.isCorrect)}
-                      style={{
-                        fontSize: '18px',
-                        padding: '8px 20px',
-                        fontWeight: 700,
-                        borderRadius: '8px',
-                        border: 'none'
-                      }}
+                      return (
+                        <li
+                          key={key}
+                          className={cn(
+                            "flex items-center gap-3 rounded-lg border p-2.5 px-3.5",
+                            isCorrect && "border-success/40 bg-success/5",
+                            !isCorrect && isSelected && "border-destructive/40 bg-destructive/5",
+                            !isCorrect && !isSelected && "border-border bg-card"
+                          )}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={cn(
+                              "grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold",
+                              isCorrect && "bg-success text-white",
+                              !isCorrect && isSelected && "bg-destructive text-white",
+                              !isCorrect && !isSelected && "bg-muted text-muted-foreground"
+                            )}
+                          >
+                            {optionKeyUpper}
+                          </span>
+                          {/* Icons carry the meaning so it is not conveyed by colour alone. */}
+                          {isCorrect && (
+                            <CheckCircle2 aria-label="Correct answer" className="size-4 shrink-0 text-success" />
+                          )}
+                          {!isCorrect && isSelected && (
+                            <XCircle aria-label="Your answer" className="size-4 shrink-0 text-destructive" />
+                          )}
+                          <span
+                            className={cn(
+                              "min-w-0 break-words text-sm text-foreground",
+                              (isSelected || isCorrect) && "font-medium"
+                            )}
+                          >
+                            {text}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+
+                {/* Answer Information */}
+                <div
+                  className={cn(
+                    "grid gap-3",
+                    result.isCorrect ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "rounded-lg border p-3.5",
+                      result.isCorrect
+                        ? "border-success/40 bg-success/5"
+                        : "border-destructive/40 bg-destructive/5"
+                    )}
+                  >
+                    <p className="dc-label text-[0.65rem]">Your Answer</p>
+                    <p
+                      className={cn(
+                        "mt-1.5 text-lg font-bold",
+                        result.isCorrect ? "text-success" : "text-destructive"
+                      )}
                     >
                       {formatOption(result.selectedOption)}
-                    </Tag>
+                    </p>
                   </div>
-                </Col>
 
-                {!result.isCorrect && (
-                  <Col xs={24} sm={12}>
-                    <div style={{
-                      background: '#f6ffed',
-                      padding: '14px',
-                      borderRadius: '8px',
-                      border: '1px solid #b7eb8f',
-                      height: '100%'
-                    }}>
-                      <Text type="secondary" style={{ fontSize: '11px', fontWeight: 600, display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        Correct Answer
-                      </Text>
-                      <Tag
-                        color="success"
-                        style={{
-                          fontSize: '18px',
-                          padding: '8px 20px',
-                          fontWeight: 700,
-                          borderRadius: '8px',
-                          border: 'none'
-                        }}
-                      >
+                  {!result.isCorrect && (
+                    <div className="rounded-lg border border-success/40 bg-success/5 p-3.5">
+                      <p className="dc-label text-[0.65rem]">Correct Answer</p>
+                      <p className="mt-1.5 text-lg font-bold text-success">
                         {formatOption(result.correctOption)}
-                      </Tag>
+                      </p>
                     </div>
-                  </Col>
-                )}
-              </Row>
-            </div>
-          </Panel>
+                  )}
+                </div>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
         ))}
-      </Collapse>
-
-      <style>{`
-        .detailed-result-panel .ant-collapse-header {
-          padding: 14px 18px !important;
-          background: #fafafa;
-        }
-        .detailed-result-panel .ant-collapse-content-box {
-          padding: 18px !important;
-          background: #fff;
-        }
-        .detailed-result-panel:hover {
-          box-shadow: 0 3px 10px rgba(0,0,0,0.08) !important;
-          transform: translateY(-1px);
-          transition: all 0.2s ease;
-        }
-        .detailed-result-panel .ant-collapse-header:hover {
-          background: #f5f5f5 !important;
-        }
-      `}</style>
+      </Accordion>
     </Card>
   );
 };
 
 export default DetailedResults;
-

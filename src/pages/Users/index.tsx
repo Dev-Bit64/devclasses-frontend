@@ -1,15 +1,21 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Tooltip, Input, Card, message, Popconfirm, Space, Skeleton } from 'antd';
-import { WhatsAppOutlined, EyeOutlined, SearchOutlined, DeleteOutlined } from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
+import { Eye, MessageCircle, Search, Trash2 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import UserResultsModal from '../../components/UserResultsModal';
 import SendWhatsAppMessage from '../../components/SendWhatsAppMessage';
 import { getUsersAction, deleteUserAction } from '../../redux/action/userAction';
 import { RootState, AppDispatch } from '../../redux/store';
-import './index.scss';
+import { PageShell } from '../../components/common/PageShell';
+import { PageHeader } from '../../components/common/PageHeader';
+import { DataTable, type DataTableColumn } from '../../components/common/DataTable';
+import { ColumnFilter } from '../../components/common/ColumnFilter';
+import { ConfirmDialog } from '../../components/common/ConfirmDialog';
+import { Card } from '../../components/ui/card';
+import { Input } from '../../components/ui/input';
+import { Button } from '../../components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
+import { toastText } from '../../utils/toast';
 
 interface User {
   key: string;
@@ -26,7 +32,6 @@ interface User {
 
 /**
  * Static options for Standard and Board column filters
- * These are predefined values used in Ant Design table column filters
  */
 const standardFilterOptions = [
   { text: '11th', value: '11th' },
@@ -44,8 +49,6 @@ const UsersPage: React.FC = () => {
   const { userLists = [], isLoading, totalUsers = 0 } = useSelector((state: RootState) => state.user);
 
   // Transform API response data to match table structure
-  // API returns: { id, board, email, firstName, lastName, standard, totalTestsGiven }
-  // Table expects: { key, id, name, email, testsGiven, avatar, standard, board }
   const normalizedUserList: User[] = Array.isArray(userLists)
     ? userLists.map((user: any) => ({
       key: user.id,
@@ -83,10 +86,6 @@ const UsersPage: React.FC = () => {
   /**
    * Fetch users with current filters and search parameters
    * Called on component mount and when filters/search/pagination change
-   * @param searchTerm - Optional search term to override current searchInput
-   * @param standard - Optional standard filter value
-   * @param board - Optional board filter value
-   * @param pageNum - Optional page number to override current page
    */
   const fetchUsers = useCallback((searchTerm: string = '', standard: string = '', board: string = '', pageNum?: number) => {
     const payload = {
@@ -109,7 +108,6 @@ const UsersPage: React.FC = () => {
   /**
    * Handle search button click
    * Validates that search input has at least 3 characters before fetching
-   * Shows warning message if validation fails
    * Resets pagination to page 1 when searching
    */
   const handleSearch = () => {
@@ -125,7 +123,7 @@ const UsersPage: React.FC = () => {
 
     // Validate minimum 3 characters
     if (trimmedSearch.length < 3) {
-      message.warning('Please enter at least 3 characters to search');
+      toastText('Please enter at least 3 characters to search', 'error');
       return;
     }
 
@@ -137,7 +135,6 @@ const UsersPage: React.FC = () => {
 
   /**
    * Handle clearing the search
-   * Resets search input and fetches all users if search was previously applied
    */
   const handleClearSearch = () => {
     setSearchInput('');
@@ -151,7 +148,6 @@ const UsersPage: React.FC = () => {
 
   /**
    * Handle opening the results modal for a specific user
-   * @param user - The user object containing name and key (id)
    */
   const handleViewResults = (user: User) => {
     setSelectedUser({ name: user.name, id: user.key });
@@ -168,7 +164,6 @@ const UsersPage: React.FC = () => {
 
   /**
    * Handle opening the WhatsApp modal for a specific user
-   * @param user - The user object containing name
    */
   const handleOpenWhatsAppModal = (user: User) => {
     setSelectedStudent({ name: user.name, phoneNumber: '' });
@@ -186,7 +181,6 @@ const UsersPage: React.FC = () => {
   /**
    * Handle delete single user
    * Dispatches deleteUserAction with user ID and refreshes the user list
-   * @param userId - The ID of the user to delete
    */
   const handleDeleteUser = async (userId: string) => {
     try {
@@ -205,11 +199,10 @@ const UsersPage: React.FC = () => {
 
   /**
    * Handle delete multiple selected users
-   * Dispatches deleteUserAction with array of user IDs and refreshes the user list
    */
   const handleDeleteMultipleUsers = async () => {
     if (selectedRowKeys.length === 0) {
-      message.warning('Please select at least one user to delete');
+      toastText('Please select at least one user to delete', 'error');
       return;
     }
 
@@ -229,393 +222,274 @@ const UsersPage: React.FC = () => {
     }
   };
 
-    const columns: ColumnsType<User> = [
-      {
-        title: 'No.',
-        dataIndex: 'key',
-        key: 'no',
-        align: 'center',
-        width: 60,
-        render: (_: any, __: User, index: number) => isLoading ? <Skeleton.Input active size="small" style={{ width: 30, minWidth: 30 }} /> : index + 1,
-        responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
-      },
-      {
-        title: 'Name',
-        dataIndex: 'name',
-        key: 'name',
-        align: 'left',
-        render: (text: string, _record: User) => isLoading ? <Skeleton.Input active size="small" style={{ width: 150, minWidth: 150 }} /> : (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {text}
-          </span>
-        ),
-        responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
-      },
-      {
-        title: 'Email',
-        dataIndex: 'email',
-        key: 'email',
-        align: 'left',
-        render: (text: string) => isLoading ? <Skeleton.Input active size="small" style={{ width: 180, minWidth: 180 }} /> : text,
-        responsive: ['md', 'lg', 'xl'],
-      },
-      {
-        // Standard column with Ant Design column filter
-        title: 'Standard',
-        dataIndex: 'standard',
-        key: 'standard',
-        align: 'center',
-        width: 120,
-        responsive: ['sm', 'md', 'lg', 'xl'],
-        // Ant Design column filter configuration
-        filters: standardFilterOptions,
-        onFilter: (value: any, record: User) => record.standard === value,
-        filteredValue: standardFilters,
-        // Filter dropdown props with reset and close functionality
-        filterDropdownProps: {
-          onOpenChange: (open: boolean) => {
-            // Close dropdown after filter is applied
-            if (!open && standardFilters.length > 0) {
-              // Dropdown is closing, filter has been applied
-            }
-          },
-        },
-        // Custom filter dropdown render with reset button
-        filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters, close }: any) => (
-          <div style={{ padding: 8 }}>
-            <div style={{ marginBottom: 8 }}>
-              {standardFilterOptions.map((option) => (
-                <div key={option.value} style={{ marginBottom: 4 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedKeys.includes(option.value)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedKeys([option.value]);
-                        } else {
-                          setSelectedKeys([]);
-                        }
-                      }}
-                      style={{ marginRight: 8 }}
-                    />
-                    {option.text}
-                  </label>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <Button
-                type="primary"
-                size="small"
-                onClick={() => {
-                  confirm();
-                  // Close the filter dropdown after applying filter
-                  close();
-                }}
-                style={{ flex: 1 }}
-              >
-                OK
-              </Button>
-              <Button
-                size="small"
-                onClick={() => {
-                  if (clearFilters) {
-                    clearFilters();
-                  }
-                  setStandardFilters([]);
-                  setPage(1);
-                  // Fetch users with cleared filter, reset to page 1
-                  fetchUsers(searchInput.trim(), '', boardFilters[0] || '', 1);
-                  // Close the filter dropdown after reset
-                  close();
-                }}
-                style={{ flex: 1 }}
-              >
-                Reset
-              </Button>
-            </div>
-          </div>
-        ),
-        render: (text: string) => isLoading ? <Skeleton.Input active size="small" style={{ width: 80, minWidth: 80 }} /> : text,
-      },
-      {
-        // Board column with Ant Design column filter
-        title: 'Board',
-        dataIndex: 'board',
-        key: 'board',
-        align: 'center',
-        width: 120,
-        responsive: ['sm', 'md', 'lg', 'xl'],
-        // Ant Design column filter configuration
-        filters: boardFilterOptions,
-        onFilter: (value: any, record: User) => record.board === value,
-        filteredValue: boardFilters,
-        // Filter dropdown props with reset and close functionality
-        filterDropdownProps: {
-          onOpenChange: (open: boolean) => {
-            // Close dropdown after filter is applied
-            if (!open && boardFilters.length > 0) {
-              // Dropdown is closing, filter has been applied
-            }
-          },
-        },
-        // Custom filter dropdown render with reset button
-        filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters, close }: any) => (
-          <div style={{ padding: 8 }}>
-            <div style={{ marginBottom: 8 }}>
-              {boardFilterOptions.map((option) => (
-                <div key={option.value} style={{ marginBottom: 4 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedKeys.includes(option.value)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedKeys([option.value]);
-                        } else {
-                          setSelectedKeys([]);
-                        }
-                      }}
-                      style={{ marginRight: 8 }}
-                    />
-                    {option.text}
-                  </label>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <Button
-                type="primary"
-                size="small"
-                onClick={() => {
-                  confirm();
-                  // Close the filter dropdown after applying filter
-                  close();
-                }}
-                style={{ flex: 1 }}
-              >
-                OK
-              </Button>
-              <Button
-                size="small"
-                onClick={() => {
-                  if (clearFilters) {
-                    clearFilters();
-                  }
-                  setBoardFilters([]);
-                  setPage(1);
-                  // Fetch users with cleared filter, reset to page 1
-                  fetchUsers(searchInput.trim(), standardFilters[0] || '', '', 1);
-                  // Close the filter dropdown after reset
-                  close();
-                }}
-                style={{ flex: 1 }}
-              >
-                Reset
-              </Button>
-            </div>
-          </div>
-        ),
-        render: (text: string) => isLoading ? <Skeleton.Input active size="small" style={{ width: 80, minWidth: 80 }} /> : text,
-      },
-      {
-        title: 'Test Given',
-        dataIndex: 'testsGiven',
-        key: 'testsGiven',
-        align: 'center',
-        width: 120,
-        render: (text: string) => isLoading ? <Skeleton.Input active size="small" style={{ width: 60, minWidth: 60 }} /> : text,
-        responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
-      },
-      {
-        title: 'Results',
-        key: 'results',
-        align: 'center',
-        width: 140,
-        render: (_: any, record: User) => isLoading ? <Skeleton.Input active size="small" style={{ width: 80, minWidth: 80 }} /> : (
-          <Button
-            type="primary"
-            icon={<EyeOutlined />}
-            size="small"
-            style={{ borderRadius: 6 }}
-            onClick={() => handleViewResults(record)}
-          >
+  // Applying a column filter resets to page 1 and refetches, as it did before.
+  const applyStandardFilter = (values: string[]) => {
+    setStandardFilters(values);
+    setPage(1);
+    fetchUsers(searchInput.trim(), values[0] || '', boardFilters[0] || '', 1);
+  };
+
+  const applyBoardFilter = (values: string[]) => {
+    setBoardFilters(values);
+    setPage(1);
+    fetchUsers(searchInput.trim(), standardFilters[0] || '', values[0] || '', 1);
+  };
+
+  // Row actions, shared by the desktop table and the mobile card list.
+  const renderRowActions = (record: User) => (
+    <TooltipProvider delayDuration={150}>
+      <div className="flex items-center justify-center gap-1">
+        {/* WhatsApp Alert Button */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={`Send WhatsApp alert to ${record.name}`}
+              onClick={() => handleOpenWhatsAppModal(record)}
+            >
+              <MessageCircle aria-hidden="true" className="text-success" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Send Whatsapp alert</TooltipContent>
+        </Tooltip>
+
+        {/* Delete User Button */}
+        <ConfirmDialog
+          variant="destructive"
+          title="Delete User"
+          description="Are you sure you want to delete this user?"
+          confirmLabel="Yes"
+          cancelLabel="No"
+          onConfirm={() => handleDeleteUser(record.key)}
+          trigger={
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={`Delete ${record.name}`}
+            >
+              <Trash2 aria-hidden="true" className="text-destructive" />
+            </Button>
+          }
+        />
+      </div>
+    </TooltipProvider>
+  );
+
+  const columns: DataTableColumn<User>[] = [
+    {
+      title: 'No.',
+      key: 'no',
+      align: 'center',
+      width: 64,
+      // Numbering continues across pages, matching the server-side pagination.
+      render: (_: any, __: User, index: number) => (page - 1) * DEFAULT_PAGE_SIZE + index + 1,
+    },
+    {
+      title: 'Name',
+      dataIndex: 'name',
+      key: 'name',
+      align: 'left',
+      render: (text: string) => <span className="font-medium">{text}</span>,
+    },
+    {
+      title: 'Email',
+      dataIndex: 'email',
+      key: 'email',
+      align: 'left',
+      hideBelow: 'lg',
+      render: (text: string) => <span className="text-muted-foreground">{text}</span>,
+    },
+    {
+      title: 'Standard',
+      dataIndex: 'standard',
+      key: 'standard',
+      align: 'center',
+      width: 130,
+      hideBelow: 'lg',
+      filter: (
+        <ColumnFilter
+          label="Standard"
+          options={standardFilterOptions}
+          value={standardFilters}
+          onApply={applyStandardFilter}
+          onReset={() => applyStandardFilter([])}
+        />
+      ),
+    },
+    {
+      title: 'Board',
+      dataIndex: 'board',
+      key: 'board',
+      align: 'center',
+      width: 120,
+      hideBelow: 'lg',
+      filter: (
+        <ColumnFilter
+          label="Board"
+          options={boardFilterOptions}
+          value={boardFilters}
+          onApply={applyBoardFilter}
+          onReset={() => applyBoardFilter([])}
+        />
+      ),
+    },
+    {
+      title: 'Test Given',
+      dataIndex: 'testsGiven',
+      key: 'testsGiven',
+      align: 'center',
+      width: 120,
+      render: (text: number) => <span className="dc-numeric">{text}</span>,
+    },
+    {
+      title: 'Results',
+      key: 'results',
+      align: 'center',
+      width: 130,
+      // Students with no attempts have nothing to show, so the button is omitted entirely.
+      render: (_: any, record: User) =>
+        record.testsGiven > 0 ? (
+          <Button size="sm" variant="secondary" onClick={() => handleViewResults(record)}>
+            <Eye aria-hidden="true" />
             View
           </Button>
+        ) : (
+          <span className="dc-caption">No results</span>
         ),
-        responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
-      },
-      {
-        title: 'Action',
-        key: 'action',
-        align: 'center',
-        width: 120,
-        render: (_: any, record: User) => isLoading ? <Skeleton.Input active size="small" style={{ width: 80, minWidth: 80 }} /> : (
-          <Space size="small">
-            {/* WhatsApp Alert Button */}
-            <Tooltip title="Send Whatsapp alert">
-              <Button
-                type="text"
-                icon={<WhatsAppOutlined style={{ color: '#25D366', fontSize: 18 }} />}
-                onClick={() => handleOpenWhatsAppModal(record)}
-              />
-            </Tooltip>
-            {/* Delete User Button */}
-            <Popconfirm
-              title="Delete User"
-              description="Are you sure you want to delete this user?"
-              onConfirm={() => handleDeleteUser(record.key)}
-              okText="Yes"
-              cancelText="No"
-            >
-              <Tooltip title="Delete user">
-                <Button
-                  type="text"
-                  icon={<DeleteOutlined style={{ color: '#ff4d4f', fontSize: 18 }} />}
-                  danger
-                />
-              </Tooltip>
-            </Popconfirm>
-          </Space>
-        ),
-        responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
-      },
-    ];
-  
-    const tableData = isLoading 
-        ? Array.from({ length: 5 }).map((_, index) => ({
-            key: `skeleton-${index}`,
-            id: '',
-            name: '',
-            email: '',
-            testsGiven: 0,
-            avatar: '',
-            standard: '',
-            board: '',
-            firstName: '',
-            lastName: '',
-        } as User))
-        : normalizedUserList;
+    },
+    {
+      title: 'Action',
+      key: 'action',
+      align: 'center',
+      width: 120,
+      render: (_: any, record: User) => renderRowActions(record),
+    },
+  ];
 
   return (
-    <div className="users-page-container animate-fade-in">
-      <h1 className="welcome-title" style={{ marginBottom: 24 }}>Users</h1>
+    <PageShell>
+      <PageHeader title="Users" description="Every student registered on Dev Classes." />
 
       {/* Search Card - Contains search input and buttons */}
-      <Card className="users-filter-card" style={{ marginBottom: 24, borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-        <div className="search-section">
-          {/* Search input container */}
-          <div className="search-input-container">
-            <Input
-              allowClear
-              placeholder="Search by name or email... (min 3 characters)"
-              prefix={<SearchOutlined />}
-              className="search-input"
-              value={searchInput}
-              onChange={e => setSearchInput(e.target.value)}
-              onPressEnter={handleSearch}
-              status={searchInput.length > 0 && searchInput.length < 3 ? 'error' : undefined}
-            />
+      <Card className="p-4 sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <div className="relative">
+              <Search
+                aria-hidden="true"
+                className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              />
+              <Input
+                aria-label="Search users by name or email"
+                placeholder="Search by name or email... (min 3 characters)"
+                className="pl-10"
+                value={searchInput}
+                onChange={e => setSearchInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') handleSearch();
+                }}
+                invalid={searchInput.length > 0 && searchInput.length < 3}
+              />
+            </div>
             {/* Error message for search validation */}
             {searchInput.length > 0 && searchInput.length < 3 && (
-              <div className="search-error-message">
+              <p role="alert" className="text-xs font-medium text-destructive">
                 Please enter at least 3 characters to search
-              </div>
+              </p>
             )}
           </div>
 
           {/* Search and Clear buttons container */}
-          <div className="search-buttons-container">
+          <div className="flex shrink-0 items-center gap-2">
             <Button
-              type="primary"
-              icon={<SearchOutlined />}
               onClick={handleSearch}
-              className="search-button"
               disabled={searchInput.length > 0 && searchInput.length < 3}
             >
+              <Search aria-hidden="true" />
               Search
             </Button>
 
             {/* Clear button - only shown when search is applied */}
             {appliedSearch && (
-              <Button
-                onClick={handleClearSearch}
-                className="clear-search-button"
-              >
+              <Button variant="secondary" onClick={handleClearSearch}>
                 Clear
               </Button>
             )}
           </div>
         </div>
       </Card>
+
       {/* Bulk Delete Button - shown when users are selected */}
       {selectedRowKeys.length > 0 && (
-        <div style={{ marginBottom: 16, display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-          <span style={{ fontWeight: 500 }}>
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-accent px-4 py-3">
+          <span className="text-sm font-medium text-foreground">
             {selectedRowKeys.length} user(s) selected
           </span>
-          <Popconfirm
+          <ConfirmDialog
+            variant="destructive"
             title="Delete Selected Users"
             description={`Are you sure you want to delete ${selectedRowKeys.length} user(s)? This action cannot be undone.`}
+            confirmLabel="Yes"
+            cancelLabel="No"
             onConfirm={handleDeleteMultipleUsers}
-            okText="Yes"
-            cancelText="No"
-          >
-            <Button
-              type="primary"
-              danger
-              icon={<DeleteOutlined />}
-            >
-              Delete Selected
-            </Button>
-          </Popconfirm>
+            trigger={
+              <Button variant="destructive" size="sm" className="ml-auto">
+                <Trash2 aria-hidden="true" />
+                Delete Selected
+              </Button>
+            }
+          />
         </div>
       )}
 
-      {/* Users Table with Checkbox Selection and Column Filters - Responsive table with internal scroll */}
-      <div className="users-table-wrapper">
-        <Table
-          columns={columns}
-          dataSource={tableData}
-          pagination={{
-            current: page,
-            pageSize: DEFAULT_PAGE_SIZE,
-            total: totalUsers,
-            showSizeChanger: false,
-            showQuickJumper: true,
-            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} users`,
-            onChange: (newPage) => {
-              setPage(newPage);
-              fetchUsers(searchInput.trim(), standardFilters[0] || '', boardFilters[0] || '', newPage);
-            },
-          }}
-          bordered
-          rowKey="key"
-          scroll={{ x: 600 }}
-          // Handle column filter changes from Ant Design table
-          onChange={(_, filters) => {
-            // Extract standard and board filter values from Ant Design filters object
-            const standardFilterValues = (filters.standard as string[]) || [];
-            const boardFilterValues = (filters.board as string[]) || [];
-
-            // Update filter states
-            setStandardFilters(standardFilterValues);
-            setBoardFilters(boardFilterValues);
-
-            // Reset to page 1 when filters change
-            setPage(1);
-            // Fetch users with updated filters and current search term
-            fetchUsers(searchInput.trim(), standardFilterValues[0] || '', boardFilterValues[0] || '', 1);
-          }}
-          // Checkbox selection configuration - maintains table responsiveness
-          rowSelection={{
-            selectedRowKeys,
-            onChange: (keys) => setSelectedRowKeys(keys),
-            type: 'checkbox',
-          }}
-        />
-      </div>
+      {/* Users Table with Checkbox Selection and Column Filters */}
+      <DataTable<User>
+        columns={columns}
+        dataSource={normalizedUserList}
+        rowKey="key"
+        loading={isLoading}
+        skeletonRows={5}
+        emptyTitle="No users found"
+        emptyDescription="Try a different search term or clear the filters."
+        rowSelection={{
+          selectedRowKeys,
+          onChange: (keys) => setSelectedRowKeys(keys),
+        }}
+        pagination={{
+          current: page,
+          pageSize: DEFAULT_PAGE_SIZE,
+          total: totalUsers,
+          onChange: (newPage) => {
+            setPage(newPage);
+            fetchUsers(searchInput.trim(), standardFilters[0] || '', boardFilters[0] || '', newPage);
+          },
+          showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} users`,
+        }}
+        // Below `md` each user becomes a card, keeping every action reachable on a phone.
+        renderMobileCard={(record) => (
+          <Card className="flex flex-col gap-3 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex min-w-0 flex-col">
+                <span className="truncate font-semibold text-foreground">{record.name}</span>
+                <span className="truncate text-xs text-muted-foreground">{record.email}</span>
+              </div>
+              {renderRowActions(record)}
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <span className="dc-caption">{record.standard}</span>
+              <span className="dc-caption">{record.board}</span>
+              <span className="dc-caption dc-numeric">{record.testsGiven} tests</span>
+            </div>
+            {record.testsGiven > 0 && (
+              <Button size="sm" variant="secondary" onClick={() => handleViewResults(record)}>
+                <Eye aria-hidden="true" />
+                View results
+              </Button>
+            )}
+          </Card>
+        )}
+      />
 
       {/* User Results Modal */}
       {selectedUser && (
@@ -636,7 +510,7 @@ const UsersPage: React.FC = () => {
           phoneNumber={selectedStudent.phoneNumber}
         />
       )}
-    </div>
+    </PageShell>
   );
 };
 

@@ -162,7 +162,7 @@ const examSlice = createSlice({
          * Handle export exam result to PDF action
          * - Exports exam results to a PDF file
          * - Shows loading state during export
-         * - Handles errors with toast notifications
+         * - Error messaging is handled by the calling component
          */
         builder
             .addCase(exportExamResultToPDFAction.pending, (state) => {
@@ -178,7 +178,7 @@ const examSlice = createSlice({
                 state.isLoading = false;
                 state.error = action.payload;
                 state.message = action?.payload?.message;
-                toastText(action?.payload?.message, "error");
+                // Toast is raised by the component so the export failure is reported only once
             });
     },
 });

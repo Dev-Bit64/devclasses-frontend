@@ -1,54 +1,45 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
-import LoginLayout from "../../layouts/Login";
-import ResetPasswordForm from "../../components/Login/ResetPassword";
+import { Link, useNavigate } from "react-router-dom";
+import { AuthLayout } from "../../components/auth/AuthLayout";
+import { ResetPasswordForm } from "../../components/auth/ResetPasswordForm";
+import SEO from "../../components/SEO/SEO";
 
 /**
- * ResetPassword Page Component
- *
- * This page serves as the main entry point for password reset functionality.
- * It wraps the ResetPasswordForm component with the LoginLayout to provide
- * a consistent UI/UX with the login and registration pages.
- *
- * Layout Structure:
- * - Desktop (> 768px): 50% image on left, 50% form on right
- * - Mobile (< 768px): Full-width form, image hidden
- * - Tablet: Responsive 50-50 split
- *
- * The page receives a reset token via URL query parameters (e.g., /reset-password?token=xyz)
- * and passes it to the form component for API submission.
- *
- * Features:
- * - Responsive layout matching login/register pages
- * - Token extraction from URL
- * - Navigation back to login on success
- * - Error handling and user feedback
- * - Proper scrolling behavior on all screen sizes
- *
- * @returns ResetPassword page component
+ * Reset password page. Reached from the link in the reset email, which carries ?token=.
+ * Behaviour is unchanged — only the presentation has been rebuilt on the new design system.
  */
 const ResetPasswordPage: React.FC = () => {
     const navigate = useNavigate();
 
-    /**
-     * Handle navigation back to login
-     * Called when user clicks "Back to login" link or after successful password reset
-     *
-     * @param value - Boolean indicating whether to show reset password form
-     */
-    const handleBackToLogin = (value: boolean) => {
-        if (!value) {
-            // Navigate to home page which shows login modal
-            navigate("/");
-        }
-    };
+    React.useEffect(() => {
+        document.title = "Reset Password | Dev Classes";
+    }, []);
 
     return (
-        <LoginLayout>
-            <ResetPasswordForm setIsResetPassword={handleBackToLogin} />
-        </LoginLayout>
+        <>
+            <SEO
+                title="Reset your password | Dev Classes"
+                description="Set a new password for your Dev Classes account."
+            />
+            <AuthLayout
+                title="Set a new password"
+                description="Choose a password you have not used before. It needs at least 8 characters, including uppercase, lowercase and a number."
+                footer={
+                    <>
+                        Remembered your password?{" "}
+                        <Link
+                            to="/login"
+                            className="rounded font-semibold text-primary transition-colors hover:text-primary-hover hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                            Back to login
+                        </Link>
+                    </>
+                }
+            >
+                <ResetPasswordForm onBackToLogin={() => navigate("/login")} />
+            </AuthLayout>
+        </>
     );
 };
 
 export default ResetPasswordPage;
-

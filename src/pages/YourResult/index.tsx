@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect, Suspense } from 'react';
-import { Row, Col } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
+import { PageShell } from '../../components/common/PageShell';
+import { LoadingState as SharedLoadingState } from '../../components/common/LoadingState';
 const ActionSection = React.lazy(() => import('../../components/YourResult/ActionSection'));
 const ErrorState = React.lazy(() => import('../../components/YourResult/ErrorState'));
 const LoadingState = React.lazy(() => import('../../components/YourResult/LoadingState'));
@@ -12,7 +12,6 @@ const ScoreCard = React.lazy(() => import('../../components/YourResult/ScoreCard
 const StatsCards = React.lazy(() => import('../../components/YourResult/StatsCards'));
 const DetailedResults = React.lazy(() => import('../../components/YourResult/DetailedResults'));
 const ExamInfo = React.lazy(() => import('../../components/YourResult/ExamInfo'));
-import './index.scss';
 
 /**
  * Interface for quiz result data used in the component
@@ -24,6 +23,9 @@ interface QuizResultData {
   wrongAnswers: number;
   score: number;
 }
+
+// Shared fallback while a lazily loaded section resolves.
+const SectionFallback = () => <SharedLoadingState className="py-8" />;
 
 const YourResult: React.FC = () => {
   const navigate = useNavigate();
@@ -96,7 +98,7 @@ const YourResult: React.FC = () => {
 
   if (loading) {
     return (
-      <Suspense fallback={<div style={{padding: '2rem', textAlign: 'center'}}>Loading...</div>}>
+      <Suspense fallback={<SectionFallback />}>
         <LoadingState />
       </Suspense>
     );
@@ -104,7 +106,7 @@ const YourResult: React.FC = () => {
 
   if (error || !resultData) {
     return (
-      <Suspense fallback={<div style={{padding: '2rem', textAlign: 'center'}}>Loading...</div>}>
+      <Suspense fallback={<SectionFallback />}>
         <ErrorState onReturnToDashboard={handleReturnToDashboard} />
       </Suspense>
     );
@@ -114,60 +116,48 @@ const YourResult: React.FC = () => {
   const scorePercentage = Math.round((correctAnswers / totalQuestions) * 100);
 
   return (
-    <div className={`your-result ${showContent ? "animate-fade-in" : "opacity-0 pointer-events-none"}`}>
-      <Suspense fallback={<div style={{padding: '2rem', textAlign: 'center'}}>Loading...</div>}>
+    <PageShell
+      className={`max-w-4xl transition-opacity duration-500 ${showContent ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+    >
+      <Suspense fallback={<SectionFallback />}>
         <ResultHeader scorePercentage={scorePercentage} />
       </Suspense>
-      <div className="result-content">
-        <Row gutter={[24, 24]} justify="center" className="fade-cards-row">
-          {/* Exam Information Section - Shows board, standard, date, etc. */}
-          {examResult && (
-            <Col xs={24} sm={24} md={22} lg={20} xl={18}>
-              <Suspense fallback={<div style={{padding: '2rem', textAlign: 'center'}}>Loading...</div>}>
-                <ExamInfo examResult={examResult} />
-              </Suspense>
-            </Col>
-          )}
 
-          <Col xs={24} sm={24} md={22} lg={20} xl={18}>
-            <Suspense fallback={<div style={{padding: '2rem', textAlign: 'center'}}>Loading...</div>}>
-              <ScoreCard
-                scorePercentage={scorePercentage}
-                correctAnswers={correctAnswers}
-                totalQuestions={totalQuestions}
-                isSmallScreen={isSmallScreen}
-              />
-            </Suspense>
-          </Col>
-          <Col xs={24} sm={24} md={22} lg={20} xl={18}>
-            <Suspense fallback={<div style={{padding: '2rem', textAlign: 'center'}}>Loading...</div>}>
-              <StatsCards
-                totalQuestions={totalQuestions}
-                correctAnswers={correctAnswers}
-                wrongAnswers={wrongAnswers}
-              />
-            </Suspense>
-          </Col>
+      {/* Exam Information Section - Shows board, standard, date, etc. */}
+      {examResult && (
+        <Suspense fallback={<SectionFallback />}>
+          <ExamInfo examResult={examResult} />
+        </Suspense>
+      )}
 
-          {/* Detailed Results Section - Shows question-by-question breakdown */}
-          {examResult && examResult.detailedResults && examResult.detailedResults.length > 0 && (
-            <Col xs={24} sm={24} md={22} lg={20} xl={18}>
-              <Suspense fallback={<div style={{padding: '2rem', textAlign: 'center'}}>Loading...</div>}>
-                <DetailedResults detailedResults={examResult.detailedResults} />
-              </Suspense>
-            </Col>
-          )}
+      <Suspense fallback={<SectionFallback />}>
+        <ScoreCard
+          scorePercentage={scorePercentage}
+          correctAnswers={correctAnswers}
+          totalQuestions={totalQuestions}
+          isSmallScreen={isSmallScreen}
+        />
+      </Suspense>
 
-          <Col xs={24} sm={24} md={22} lg={20} xl={18}>
-            <Suspense fallback={<div style={{padding: '2rem', textAlign: 'center'}}>Loading...</div>}>
-              <ActionSection
-                onReturnToDashboard={handleReturnToDashboard}
-              />
-            </Suspense>
-          </Col>
-        </Row>
-      </div>
-    </div>
+      <Suspense fallback={<SectionFallback />}>
+        <StatsCards
+          totalQuestions={totalQuestions}
+          correctAnswers={correctAnswers}
+          wrongAnswers={wrongAnswers}
+        />
+      </Suspense>
+
+      {/* Detailed Results Section - Shows question-by-question breakdown */}
+      {examResult && examResult.detailedResults && examResult.detailedResults.length > 0 && (
+        <Suspense fallback={<SectionFallback />}>
+          <DetailedResults detailedResults={examResult.detailedResults} />
+        </Suspense>
+      )}
+
+      <Suspense fallback={<SectionFallback />}>
+        <ActionSection onReturnToDashboard={handleReturnToDashboard} />
+      </Suspense>
+    </PageShell>
   );
 };
 

@@ -1,11 +1,24 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect } from 'react';
-import { Modal, Form, Input, Button, Space, message } from 'antd';
 import { useDispatch, useSelector } from 'react-redux';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { addChapterAction, updateChapterAction } from '../../redux/action/subjectAction';
 import { RootState, AppDispatch } from '../../redux/store';
 import { AddChapter, UpdateChapter } from '../../interfaces/interfaces';
-import './index.scss';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog';
+import { Input } from '../ui/input';
+import { Button } from '../ui/button';
+import { Spinner } from '../ui/spinner';
+import { FormField } from '../ui/form-field';
+import { toastText } from '../../utils/toast';
 
 /**
  * Props for AddChapterModal component
@@ -19,6 +32,17 @@ interface AddChapterModalProps {
   subjectId?: string;
   editingChapter?: { id: string; chapterName: string } | null;
 }
+
+// Same rules the previous antd form enforced, transcribed message-for-message.
+const chapterSchema = z.object({
+  chapterName: z
+    .string()
+    .min(1, 'Please enter chapter name')
+    .min(2, 'Chapter name must be at least 2 characters')
+    .max(50, 'Chapter name cannot exceed 50 characters'),
+});
+
+type ChapterValues = z.infer<typeof chapterSchema>;
 
 /**
  * AddChapterModal Component
@@ -34,16 +58,25 @@ const AddChapterModal: React.FC<AddChapterModalProps> = ({
   subjectId = '',
   editingChapter = null,
 }) => {
-  const [form] = Form.useForm();
   const dispatch = useDispatch<AppDispatch>();
   const { isLoading } = useSelector((state: RootState) => state.subject);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<ChapterValues>({
+    resolver: zodResolver(chapterSchema),
+    defaultValues: { chapterName: '' },
+  });
 
   /**
    * Handle form submission for add or edit chapter
    * Dispatches appropriate Redux action based on mode
    * Updates Redux state upon successful API response
    */
-  const handleSubmit = async (values: any) => {
+  const handleFormSubmit = async (values: ChapterValues) => {
     try {
       if (editingChapter) {
         // Edit mode - dispatch updateChapterAction
@@ -59,10 +92,10 @@ const AddChapterModal: React.FC<AddChapterModalProps> = ({
            * Redux slice automatically updates the chapter in subjectLists
            * No need to manually update local state
            */
-          message.success('Chapter updated successfully');
+          toastText('Chapter updated successfully', 'success');
           handleCancel();
         } else {
-          message.error('Failed to update chapter');
+          toastText('Failed to update chapter', 'error');
         }
       } else {
         // Add mode - dispatch addChapterAction
@@ -79,15 +112,15 @@ const AddChapterModal: React.FC<AddChapterModalProps> = ({
            * No need to manually update local state
            */
           onAdd(values.chapterName);
-          message.success('Chapter added successfully');
+          toastText('Chapter added successfully', 'success');
           handleCancel();
         } else {
-          message.error('Failed to add chapter');
+          toastText('Failed to add chapter', 'error');
         }
       }
     } catch (error) {
       console.error('Form submission error:', error);
-      message.error('Error processing chapter');
+      toastText('Error processing chapter', 'error');
     }
   };
 
@@ -96,7 +129,7 @@ const AddChapterModal: React.FC<AddChapterModalProps> = ({
    * Resets form and closes modal
    */
   const handleCancel = () => {
-    form.resetFields();
+    reset({ chapterName: '' });
     onCancel();
   };
 
@@ -106,51 +139,54 @@ const AddChapterModal: React.FC<AddChapterModalProps> = ({
    */
   useEffect(() => {
     if (visible && editingChapter) {
-      form.setFieldsValue({
-        chapterName: editingChapter.chapterName,
-      });
+      reset({ chapterName: editingChapter.chapterName });
     } else if (visible) {
-      form.resetFields();
+      reset({ chapterName: '' });
     }
-  }, [visible, editingChapter, form]);
+  }, [visible, editingChapter, reset]);
+
+  const isBusy = isLoading || loading;
 
   return (
-    <Modal
-      title={editingChapter ? 'Edit Chapter' : 'Add Chapter'}
-      open={visible}
-      onCancel={handleCancel}
-      footer={null}
-      centered
-      width={400}
-      className="add-chapter-modal"
-    >
-      <Form form={form} layout="vertical" onFinish={handleSubmit}>
-        {/* Chapter Name Field - Required */}
-        <Form.Item
-          name="chapterName"
-          label="Enter chapter name"
-          rules={[
-            { required: true, message: 'Please enter chapter name' },
-            { min: 2, message: 'Chapter name must be at least 2 characters' },
-            { max: 50, message: 'Chapter name cannot exceed 50 characters' }
-          ]}
-        >
-          <Input placeholder="Chapter name" maxLength={50} />
-        </Form.Item>
+    <Dialog open={visible} onOpenChange={(open) => !open && handleCancel()}>
+      <DialogContent className="max-w-md gap-5 p-5 sm:p-6">
+        <DialogHeader>
+          <DialogTitle>{editingChapter ? 'Edit Chapter' : 'Add Chapter'}</DialogTitle>
+        </DialogHeader>
 
-        {/* Modal Action Buttons */}
-        <Form.Item style={{ textAlign: 'right', marginBottom: 0 }}>
-          <Space>
-            <Button onClick={handleCancel} danger>
+        <form noValidate onSubmit={handleSubmit(handleFormSubmit)} className="flex flex-col gap-5">
+          {/* Chapter Name Field - Required */}
+          <FormField
+            id="chapter-name"
+            label="Enter chapter name"
+            required
+            error={errors.chapterName?.message}
+          >
+            {(aria) => (
+              <Input
+                {...aria}
+                {...register('chapterName')}
+                placeholder="Chapter name"
+                maxLength={50}
+                autoFocus
+                invalid={Boolean(errors.chapterName)}
+              />
+            )}
+          </FormField>
+
+          {/* Modal Action Buttons */}
+          <DialogFooter>
+            <Button variant="secondary" onClick={handleCancel} disabled={isBusy}>
               Cancel
             </Button>
-            <Button type="primary" htmlType="submit" loading={isLoading || loading}>
+            <Button type="submit" disabled={isBusy}>
+              {isBusy && <Spinner />}
               {editingChapter ? 'Update' : 'Add'}
             </Button>
-          </Space>
-        </Form.Item>
-      </Form>
-    </Modal>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 };
 

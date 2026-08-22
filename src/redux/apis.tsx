@@ -2,8 +2,17 @@
 import axios from "axios";
 import { handleLogout } from "../utils/auth";
 import { encryptData } from "../utils/cryptoHelper";
+import { APIEndpoints } from "../constants/constants";
 
 const endPoint = import.meta.env.VITE_REACT_APP_API_ENDPOINT;
+
+// Endpoints reachable while logged out — a 401 here means bad credentials, not an expired session
+const PUBLIC_AUTH_ENDPOINTS: string[] = [
+  APIEndpoints.LOGIN,
+  APIEndpoints.REGISTER,
+  APIEndpoints.ForgotPasswordMail,
+  APIEndpoints.ResetPassword,
+];
 
 // Create axios instance
 const axiosInstance = axios.create();
@@ -38,8 +47,12 @@ axiosInstance.interceptors.response.use(
   (error) => {
     // Check both standard HTTP status and standardized API statusCode
     if (error.response?.status === 401 || error.response?.data?.statusCode === 401) {
+      // Let the public auth forms surface their own error instead of forcing a logout redirect
+      const requestUrl = error.config?.url || "";
+      const isPublicAuthRequest = PUBLIC_AUTH_ENDPOINTS.some((path) => requestUrl.includes(path));
+
       // Access path dynamically to avoid static freeze at page load
-      if (window.location.pathname !== "/") {
+      if (!isPublicAuthRequest && window.location.pathname !== "/") {
         handleLogout();
       }
     }

@@ -1,7 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Table, DatePicker, Row, Col, Tooltip as AntdTooltip, Skeleton, message } from 'antd';
-import type { TableProps } from 'antd';
 import dayjs from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween';
 import type { Dayjs } from 'dayjs';
@@ -10,11 +8,16 @@ import { getUserResultByIdAction } from '../../redux/action/userAction';
 import { getSubjectsByBoardAction } from '../../redux/action/subjectAction';
 import { RootState, AppDispatch } from '../../redux/store';
 import CustomDropdown, { DropdownOption } from '../../components/ImportModal/CustomDropdown';
-import './index.scss';
+import { PageShell } from '../../components/common/PageShell';
+import { PageHeader } from '../../components/common/PageHeader';
+import { DataTable, type DataTableColumn } from '../../components/common/DataTable';
+import { DateRangePicker } from '../../components/common/DateRangePicker';
+import { Card } from '../../components/ui/card';
+import { Label } from '../../components/ui/label';
+import { Badge } from '../../components/ui/badge';
+import { toastText } from '../../utils/toast';
 
 dayjs.extend(isBetween);
-
-const { RangePicker } = DatePicker;
 
 interface DataType {
     key: React.Key;
@@ -65,7 +68,7 @@ const ResultsPage: React.FC = () => {
     // Fetch user results from API
     const fetchUserResults = useCallback(async (page: number, subjectId?: string, startDate?: Date, endDate?: Date) => {
         if (!userId) {
-            message.error('User not found. Please login again.');
+            toastText('User not found. Please login again.', 'error');
             return;
         }
 
@@ -112,7 +115,7 @@ const ResultsPage: React.FC = () => {
             }
         } catch (error: any) {
             console.error('Error fetching user results:', error);
-            message.error(error?.message || 'Failed to fetch results');
+            toastText(error?.message || 'Failed to fetch results', 'error');
             setResultsData([]);
             setTotalResults(0);
         }
@@ -140,85 +143,88 @@ const ResultsPage: React.FC = () => {
         ];
     }, [subjectDropdownList]);
 
-    const columns: TableProps<DataType>['columns'] = [
+    // Score badge tone communicates performance without relying on colour alone.
+    const renderScore = (record: DataType) => {
+        const percent = record.totalQuestions
+            ? Math.round((record.correctAnswers / record.totalQuestions) * 100)
+            : 0;
+        return (
+            <Badge variant={percent >= 60 ? 'success' : 'outline'} size="md" className="dc-numeric">
+                {record.correctAnswers}/{record.totalQuestions} &middot; {percent}%
+            </Badge>
+        );
+    };
+
+    const columns: DataTableColumn<DataType>[] = [
         {
             title: 'No.',
             dataIndex: 'no',
             key: 'no',
             sorter: (a, b) => a.no - b.no,
-            align: 'center' as const,
-            render: (text) => isLoading ? <Skeleton.Input active size="small" style={{ width: 30, minWidth: 30 }} /> : text,
+            align: 'center',
+            width: 72,
         },
         {
             title: 'Subject',
             dataIndex: 'subject',
             key: 'subject',
             sorter: (a, b) => a.subject.localeCompare(b.subject),
-            render: subject => isLoading ? <Skeleton.Input active size="small" style={{ width: 150, minWidth: 150 }} /> : (
-                <AntdTooltip title={subject}>
-                    <span style={{ cursor: 'help' }}>{subject}</span>
-                </AntdTooltip>
+            render: (subject: string) => (
+                <span title={subject} className="font-medium">{subject}</span>
             ),
         },
         {
-            title: 'Correct Answers',
+            title: 'Correct',
             dataIndex: 'correctAnswers',
             key: 'correctAnswers',
-            align: 'center' as const,
+            align: 'center',
             sorter: (a, b) => a.correctAnswers - b.correctAnswers,
-            render: (text) => isLoading ? <Skeleton.Input active size="small" style={{ width: 50, minWidth: 50 }} /> : text,
+            render: (text: number) => <span className="dc-numeric text-success">{text}</span>,
         },
         {
-            title: 'Wrong Answers',
+            title: 'Wrong',
             dataIndex: 'wrongAnswers',
             key: 'wrongAnswers',
-            align: 'center' as const,
+            align: 'center',
             sorter: (a, b) => a.wrongAnswers - b.wrongAnswers,
-            render: (text) => isLoading ? <Skeleton.Input active size="small" style={{ width: 50, minWidth: 50 }} /> : text,
+            render: (text: number) => <span className="dc-numeric text-destructive">{text}</span>,
         },
         {
-            title: 'Total Questions',
+            title: 'Total',
             dataIndex: 'totalQuestions',
             key: 'totalQuestions',
-            align: 'center' as const,
+            align: 'center',
+            hideBelow: 'lg',
             sorter: (a, b) => a.totalQuestions - b.totalQuestions,
-            render: (text) => isLoading ? <Skeleton.Input active size="small" style={{ width: 50, minWidth: 50 }} /> : text,
+            render: (text: number) => <span className="dc-numeric">{text}</span>,
         },
         {
             title: 'Date',
             dataIndex: 'date',
             key: 'date',
             sorter: (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-            render: (text) => isLoading ? <Skeleton.Input active size="small" style={{ width: 100, minWidth: 100 }} /> : (
-                <AntdTooltip title={dayjs(text).format('MMMM D, YYYY')}>
-                    <span style={{ cursor: 'help' }}>{dayjs(text).format('MMM D, YYYY')}</span>
-                </AntdTooltip>
+            render: (text: string) => (
+                <span title={dayjs(text).format('MMMM D, YYYY')} className="dc-numeric whitespace-nowrap">
+                    {dayjs(text).format('MMM D, YYYY')}
+                </span>
             ),
         },
     ];
 
-    const tableData = isLoading 
-        ? Array.from({ length: 5 }).map((_, index) => ({
-            key: `skeleton-${index}`,
-            no: index + 1,
-            subject: '',
-            correctAnswers: 0,
-            wrongAnswers: 0,
-            totalQuestions: 0,
-            date: new Date().toISOString(),
-        } as DataType))
-        : resultsData;
-
     return (
-        <div className="results-page">
-            <h1 className="welcome-title">Your Results</h1>
-            <div className="filters-container">
-                <Row gutter={[16, 16]} align="middle" style={{ width: "100%" }}>
-                    <Col xs={24} sm={12} md={8} lg={6}>
-                        <label>Subject:</label>
+        <PageShell>
+            <PageHeader
+                title="Your Results"
+                description="Every test you have attempted, with your score and the date you took it."
+            />
+
+            <Card className="p-4 sm:p-5">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:max-w-3xl">
+                    <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="results-subject">Subject</Label>
                         <CustomDropdown
+                            id="results-subject"
                             value={selectedSubject}
-                            style={{ width: '100%' }}
                             onChange={(value) => {
                                 setSelectedSubject(value);
                                 setCurrentPage(1); // Reset to first page when filter changes
@@ -227,46 +233,67 @@ const ResultsPage: React.FC = () => {
                             placeholder="Select Subject"
                             dropdownStyle={{ zIndex: 1200 }}
                         />
-                    </Col>
-                    <Col xs={24} sm={12} md={10} lg={8}>
-                        <label>Date Range:</label>
-                        <RangePicker
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="results-dates">Date range</Label>
+                        <DateRangePicker
+                            id="results-dates"
                             value={dateRange}
-                            onChange={(dates) => {
-                                setDateRange(dates as [Dayjs, Dayjs] | null);
+                            onChange={(range) => {
+                                setDateRange(range);
                                 setCurrentPage(1); // Reset to first page when filter changes
                             }}
-                            style={{ width: '100%' }}
-                            dropdownClassName="antd-popper"
-                            allowClear
                         />
-                    </Col>
-                </Row>
-            </div>
-            <div className="results-table">
-                <Table
-                    columns={columns}
-                    dataSource={tableData}
-                    pagination={{
-                        current: currentPage,
-                        pageSize: pageSize,
-                        total: totalResults,
-                        responsive: true,
-                        showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
-                        onChange: (page) => setCurrentPage(page),
-                    }}
-                    scroll={{ x: 'max-content' }}
-                    size="middle"
-                    rowClassName={record =>
-                        record.key === selectedRowKey ? 'ant-table-row-selected' : ''
-                    }
-                    onRow={record => ({
-                        onClick: () => !isLoading && setSelectedRowKey(record.key),
-                        onMouseEnter: () => { },
-                    })}
-                />
-            </div>
-        </div>
+                    </div>
+                </div>
+            </Card>
+
+            <DataTable<DataType>
+                columns={columns}
+                dataSource={resultsData}
+                rowKey="key"
+                loading={isLoading}
+                skeletonRows={5}
+                emptyTitle="No results yet"
+                emptyDescription="Attempt a test and your scores will show up here."
+                onRow={(record) => ({
+                    onClick: () => !isLoading && setSelectedRowKey(record.key),
+                })}
+                rowClassName={(record) =>
+                    record.key === selectedRowKey ? 'bg-accent' : ''
+                }
+                pagination={{
+                    current: currentPage,
+                    pageSize,
+                    total: totalResults,
+                    onChange: (page) => setCurrentPage(page),
+                    showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+                }}
+                // Below `md` each result becomes a card, which reads far better than a scrolling table.
+                renderMobileCard={(record) => (
+                    <Card
+                        onClick={() => !isLoading && setSelectedRowKey(record.key)}
+                        className={`flex flex-col gap-3 p-4 ${record.key === selectedRowKey ? 'border-primary bg-accent' : ''}`}
+                    >
+                        <div className="flex items-start justify-between gap-3">
+                            <span className="font-semibold text-foreground">{record.subject}</span>
+                            {renderScore(record)}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                            <span className="dc-caption">
+                                Correct: <span className="dc-numeric font-semibold text-success">{record.correctAnswers}</span>
+                            </span>
+                            <span className="dc-caption">
+                                Wrong: <span className="dc-numeric font-semibold text-destructive">{record.wrongAnswers}</span>
+                            </span>
+                            <span className="dc-caption dc-numeric ml-auto">
+                                {dayjs(record.date).format('MMM D, YYYY')}
+                            </span>
+                        </div>
+                    </Card>
+                )}
+            />
+        </PageShell>
     );
 };
 

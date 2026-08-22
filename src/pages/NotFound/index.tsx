@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import "./index.css";
 import Cookies from "js-cookie";
 import { useNavigate } from "react-router-dom";
-import { Button } from "antd"; // Import the Button component from Ant Design
+import { ArrowLeft, Compass } from "lucide-react";
+import { Button } from "../../components/ui/button";
 
 const PageNotFound = () => {
 
@@ -41,21 +41,27 @@ const PageNotFound = () => {
         };
     }, [navigate]);
 
-    // Use the Button component from Ant Design to provide a UI for navigation
     return (
-        <div id="notfound">
-            <div className="notfound">
-                <div className="notfound-error">
-                    <h1>404</h1>
-                    <h2>Page Not Found</h2>
-                    {/* <h3>Your session has been overridden!</h3> */}
+        <div className="dc-public flex min-h-[100dvh] items-center justify-center bg-background px-4 py-12">
+            <div className="flex w-full max-w-md flex-col items-center gap-5 text-center">
+                <div className="grid size-14 place-items-center rounded-2xl bg-accent text-accent-foreground">
+                    <Compass aria-hidden="true" className="size-7" />
                 </div>
 
-                <Button type="primary" className="returnLogin" onClick={() => navigate("/")}>
+                <div className="flex flex-col gap-2">
+                    <p className="dc-numeric text-6xl font-extrabold tracking-tight text-primary sm:text-7xl">
+                        404
+                    </p>
+                    <h1 className="dc-h2">Page Not Found</h1>
+                </div>
+
+                <Button size="lg" onClick={() => navigate("/")}>
+                    <ArrowLeft aria-hidden="true" />
                     Back to login
                 </Button>
 
-                <p>
+                {/* The countdown is announced politely rather than on every tick. */}
+                <p className="dc-small" role="status" aria-live="polite">
                     You will be automatically logged out in {secondsRemaining}{" "}
                     {secondsRemaining === 1 ? "second" : "seconds"}
                 </p>

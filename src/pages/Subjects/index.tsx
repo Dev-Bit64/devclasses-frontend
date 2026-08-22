@@ -1,40 +1,39 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useCallback, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import {
-  Table,
-  Button,
-  Input,
-  Modal,
-  Form,
-  message,
-  Popconfirm,
-  Space,
-  Typography,
-  Row,
-  Col,
-  Checkbox,
-  Skeleton
-} from 'antd';
-import {
-  SearchOutlined,
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined
-} from '@ant-design/icons';
-import './index.scss';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import AddChapterModal from '../../components/AddChapterModal';
-import '../../components/AddChapterModal/index.scss';
 import CustomDropdown, { DropdownOption } from '../../components/ImportModal/CustomDropdown';
 import { getSubjectsAction, addSubjectAction, updateSubjectAction, deleteSubjectAction } from '../../redux/action/subjectAction';
 import { RootState, AppDispatch } from '../../redux/store';
 import { AddSubjectPayload, UpdateSubject } from '../../interfaces/interfaces';
-
-const { Title } = Typography;
+import { PageShell } from '../../components/common/PageShell';
+import { PageHeader } from '../../components/common/PageHeader';
+import { DataTable, type DataTableColumn } from '../../components/common/DataTable';
+import { ColumnFilter } from '../../components/common/ColumnFilter';
+import { ConfirmDialog } from '../../components/common/ConfirmDialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../../components/ui/dialog';
+import { Card } from '../../components/ui/card';
+import { Input } from '../../components/ui/input';
+import { Button } from '../../components/ui/button';
+import { Spinner } from '../../components/ui/spinner';
+import { Badge } from '../../components/ui/badge';
+import { FormField } from '../../components/ui/form-field';
+import { EmptyState } from '../../components/common/EmptyState';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
+import { toastText } from '../../utils/toast';
 
 /**
  * Board options for filtering
- * Supports GSEB and CBSE boards
  */
 const BOARD_OPTIONS: DropdownOption[] = [
   { label: 'GSEB', value: 'GSEB' },
@@ -43,12 +42,15 @@ const BOARD_OPTIONS: DropdownOption[] = [
 
 /**
  * Standard options for filtering
- * Represents different educational standards/grades
  */
 const STANDARD_OPTIONS: DropdownOption[] = [
   { label: '11th', value: '11th' },
   { label: '12th', value: '12th' },
 ];
+
+// Column filter options use the {text,value} shape the shared filter expects.
+const BOARD_FILTER_OPTIONS = BOARD_OPTIONS.map((o) => ({ text: o.label, value: o.value }));
+const STANDARD_FILTER_OPTIONS = STANDARD_OPTIONS.map((o) => ({ text: o.label, value: o.value }));
 
 // Interface for Chapter data
 interface Chapter {
@@ -60,7 +62,6 @@ interface Chapter {
 
 /**
  * Subject interface representing a subject with all its properties
- * Includes chapters array for nested chapter data
  */
 interface Subject {
   key: string;
@@ -72,11 +73,19 @@ interface Subject {
   chapters: Chapter[];
 }
 
+// Same rules the previous antd form enforced.
+const subjectSchema = z.object({
+  subjectName: z.string().trim().min(1, 'Please enter subject name'),
+  board: z.string().min(1, 'Please select board'),
+  standard: z.string().min(1, 'Please select standard'),
+});
+
+type SubjectValues = z.infer<typeof subjectSchema>;
+
 /**
  * Subjects Page Component
  * Displays a table of subjects with search, filter, and CRUD operations
  * Integrates with Redux for state management and API calls
- * Matches the design theme of Questions page
  */
 const SubjectsPage: React.FC = () => {
   // Redux hooks for dispatch and state management
@@ -94,7 +103,6 @@ const SubjectsPage: React.FC = () => {
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
-  const [form] = Form.useForm();
   const [submitLoading, setSubmitLoading] = useState<boolean>(false);
 
   // Pagination state
@@ -107,12 +115,20 @@ const SubjectsPage: React.FC = () => {
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [editingChapter, setEditingChapter] = useState<{ id: string; chapterName: string } | null>(null);
 
+  const {
+    control,
+    register,
+    handleSubmit: handleFormSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<SubjectValues>({
+    resolver: zodResolver(subjectSchema),
+    defaultValues: { subjectName: '', board: '', standard: '' },
+  });
+
   /**
    * Fetch subjects data from API using Redux action
    * Supports search and filter parameters
-   * @param searchQuery - Optional search query for subject name
-   * @param boardFilter - Optional board filter value
-   * @param standardFilter - Optional standard filter value
    */
   const fetchSubjects = useCallback(async (
     searchQuery: string = '',
@@ -171,55 +187,30 @@ const SubjectsPage: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching subjects:', error);
-      message.error('Failed to fetch subjects');
+      toastText('Failed to fetch subjects', 'error');
     }
   }, [dispatch]);
 
-  /**
-   * Fetch all subjects on component mount
-   */
+  // Fetch subjects on mount
   useEffect(() => {
     fetchSubjects();
   }, [fetchSubjects]);
 
   /**
-   * Handle search functionality with minimum 3 characters validation
-   * Calls API with search parameters only when search button is clicked
-   * Supports search with 3+ characters or empty search to show all
+   * Handle search button click
+   * Requires at least 3 characters before querying
    */
   const handleSearch = () => {
     const trimmedSearch = searchText.trim();
 
-    // Validate search text: must be 3+ characters or empty
-    if (trimmedSearch.length >= 3 || trimmedSearch.length === 0) {
+    if (trimmedSearch.length === 0 || trimmedSearch.length >= 3) {
       setPage(1);
       setAppliedSearchText(trimmedSearch);
       // Fetch subjects with current search and filter values
       fetchSubjects(trimmedSearch, filterBoard, filterStandard);
     } else {
-      message.warning('Search text must be at least 3 characters long');
+      toastText('Search text must be at least 3 characters long', 'error');
     }
-  };
-
-  /**
-   * Handle table filter changes for Board and Standard columns
-   * Updates filter state and refreshes data with new filters
-   * @param filters - Object containing filter values from table columns
-   */
-  const handleTableFilterChange = (_pagination: any, filters: any, _sorter: any) => {
-    // Extract board and standard filter values from table filters
-    const boardFilter = filters.board ? filters.board[0] : undefined;
-    const standardFilter = filters.standard ? filters.standard[0] : undefined;
-
-    // Update filter states
-    setFilterBoard(boardFilter);
-    setFilterStandard(standardFilter);
-
-    // Reset pagination to first page
-    setPage(1);
-
-    // Fetch subjects with updated filters and current search text
-    fetchSubjects(appliedSearchText, boardFilter, standardFilter);
   };
 
   /**
@@ -237,35 +228,39 @@ const SubjectsPage: React.FC = () => {
     }
   };
 
-  /**
-   * Handle Enter key press in search input
-   */
-  const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
+  // Board and Standard column filters refresh the list, as before.
+  const applyBoardFilter = (values: string[]) => {
+    const boardFilter = values[0] || undefined;
+    setFilterBoard(boardFilter);
+    setPage(1);
+    fetchSubjects(appliedSearchText, boardFilter, filterStandard);
+  };
+
+  const applyStandardFilter = (values: string[]) => {
+    const standardFilter = values[0] || undefined;
+    setFilterStandard(standardFilter);
+    setPage(1);
+    fetchSubjects(appliedSearchText, filterBoard, standardFilter);
   };
 
   /**
    * Show modal for adding new subject
-   * Resets all editing state
    */
   const showModal = () => {
     setEditingKey(null);
     setEditingSubjectId(null);
-    form.resetFields();
+    reset({ subjectName: '', board: '', standard: '' });
     setModalVisible(true);
   };
 
   /**
    * Handle edit subject
    * Stores both the key and ID for API update call
-   * Populates form with existing subject data
    */
   const handleEdit = (record: Subject) => {
     setEditingKey(record.key);
     setEditingSubjectId(record.id.toString());
-    form.setFieldsValue({
+    reset({
       subjectName: record.subjectName,
       board: record.board,
       standard: record.standard,
@@ -281,7 +276,7 @@ const SubjectsPage: React.FC = () => {
     try {
       const subjectToDelete = subjects.find(subject => subject.key === key);
       if (!subjectToDelete) {
-        message.error('Subject not found');
+        toastText('Subject not found', 'error');
         return;
       }
 
@@ -292,34 +287,31 @@ const SubjectsPage: React.FC = () => {
         // Update local state after successful deletion
         const updatedSubjects = subjects.filter(subject => subject.key !== key);
         setSubjects(updatedSubjects);
-        message.success('Subject deleted successfully');
+        toastText('Subject deleted successfully', 'success');
       } else {
-        message.error('Failed to delete subject');
+        toastText('Failed to delete subject', 'error');
       }
     } catch (error) {
       console.error('Error deleting subject:', error);
-      message.error('Error deleting subject');
+      toastText('Error deleting subject', 'error');
     }
   };
 
   /**
    * Handle modal cancel
-   * Resets form and editing state
    */
   const handleModalCancel = () => {
     setModalVisible(false);
     setEditingKey(null);
     setEditingSubjectId(null);
-    form.resetFields();
+    reset({ subjectName: '', board: '', standard: '' });
   };
 
   /**
    * Handle form submission for add/edit subject
-   * Dispatches Redux actions and updates local state from Redux store
-   * Does not require full list refresh - Redux state is updated automatically
-   * @param values - Form field values from Ant Design Form
+   * Redux state is updated automatically by the slice; local state mirrors it.
    */
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: SubjectValues) => {
     try {
       setSubmitLoading(true);
 
@@ -336,10 +328,6 @@ const SubjectsPage: React.FC = () => {
         const result = await dispatch(updateSubjectAction(updatePayload));
 
         if (result.payload && result.payload.statusCode === 200) {
-          /**
-           * Update local state from Redux store
-           * The Redux slice automatically updates subjectLists with the updated subject
-           */
           const updatedSubjects = subjects.map(subject =>
             subject.key === editingKey
               ? {
@@ -351,10 +339,10 @@ const SubjectsPage: React.FC = () => {
               : subject
           );
           setSubjects(updatedSubjects);
-          message.success('Subject updated successfully');
+          toastText('Subject updated successfully', 'success');
           handleModalCancel();
         } else {
-          message.error('Failed to update subject');
+          toastText('Failed to update subject', 'error');
         }
       } else {
         // Add new subject via API
@@ -368,11 +356,6 @@ const SubjectsPage: React.FC = () => {
         const result = await dispatch(addSubjectAction(addPayload));
 
         if (result.payload && result.payload.statusCode === 200) {
-          /**
-           * Update local state from Redux store
-           * The Redux slice automatically appends the new subject to subjectLists
-           * No need to refresh the entire list from API
-           */
           if (result.payload.data) {
             const newSubject: Subject = {
               key: result.payload.data.id?.toString() || Date.now().toString(),
@@ -385,15 +368,15 @@ const SubjectsPage: React.FC = () => {
             };
             setSubjects([...subjects, newSubject]);
           }
-          message.success('Subject added successfully');
+          toastText('Subject added successfully', 'success');
           handleModalCancel();
         } else {
-          message.error('Failed to add subject');
+          toastText('Failed to add subject', 'error');
         }
       }
     } catch (error) {
       console.error('Form submission error:', error);
-      message.error('Error processing subject');
+      toastText('Error processing subject', 'error');
     } finally {
       setSubmitLoading(false);
     }
@@ -401,8 +384,6 @@ const SubjectsPage: React.FC = () => {
 
   /**
    * Add Chapter button handler
-   * Stores the subject key and ID for the modal
-   * Resets editing state to add mode
    */
   const handleAddChapterClick = (subjectKey: string) => {
     const subject = subjects.find(s => s.key === subjectKey);
@@ -416,9 +397,7 @@ const SubjectsPage: React.FC = () => {
 
   /**
    * Handle successful chapter addition
-   * Called by AddChapterModal after API call succeeds
-   * Redux state is automatically updated by the slice
-   * This function updates local state to reflect the new chapter
+   * Redux state is automatically updated by the slice; this mirrors it locally.
    */
   const handleAddChapter = (chapterName: string) => {
     if (!selectedSubjectKey) return;
@@ -449,7 +428,6 @@ const SubjectsPage: React.FC = () => {
 
   /**
    * Handle modal cancel
-   * Resets all chapter modal related state
    */
   const handleAddChapterCancel = () => {
     setAddChapterModalVisible(false);
@@ -460,8 +438,6 @@ const SubjectsPage: React.FC = () => {
 
   /**
    * Handle edit chapter button click
-   * Opens modal in edit mode with chapter data pre-filled
-   * Stores the subject key and ID for the API call
    */
   const handleEditChapterClick = (chapter: Chapter, subjectKey: string) => {
     const subject = subjects.find(s => s.key === subjectKey);
@@ -476,418 +452,352 @@ const SubjectsPage: React.FC = () => {
     }
   };
 
-  /**
-   * Custom filter dropdown to handle immediate reset
-   */
-  const customFilterDropdown = ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: any, options: DropdownOption[]) => (
-    <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '8px' }}>
-        {options.map((option) => (
-          <Checkbox
-            key={option.value}
-            checked={selectedKeys.includes(option.value)}
-            onChange={(e) => {
-              const newKeys = e.target.checked
-                ? [...selectedKeys, option.value]
-                : selectedKeys.filter((key: any) => key !== option.value);
-              setSelectedKeys(newKeys);
-            }}
-          >
-            {option.label}
-          </Checkbox>
-        ))}
+  // Row actions, shared by the desktop table and the mobile card list.
+  const renderRowActions = (record: Subject) => (
+    <TooltipProvider delayDuration={150}>
+      <div className="flex items-center justify-center gap-1">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label="Edit subject" onClick={() => handleEdit(record)}>
+              <Pencil aria-hidden="true" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Edit</TooltipContent>
+        </Tooltip>
+
+        <ConfirmDialog
+          variant="destructive"
+          title="Delete this subject?"
+          description="This action cannot be undone."
+          confirmLabel="Yes"
+          cancelLabel="No"
+          onConfirm={() => handleDelete(record.key)}
+          trigger={
+            <Button variant="ghost" size="icon" aria-label="Delete subject">
+              <Trash2 aria-hidden="true" className="text-destructive" />
+            </Button>
+          }
+        />
       </div>
-      <Space>
-        <Button
-          onClick={() => {
-            clearFilters && clearFilters();
-            confirm(); // Trigger onChange immediately
-          }}
-          size="small"
-          style={{ width: 90 }}
-        >
-          Reset
-        </Button>
-        <Button
-          type="primary"
-          onClick={() => confirm()}
-          size="small"
-          style={{ width: 90 }}
-        >
-          OK
-        </Button>
-      </Space>
-    </div>
+    </TooltipProvider>
   );
 
-  /**
-   * Table columns configuration
-   * Includes: No., Subject Name, Board, Standard, and Action columns
-   * Board and Standard columns have filter functionality
-   */
-  const columns = [
+  const columns: DataTableColumn<Subject>[] = [
     {
       title: 'No.',
       dataIndex: 'no',
       key: 'no',
-      width: 40,
-      align: 'center' as const,
-      render: (text: any) => isLoading ? <Skeleton.Input active size="small" style={{ width: 30, minWidth: 30 }} /> : text,
+      align: 'center',
+      width: 72,
     },
     {
       title: 'Subject Name',
       dataIndex: 'subjectName',
       key: 'subjectName',
-      sorter: (a: Subject, b: Subject) => a.subjectName.localeCompare(b.subjectName),
-      render: (text: any) => isLoading ? <Skeleton.Input active size="small" style={{ width: 150, minWidth: 150 }} /> : text,
+      sorter: (a, b) => a.subjectName.localeCompare(b.subjectName),
+      render: (text: string) => <span className="font-medium">{text}</span>,
     },
     {
       title: 'Board',
       dataIndex: 'board',
       key: 'board',
-      width: 180,
-      filterDropdown: (props: any) => customFilterDropdown(props, BOARD_OPTIONS),
-      render: (text: any) => isLoading ? <Skeleton.Input active size="small" style={{ width: 80, minWidth: 80 }} /> : text,
-      // filters: BOARD_OPTIONS.map(option => ({ text: option.label, value: option.value })),
-      // onFilter: (value: any, record: Subject) => record.board === value,
+      align: 'center',
+      width: 130,
+      filter: (
+        <ColumnFilter
+          label="Board"
+          options={BOARD_FILTER_OPTIONS}
+          value={filterBoard ? [filterBoard] : []}
+          onApply={applyBoardFilter}
+          onReset={() => applyBoardFilter([])}
+        />
+      ),
     },
     {
       title: 'Standard',
       dataIndex: 'standard',
       key: 'standard',
-      width: 180,
-      filterDropdown: (props: any) => customFilterDropdown(props, STANDARD_OPTIONS),
-      render: (text: any) => isLoading ? <Skeleton.Input active size="small" style={{ width: 80, minWidth: 80 }} /> : text,
-      // filters: STANDARD_OPTIONS.map(option => ({ text: option.label, value: option.value })),
-      // onFilter: (value: any, record: Subject) => record.standard === value,
+      align: 'center',
+      width: 140,
+      hideBelow: 'lg',
+      filter: (
+        <ColumnFilter
+          label="Standard"
+          options={STANDARD_FILTER_OPTIONS}
+          value={filterStandard ? [filterStandard] : []}
+          onApply={applyStandardFilter}
+          onReset={() => applyStandardFilter([])}
+        />
+      ),
+    },
+    {
+      title: 'Chapters',
+      key: 'chapterCount',
+      align: 'center',
+      width: 120,
+      render: (_: any, record: Subject) => (
+        <Badge variant="outline" size="sm" className="dc-numeric">
+          {record.chapters?.length ?? 0}
+        </Badge>
+      ),
     },
     {
       title: 'Action',
       key: 'action',
-      width: 120,
-      align: 'center' as const,
-      render: (_: any, record: Subject) => isLoading ? <Skeleton.Input active size="small" style={{ width: 80, minWidth: 80 }} /> : (
-        <Space size="small">
-          <Button
-            type="text"
-            icon={<EditOutlined />}
-            onClick={() => handleEdit(record)}
-            className="action-button edit-button"
-            title="Edit Subject"
-          />
-          <Popconfirm
-            title="Delete Subject"
-            description="Are you sure you want to delete this subject?"
-            onConfirm={() => handleDelete(record.key)}
-            okText="Yes"
-            cancelText="No"
-          >
-            <Button
-              type="text"
-              icon={<DeleteOutlined />}
-              className="action-button delete-button"
-              title="Delete Subject"
-            />
-          </Popconfirm>
-        </Space>
-      ),
-    },
-  ];
-  
-  const tableData = isLoading 
-      ? Array.from({ length: 5 }).map((_, index) => ({
-          key: `skeleton-${index}`,
-          id: '',
-          no: index + 1,
-          subjectName: '',
-          board: '',
-          standard: '',
-          chapters: [],
-      } as unknown as Subject))
-      : subjects;
-
-  /**
-   * Generate chapter table columns with subject key
-   * This function creates columns dynamically to pass the subject key to edit handler
-   * @param subjectKey - The key of the parent subject
-   */
-  const getChapterColumns = (subjectKey: string) => [
-    {
-      title: 'No.',
-      dataIndex: 'no',
-      key: 'no',
-      width: 80,
-      align: 'center' as const,
-    },
-    {
-      title: 'Chapter Name',
-      dataIndex: 'chapterName',
-      key: 'chapterName',
-    },
-    {
-      title: 'Action',
-      key: 'action',
-      width: 120,
-      align: 'center' as const,
-      render: (_: any, record: Chapter) => (
-        <Space size="small">
-          {/* Edit Chapter Button */}
-          <Button
-            type="text"
-            icon={<EditOutlined />}
-            className="action-button edit-button"
-            title="Edit Chapter"
-            onClick={() => handleEditChapterClick(record, subjectKey)}
-          />
-          {/* Delete Chapter Button */}
-          <Button
-            type="text"
-            icon={<DeleteOutlined />}
-            className="action-button delete-button"
-            title="Delete Chapter"
-            // onClick={() => handleDeleteChapter(record.key)}
-            disabled
-          />
-        </Space>
-      ),
+      align: 'center',
+      width: 110,
+      render: (_: any, record: Subject) => renderRowActions(record),
     },
   ];
 
   return (
-    <div className="subjects-page">
-      {/* Page Header */}
-      <div className="subjects-header">
-        <Title level={2} className="page-title">
-          Subjects Management
-        </Title>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={showModal}
-          className="add-button"
-        >
-          Add Subject
-        </Button>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="Subjects Management"
+        description="Subjects and their chapters across every board and standard."
+        actions={
+          <Button onClick={showModal}>
+            <Plus aria-hidden="true" />
+            Add Subject
+          </Button>
+        }
+      />
 
-      {/* Filters and Search Bar */}
-      <div className="filters-search-container" style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        gap: '20px',
-        marginBottom: '18px',
-        flexWrap: 'wrap'
-      }}>
-        {/* Filters Section */}
-        {/* <div className="filters-section" style={{ 
-          display: 'flex', 
-          flexWrap: 'wrap', 
-          gap: '12px', 
-          alignItems: 'center',
-          flex: '1',
-          minWidth: 'fit-content'
-        }}>
-          <Select
-            allowClear
-            placeholder="Board"
-            style={{ minWidth: 120 }}
-            value={filterBoard}
-            onChange={val => { setFilterBoard(val); setPage(1); }}
-            options={BOARD_OPTIONS}
-          />
-        </div> */}
-
-        {/* Search Section */}
-        <div className="search-section" style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'flex-start',
-          gap: '4px',
-          flexShrink: 0,
-          minWidth: 'fit-content'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Input
-              allowClear
-              placeholder="Search subjects... (min 3 characters)"
-              prefix={<SearchOutlined />}
-              style={{
-                minWidth: 300,
-                maxWidth: 400,
-                borderColor: searchText.length > 0 && searchText.length < 3 ? '#ff4d4f' : undefined
-              }}
-              value={searchText}
-              onChange={handleSearchInputChange}
-              onPressEnter={handleSearchKeyPress}
-              status={searchText.length > 0 && searchText.length < 3 ? 'error' : undefined}
-            />
+      {/* Search Bar */}
+      <Card className="p-4 sm:p-5">
+        <div className="flex w-full flex-col gap-1.5 lg:max-w-md">
+          <div className="flex items-start gap-2">
+            <div className="relative min-w-0 flex-1">
+              <Search
+                aria-hidden="true"
+                className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              />
+              <Input
+                aria-label="Search subjects"
+                placeholder="Search subjects... (min 3 characters)"
+                className="pl-10"
+                value={searchText}
+                onChange={handleSearchInputChange}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSearch();
+                }}
+                invalid={searchText.length > 0 && searchText.length < 3}
+              />
+            </div>
             <Button
-              type="primary"
-              icon={<SearchOutlined />}
               onClick={handleSearch}
-              className="search-button"
-              style={{ flexShrink: 0, marginLeft: '4px', height: '36px' }}
               disabled={searchText.length > 0 && searchText.length < 3}
             >
-              Search
+              <Search aria-hidden="true" />
+              <span className="hidden sm:inline">Search</span>
             </Button>
           </div>
           {searchText.length > 0 && searchText.length < 3 && (
-            <div style={{
-              color: '#ff4d4f',
-              fontSize: '12px',
-              marginTop: '2px',
-              marginLeft: '4px'
-            }}>
+            <p role="alert" className="text-xs font-medium text-destructive">
               Please enter at least 3 characters to search
-            </div>
+            </p>
           )}
         </div>
-      </div>
+      </Card>
 
-      {/* Subjects Table */}
-      <div className="subjects-table-wrapper">
-        <Table
-          columns={columns}
-          dataSource={tableData}
-          onChange={handleTableFilterChange}
-          pagination={{
-            current: page,
-            pageSize: DEFAULT_PAGE_SIZE,
-            total: subjects.length,
-            onChange: (newPage) => setPage(newPage),
-            showSizeChanger: false,
-            showQuickJumper: true,
-            showTotal: (total, range) =>
-              `${range[0]}-${range[1]} of ${total} subjects`,
-          }}
-          scroll={{ x: 800 }}
-          className="subjects-table"
-          expandable={{
-            expandedRowRender: (record: Subject) => (
-              <div style={{ background: '#f6f8fa', padding: '16px', borderRadius: '6px', margin: '8px 0' }}>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
-                  <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    onClick={() => handleAddChapterClick(record.key)}
-                    style={{ borderRadius: '6px', fontWeight: 500 }}
+      {/* Subjects Table with expandable chapter panels */}
+      <DataTable<Subject>
+        columns={columns}
+        dataSource={subjects}
+        rowKey="key"
+        loading={isLoading}
+        skeletonRows={5}
+        emptyTitle="No subjects yet"
+        emptyDescription="Add a subject to start building the question bank."
+        emptyAction={
+          <Button onClick={showModal}>
+            <Plus aria-hidden="true" />
+            Add Subject
+          </Button>
+        }
+        pagination={{
+          current: page,
+          pageSize: DEFAULT_PAGE_SIZE,
+          total: subjects.length,
+          onChange: (newPage) => setPage(newPage),
+          showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} subjects`,
+        }}
+        // Expand control appears only for subjects that already have chapters, as before.
+        rowExpandable={(record) => Boolean(record.chapters && record.chapters.length > 0)}
+        expandedRowRender={(record) => (
+          <div className="flex flex-col gap-3 p-4">
+            <div className="flex justify-end">
+              <Button size="sm" onClick={() => handleAddChapterClick(record.key)}>
+                <Plus aria-hidden="true" />
+                Add Chapter
+              </Button>
+            </div>
+
+            {record.chapters.length === 0 ? (
+              <EmptyState title="No chapters yet" />
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {record.chapters.map((chapter) => (
+                  <li
+                    key={chapter.key}
+                    className="flex items-center gap-3 rounded-lg border border-border bg-card px-3.5 py-2.5"
                   >
-                    Add Chapter
-                  </Button>
-                </div>
-                <Table
-                  columns={getChapterColumns(record.key)}
-                  dataSource={record.chapters}
-                  pagination={false}
-                  size="small"
-                  rowKey="key"
-                  className="chapters-inner-table"
-                />
-              </div>
-            ),
-            rowExpandable: (record: Subject) => record.chapters && record.chapters.length > 0,
-          }}
-        />
-        {/* Add/Edit Chapter Modal */}
-        <AddChapterModal
-          visible={addChapterModalVisible}
-          onCancel={handleAddChapterCancel}
-          onAdd={handleAddChapter}
-          subjectId={selectedSubjectId || ''}
-          editingChapter={editingChapter}
-        />
-      </div>
+                    <span className="dc-numeric w-6 shrink-0 text-sm text-muted-foreground">
+                      {chapter.no}
+                    </span>
+                    <span className="min-w-0 flex-1 break-words text-sm text-foreground">
+                      {chapter.chapterName}
+                    </span>
+                    <TooltipProvider delayDuration={150}>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label="Edit Chapter"
+                              onClick={() => handleEditChapterClick(chapter, record.key)}
+                            >
+                              <Pencil aria-hidden="true" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Edit Chapter</TooltipContent>
+                        </Tooltip>
+                        {/* Chapter deletion is not wired up yet; the control stays disabled. */}
+                        <Button variant="ghost" size="icon" aria-label="Delete Chapter" disabled>
+                          <Trash2 aria-hidden="true" />
+                        </Button>
+                      </div>
+                    </TooltipProvider>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+        // Below `md` each subject becomes a card with its chapter count and actions.
+        renderMobileCard={(record) => (
+          <Card className="flex flex-col gap-3 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <span className="min-w-0 break-words font-semibold text-foreground">
+                {record.subjectName}
+              </span>
+              {renderRowActions(record)}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge size="sm">{record.board}</Badge>
+              <Badge variant="outline" size="sm">{record.standard}</Badge>
+              <Badge variant="outline" size="sm" className="dc-numeric">
+                {record.chapters?.length ?? 0} chapters
+              </Badge>
+            </div>
+            {record.chapters?.length > 0 && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => handleAddChapterClick(record.key)}
+              >
+                <Plus aria-hidden="true" />
+                Add Chapter
+              </Button>
+            )}
+          </Card>
+        )}
+      />
+
+      {/* Add/Edit Chapter Modal */}
+      <AddChapterModal
+        visible={addChapterModalVisible}
+        onCancel={handleAddChapterCancel}
+        onAdd={handleAddChapter}
+        subjectId={selectedSubjectId || ''}
+        editingChapter={editingChapter}
+      />
 
       {/* Add/Edit Subject Modal */}
-      <Modal
-        title={editingKey ? 'Edit Subject' : 'Add New Subject'}
-        open={modalVisible}
-        onCancel={handleModalCancel}
-        footer={null}
-        width={600}
-        className="subjects-modal"
-      >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
-          className="subjects-form"
-        >
-          {/* Subject Name Field - Required */}
-          <Form.Item
-            name="subjectName"
-            label="Subject Name"
-            rules={[
-              { required: true, message: 'Please enter subject name' },
-              { min: 2, message: 'Subject name must be at least 2 characters' },
-              { max: 50, message: 'Subject name cannot exceed 50 characters' }
-            ]}
-          >
-            <Input
-              placeholder="Enter subject name"
-              maxLength={50}
-            />
-          </Form.Item>
+      <Dialog open={modalVisible} onOpenChange={(open) => !open && handleModalCancel()}>
+        <DialogContent className="max-w-md gap-5 p-5 sm:p-6">
+          <DialogHeader>
+            <DialogTitle>{editingKey ? 'Edit Subject' : 'Add Subject'}</DialogTitle>
+          </DialogHeader>
 
-          {/* Board Selection Field - Required */}
-          <Form.Item
-            name="board"
-            label="Board"
-            rules={[{ required: true, message: 'Please select board' }]}
+          <form
+            noValidate
+            onSubmit={handleFormSubmit(handleSubmit)}
+            className="flex flex-col gap-5"
           >
-            <CustomDropdown
-              placeholder="Select Board"
-              options={BOARD_OPTIONS}
-              size="middle"
-            />
-          </Form.Item>
+            <FormField
+              id="subject-name"
+              label="Subject Name"
+              required
+              error={errors.subjectName?.message}
+            >
+              {(aria) => (
+                <Input
+                  {...aria}
+                  {...register('subjectName')}
+                  placeholder="Enter subject name"
+                  autoFocus
+                  invalid={Boolean(errors.subjectName)}
+                />
+              )}
+            </FormField>
 
-          {/* Standard Selection Field - Required */}
-          <Form.Item
-            name="standard"
-            label="Standard"
-            rules={[{ required: true, message: 'Please select standard' }]}
-          >
-            <CustomDropdown
-              placeholder="Select Standard"
-              options={STANDARD_OPTIONS}
-              size="middle"
-            />
-          </Form.Item>
+            <FormField id="subject-board" label="Board" required error={errors.board?.message}>
+              {(aria) => (
+                <Controller
+                  name="board"
+                  control={control}
+                  render={({ field }) => (
+                    <CustomDropdown
+                      id={aria.id}
+                      options={BOARD_OPTIONS}
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="Select Board"
+                    />
+                  )}
+                />
+              )}
+            </FormField>
 
-          {/* Modal Action Buttons */}
-          <Form.Item className="modal-action-buttons" style={{ marginBottom: 0 }}>
-            <Row justify="end" gutter={12} className="subjects-modal-footer">
-              <Col>
-                <Button
-                  onClick={handleModalCancel}
-                  className="cancel-button"
-                  disabled={submitLoading}
-                  size="large"
-                  style={{ minWidth: 100 }}
-                >
-                  Cancel
-                </Button>
-              </Col>
-              <Col>
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  className="submit-button"
-                  loading={submitLoading}
-                  size="large"
-                  style={{ minWidth: 140 }}
-                >
-                  {editingKey ? 'Update Subject' : 'Add Subject'}
-                </Button>
-              </Col>
-            </Row>
-          </Form.Item>
-        </Form>
-      </Modal>
-    </div>
+            <FormField
+              id="subject-standard"
+              label="Standard"
+              required
+              error={errors.standard?.message}
+            >
+              {(aria) => (
+                <Controller
+                  name="standard"
+                  control={control}
+                  render={({ field }) => (
+                    <CustomDropdown
+                      id={aria.id}
+                      options={STANDARD_OPTIONS}
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="Select Standard"
+                    />
+                  )}
+                />
+              )}
+            </FormField>
+
+            {/* Modal Action Buttons */}
+            <DialogFooter>
+              <Button variant="secondary" onClick={handleModalCancel} disabled={submitLoading}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={submitLoading}>
+                {submitLoading && <Spinner />}
+                {editingKey ? 'Update' : 'Add'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </PageShell>
   );
 };
 

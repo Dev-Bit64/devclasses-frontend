@@ -19,9 +19,12 @@ export default defineConfig({
       output: {
         manualChunks: {
           react: ['react', 'react-dom', 'react-router-dom'],
-          antd: ['antd', '@ant-design/icons'],
           axios: ['axios'],
           redux: ['@reduxjs/toolkit', 'react-redux'],
+          // Split so a page only pays for what it actually renders.
+          motion: ['framer-motion'],
+          charts: ['recharts'],
+          forms: ['react-hook-form', '@hookform/resolvers', 'zod'],
         }
       }
     }

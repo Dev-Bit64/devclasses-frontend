@@ -1,9 +1,8 @@
-
-import React, { useState, useEffect } from 'react';
-import { Card, Progress as AntdProgress, Typography } from 'antd';
-import { TrophyOutlined, FireOutlined, RocketOutlined } from '@ant-design/icons';
-
-const { Title } = Typography;
+import React, { useState, useEffect } from "react";
+import { Flame, Rocket, Trophy } from "lucide-react";
+import { Card } from "../ui/card";
+import { Badge } from "../ui/badge";
+import { cn } from "../../libs/utils";
 
 interface ScoreCardProps {
   scorePercentage: number;
@@ -12,26 +11,28 @@ interface ScoreCardProps {
   isSmallScreen: boolean;
 }
 
-const getScoreColor = (percentage: number) => {
-  if (percentage >= 80) return '#52c41a';
-  if (percentage >= 60) return '#faad14';
-  return '#ff4d4f';
+// Colour thresholds are unchanged; they now resolve to design tokens.
+const getScoreTone = (percentage: number) => {
+  if (percentage >= 80) return { ring: "text-success", chip: "bg-success/10 text-success" };
+  if (percentage >= 60) return { ring: "text-warning", chip: "bg-warning/10 text-warning" };
+  return { ring: "text-destructive", chip: "bg-destructive/10 text-destructive" };
 };
 
 const getScoreIcon = (percentage: number) => {
-  if (percentage >= 90) return <TrophyOutlined className="score-icon trophy" />;
-  if (percentage >= 70) return <FireOutlined className="score-icon fire" />;
-  return <RocketOutlined className="score-icon rocket" />;
+  if (percentage >= 90) return Trophy;
+  if (percentage >= 70) return Flame;
+  return Rocket;
 };
 
-const ScoreCard: React.FC<ScoreCardProps> = ({ 
-  scorePercentage, 
-  correctAnswers, 
-  totalQuestions, 
-  isSmallScreen 
+const ScoreCard: React.FC<ScoreCardProps> = ({
+  scorePercentage,
+  correctAnswers,
+  totalQuestions,
+  isSmallScreen,
 }) => {
   const [animatedPercentage, setAnimatedPercentage] = useState(0);
 
+  // Same 500ms delay before the ring animates to its final value.
   useEffect(() => {
     const timer = setTimeout(() => {
       setAnimatedPercentage(scorePercentage);
@@ -39,37 +40,68 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
     return () => clearTimeout(timer);
   }, [scorePercentage]);
 
+  const tone = getScoreTone(scorePercentage);
+  const Icon = getScoreIcon(scorePercentage);
+
+  // SVG ring geometry; the stroke dash offset encodes the percentage.
+  const size = isSmallScreen ? 140 : 200;
+  const strokeWidth = 10;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (animatedPercentage / 100) * circumference;
+
   return (
-    <Card className="score-card card-anim hover-scale fade-in-up" hoverable>
-      <div className="score-section">
-        <div className="score-display">
-          <div className="score-icon-container">
-            {getScoreIcon(scorePercentage)}
-          </div>
-          <AntdProgress
-            type="circle"
-            size={isSmallScreen ? 140 : 200}
-            percent={animatedPercentage}
-            strokeColor={{
-              '0%': getScoreColor(scorePercentage),
-              '100%': getScoreColor(scorePercentage + 10),
-            }}
-            strokeWidth={10}
-            trailColor="rgba(0,0,0,0.06)"
-            format={() => (
-              <div className="score-text">
-                <div className="percentage">{animatedPercentage}%</div>
-                <div className="score-ratio">{correctAnswers}/{totalQuestions}</div>
-              </div>
-            )}
+    <Card className="flex flex-col items-center gap-4 p-6 sm:p-8">
+      <div className={cn("grid size-11 place-items-center rounded-full", tone.chip)}>
+        <Icon aria-hidden="true" className="size-5" />
+      </div>
+
+      <div className="relative" style={{ width: size, height: size }}>
+        <svg
+          width={size}
+          height={size}
+          viewBox={`0 0 ${size} ${size}`}
+          role="img"
+          aria-label={`Score ${scorePercentage} percent`}
+          className="-rotate-90"
+        >
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            strokeWidth={strokeWidth}
+            className="stroke-muted"
           />
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            className={cn("stroke-current transition-[stroke-dashoffset] duration-1000 ease-out", tone.ring)}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="dc-numeric text-3xl font-bold text-foreground sm:text-4xl">
+            {animatedPercentage}%
+          </span>
+          <span className="dc-numeric dc-small">
+            {correctAnswers}/{totalQuestions}
+          </span>
         </div>
-        <Title level={3} className="score-title">Overall Score</Title>
-        <div className="score-badges">
-          {scorePercentage >= 90 && <div className="badge excellence">Excellence</div>}
-          {scorePercentage >= 80 && <div className="badge great">Great</div>}
-          {scorePercentage >= 70 && <div className="badge good">Good</div>}
-        </div>
+      </div>
+
+      <h2 className="dc-h3">Overall Score</h2>
+
+      {/* Badge thresholds mirror the previous implementation. */}
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        {scorePercentage >= 90 && <Badge variant="success" size="md">Excellence</Badge>}
+        {scorePercentage >= 80 && <Badge variant="success" size="md">Great</Badge>}
+        {scorePercentage >= 70 && <Badge size="md">Good</Badge>}
       </div>
     </Card>
   );

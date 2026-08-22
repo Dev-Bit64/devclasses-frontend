@@ -1,11 +1,7 @@
-
-import React from 'react';
-import {
-  CheckCircleOutlined,
-  CloseCircleOutlined,
-  QuestionCircleOutlined,
-  PercentageOutlined,
-} from '@ant-design/icons';
+import React from "react";
+import { CheckCircle2, CircleHelp, Percent, XCircle } from "lucide-react";
+import { Card } from "../ui/card";
+import { cn } from "../../libs/utils";
 
 interface StatsCardsProps {
   totalQuestions: number;
@@ -13,86 +9,59 @@ interface StatsCardsProps {
   wrongAnswers: number;
 }
 
-const statConfig = [
-  {
-    label: (
-      <>
-        TOTAL<br />
-        QUESTIONS
-      </>
-    ),
-    icon: <QuestionCircleOutlined />,
-    color: '#2490e9',
-    key: 'total',
-    valueKey: 'totalQuestions',
-  },
-  {
-    label: <>CORRECT</>,
-    icon: <CheckCircleOutlined />,
-    color: '#28c770',
-    key: 'correct',
-    valueKey: 'correctAnswers',
-  },
-  {
-    label: <>WRONG</>,
-    icon: <CloseCircleOutlined />,
-    color: '#e04836',
-    key: 'wrong',
-    valueKey: 'wrongAnswers',
-  },
-  {
-    label: <>ACCURACY</>,
-    icon: <PercentageOutlined />,
-    color: '#975ac8',
-    key: 'accuracy',
-    valueKey: 'accuracy',
-  },
-];
-
 const StatsCards: React.FC<StatsCardsProps> = ({
   totalQuestions,
   correctAnswers,
   wrongAnswers,
 }) => {
-  const accuracy = totalQuestions
-    ? Math.round((correctAnswers / totalQuestions) * 100)
-    : 0;
+  // Accuracy calculation is unchanged.
+  const accuracy = totalQuestions ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
 
-  // Structure stat values as needed
-  const values: { [key: string]: string | number } = {
-    totalQuestions,
-    correctAnswers,
-    wrongAnswers,
-    accuracy: `${accuracy}%`,
-  };
+  const stats = [
+    {
+      key: "total",
+      label: "Total Questions",
+      value: totalQuestions,
+      icon: CircleHelp,
+      tone: "bg-accent text-accent-foreground",
+    },
+    {
+      key: "correct",
+      label: "Correct",
+      value: correctAnswers,
+      icon: CheckCircle2,
+      tone: "bg-success/10 text-success",
+    },
+    {
+      key: "wrong",
+      label: "Wrong",
+      value: wrongAnswers,
+      icon: XCircle,
+      tone: "bg-destructive/10 text-destructive",
+    },
+    {
+      key: "accuracy",
+      label: "Accuracy",
+      value: accuracy + "%",
+      icon: Percent,
+      tone: "bg-secondary/10 text-secondary",
+    },
+  ];
 
   return (
-    <div className="stats-cards-container">
-      <div className="stats-cards-grid">
-        {statConfig.map((stat) => (
-          <div key={stat.key} className="stat-card-wrapper">
-            <div className="stat-card-outer">
-              <div
-                className="stat-icon-circle"
-                style={{
-                  backgroundColor: stat.color,
-                  boxShadow: '0 2px 10px rgba(0,0,0,0.10)',
-                }}
-              >
-                {stat.icon}
-              </div>
-              <div className="stat-card-inner">
-                <div className="stat-number">
-                  {stat.key === 'accuracy'
-                    ? values['accuracy']
-                    : values[stat.valueKey]}
-                </div>
-                <div className="stat-label">{stat.label}</div>
-              </div>
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      {stats.map((stat) => {
+        const Icon = stat.icon;
+        return (
+          <Card key={stat.key} className="flex flex-col items-center gap-2 p-4 text-center sm:p-5">
+            <div className={cn("grid size-10 place-items-center rounded-full", stat.tone)}>
+              <Icon aria-hidden="true" className="size-5" />
             </div>
-          </div>
-        ))}
-      </div>
+            <span className="dc-numeric text-2xl font-bold text-foreground">{stat.value}</span>
+            <span className="dc-caption uppercase tracking-wide">{stat.label}</span>
+          </Card>
+        );
+      })}
     </div>
   );
 };

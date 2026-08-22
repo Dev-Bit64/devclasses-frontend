@@ -1,7 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { DownOutlined } from '@ant-design/icons';
-import './CustomDropdown.scss';
-import type { SelectProps } from 'antd';
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { ChevronDown, Check } from "lucide-react";
+import { cn } from "../../libs/utils";
 
 // Dropdown option type
 export interface DropdownOption {
@@ -9,115 +8,238 @@ export interface DropdownOption {
   label: string;
 }
 
-interface CustomDropdownProps extends Omit<SelectProps<any>, 'options'> {
+/**
+ * `value` and `onChange` stay optional so the control can be driven either directly or through
+ * a react-hook-form Controller, which is how the question and subject forms use it.
+ */
+export interface CustomDropdownProps {
   options?: DropdownOption[];
+  value?: string;
+  onChange?: (value: string) => void;
+  placeholder?: string;
+  disabled?: boolean;
+  className?: string;
+  size?: "small" | "middle" | "large";
+  dropdownStyle?: React.CSSProperties;
+  style?: React.CSSProperties;
+  id?: string;
 }
 
+// Matches the trigger height to the shared Input scale.
+const sizeClasses: Record<NonNullable<CustomDropdownProps["size"]>, string> = {
+  small: "h-9 px-3 text-sm",
+  middle: "h-11 px-3.5 text-sm",
+  large: "h-12 px-4 text-base",
+};
+
 /**
- * CustomDropdown - A custom dropdown component resembling Ant Design's Select
- * - Closes automatically after selection
- * - Keyboard and mouse support
- * - Styled to match Ant Design
+ * CustomDropdown - accessible single-select listbox.
+ * Supports mouse, keyboard (arrows, Home/End, Enter, Escape) and type-ahead selection.
  */
 const CustomDropdown: React.FC<CustomDropdownProps> = ({
   options = [],
   value,
   onChange,
-  placeholder = 'Select',
+  placeholder = "Select",
   disabled = false,
-  className = '',
-  size = 'middle',
+  className = "",
+  size = "middle",
   dropdownStyle,
   style,
+  id,
 }) => {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  // Index of the visually highlighted option while navigating with the keyboard.
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const typeaheadRef = useRef({ query: "", at: 0 });
+  const reactId = useId();
+  const listboxId = `${id ?? reactId}-listbox`;
 
-  // Close dropdown when clicking outside
+  const selectedIndex = useMemo(
+    () => options.findIndex((opt) => opt.value === value),
+    [options, value]
+  );
+  const selectedLabel = selectedIndex >= 0 ? options[selectedIndex].label : undefined;
+
+  // Close when a click lands outside the component.
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
+    if (!open) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
         setOpen(false);
       }
     };
-    if (open) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
   }, [open]);
 
-  /**
-  /**
-   * Handle option selection
-   * - Calls onChange callback with selected value
-   * - Closes dropdown immediately after selection
-   * - Prevents event propagation to avoid double-click issues
-   */
-  const handleSelect = (optionValue: string, event?: React.MouseEvent) => {
-    // Prevent event from bubbling up
-    if (event) {
-      event.stopPropagation();
-    }
-    // Only call onChange if it's provided
-    onChange?.(optionValue);
-    // Close dropdown after selection
-    setOpen(false);
-  };
-  // Keyboard navigation
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+  // Opening highlights the current selection so arrow keys continue from there.
+  useEffect(() => {
+    if (open) setActiveIndex(selectedIndex >= 0 ? selectedIndex : 0);
+  }, [open, selectedIndex]);
+
+  // Keep the highlighted option inside the scrollable list.
+  useEffect(() => {
+    if (!open || activeIndex < 0) return;
+    listRef.current
+      ?.querySelector<HTMLElement>(`[data-index="${activeIndex}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [open, activeIndex]);
+
+  const commitSelection = useCallback(
+    (optionValue: string) => {
+      onChange?.(optionValue);
+      setOpen(false);
+    },
+    [onChange]
+  );
+
+  // Jump to the next option starting with the typed characters.
+  const runTypeahead = useCallback(
+    (char: string) => {
+      const now = Date.now();
+      const state = typeaheadRef.current;
+      state.query = now - state.at > 600 ? char : state.query + char;
+      state.at = now;
+
+      const match = options.findIndex((opt) =>
+        opt.label.toLowerCase().startsWith(state.query.toLowerCase())
+      );
+      if (match >= 0) setActiveIndex(match);
+    },
+    [options]
+  );
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
     if (disabled) return;
-    if (e.key === 'Enter' || e.key === ' ') setOpen((prev) => !prev);
-    if (e.key === 'Escape') setOpen(false);
+
+    switch (event.key) {
+      case "ArrowDown":
+        event.preventDefault();
+        if (!open) setOpen(true);
+        else setActiveIndex((prev) => Math.min(prev + 1, options.length - 1));
+        break;
+      case "ArrowUp":
+        event.preventDefault();
+        if (!open) setOpen(true);
+        else setActiveIndex((prev) => Math.max(prev - 1, 0));
+        break;
+      case "Home":
+        if (open) {
+          event.preventDefault();
+          setActiveIndex(0);
+        }
+        break;
+      case "End":
+        if (open) {
+          event.preventDefault();
+          setActiveIndex(options.length - 1);
+        }
+        break;
+      case "Enter":
+      case " ":
+        event.preventDefault();
+        if (open && activeIndex >= 0 && options[activeIndex]) {
+          commitSelection(options[activeIndex].value);
+        } else {
+          setOpen((prev) => !prev);
+        }
+        break;
+      case "Escape":
+        setOpen(false);
+        break;
+      case "Tab":
+        setOpen(false);
+        break;
+      default:
+        if (open && event.key.length === 1) runTypeahead(event.key);
+    }
   };
 
-  // Get selected label
-  const selectedLabel = options.find(opt => opt.value === value)?.label;
-
-  // ensure the dropdown options area stays inside its panel and becomes scrollable
+  // Long option lists get an internal scrollbar; callers may override via dropdownStyle.
   const mergedDropdownStyle: React.CSSProperties = {
     maxHeight: 260,
-    overflowY: 'auto',
-    overflowX: 'hidden',
-    // keep any custom styles passed in without breaking layout
-    ...(dropdownStyle as React.CSSProperties || {}),
+    overflowY: "auto",
+    overflowX: "hidden",
+    ...dropdownStyle,
   };
 
   return (
-    <div
-      className={`custom-dropdown ${open ? 'open' : ''} ${disabled ? 'disabled' : ''} ${className} custom-dropdown-${size}`}
-      tabIndex={disabled ? -1 : 0}
-      ref={ref}
-      onClick={() => !disabled && setOpen((prev) => !prev)}
-      onKeyDown={handleKeyDown}
-      aria-haspopup="listbox"
-      aria-expanded={open}
-      style={style}
-    >
-      <div className="custom-dropdown-selector">
-        <span className={`custom-dropdown-value ${!selectedLabel ? 'placeholder' : ''}`}>
+    // `dc-app` keeps the scoped reset applied even if this is rendered outside a scoped page.
+    <div ref={rootRef} className={cn("dc-app relative w-full", className)} style={style}>
+      <button
+        type="button"
+        id={id}
+        disabled={disabled}
+        onClick={() => !disabled && setOpen((prev) => !prev)}
+        onKeyDown={handleKeyDown}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={open ? listboxId : undefined}
+        aria-activedescendant={
+          open && activeIndex >= 0 ? `${listboxId}-opt-${activeIndex}` : undefined
+        }
+        className={cn(
+          "flex w-full items-center justify-between gap-2 rounded-lg border border-input bg-white text-left shadow-dc-xs transition-colors",
+          "focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25",
+          "disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-60",
+          open && "border-primary ring-2 ring-ring/25",
+          sizeClasses[size]
+        )}
+      >
+        <span
+          className={cn("truncate", selectedLabel ? "text-foreground" : "text-muted-foreground")}
+        >
           {selectedLabel || placeholder}
         </span>
-        <DownOutlined className="custom-dropdown-arrow" />
-      </div>
+        <ChevronDown
+          aria-hidden="true"
+          className={cn(
+            "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
+            open && "rotate-180"
+          )}
+        />
+      </button>
+
       {open && (
-        // apply mergedDropdownStyle here so long lists get an internal scrollbar
-        <div className="custom-dropdown-list" role="listbox" style={mergedDropdownStyle}>
+        <div
+          ref={listRef}
+          id={listboxId}
+          role="listbox"
+          aria-label={placeholder}
+          style={mergedDropdownStyle}
+          className="absolute left-0 top-[calc(100%+4px)] z-[1150] w-full rounded-xl border border-border bg-popover p-1.5 shadow-dc-lg"
+        >
           {options.length === 0 ? (
-            <div className="custom-dropdown-option disabled">No options</div>
+            <div className="px-3 py-2.5 text-sm text-muted-foreground">No options</div>
           ) : (
-            options.map(opt => (
-              <div
-                key={opt.value}
-                className={`custom-dropdown-option${opt.value === value ? ' selected' : ''}`}
-                onClick={(e) => handleSelect(opt.value, e)}
-                role="option"
-                aria-selected={opt.value === value}
-              >
-                {opt.label}
-              </div>
-            ))
+            options.map((opt, index) => {
+              const isSelected = opt.value === value;
+              return (
+                <div
+                  key={opt.value}
+                  id={`${listboxId}-opt-${index}`}
+                  data-index={index}
+                  role="option"
+                  aria-selected={isSelected}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    commitSelection(opt.value);
+                  }}
+                  className={cn(
+                    "flex cursor-pointer items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors",
+                    index === activeIndex ? "bg-muted" : "bg-transparent",
+                    isSelected ? "font-semibold text-primary" : "text-foreground"
+                  )}
+                >
+                  <span className="truncate">{opt.label}</span>
+                  {isSelected && <Check aria-hidden="true" className="size-4 shrink-0" />}
+                </div>
+              );
+            })
           )}
         </div>
       )}

@@ -3,17 +3,13 @@ import { AuthLayout } from "../components/Global/AuthLayout";
 import { GlobalLayout } from "../layouts";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { BookOpen } from "lucide-react";
+import { isAdmin } from "../utils/session";
 
-// Route guard to protect admin-only pages
+// Route guard that hides admin-only pages.
+// This is navigation UX, not a security boundary — the API must authorise these calls itself.
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-    let user = null;
-    try {
-        user = JSON.parse(localStorage.getItem("user") || "null");
-    } catch (e) {
-        user = null;
-    }
     // Redirect to dashboard if the user is not logged in or is not an ADMIN
-    if (!user || user.role !== "ADMIN") {
+    if (!isAdmin()) {
         return <Navigate to="/dashboard" replace />;
     }
     return <>{children}</>;
@@ -31,40 +27,22 @@ const UsersPage = React.lazy(() => import("../pages/Users"));
 const QuestionsPage = React.lazy(() => import("../pages/Questions"));
 const SubjectsPage = React.lazy(() => import("../pages/Subjects"));
 const ResetPasswordPage = React.lazy(() => import("../pages/ResetPassword"));
+const LoginPage = React.lazy(() => import("../pages/Login"));
+const RegisterPage = React.lazy(() => import("../pages/Register"));
 
 const LoadingFallback = () => (
-    <div style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh', 
-        width: '100vw', 
-        background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)', // Match dashboard layout background
-        color: '#262626', 
-        position: 'fixed', 
-        top: 0, 
-        left: 0, 
-        zIndex: 9999 
-    }}>
-        <style>
-            {`
-                @keyframes pulse-book {
-                    0%, 100% { transform: scale(1) translateY(0); opacity: 0.8; }
-                    50% { transform: scale(1.08) translateY(-8px); opacity: 1; }
-                }
-                @keyframes fade-text {
-                    0%, 100% { opacity: 0.6; }
-                    50% { opacity: 1; }
-                }
-            `}
-        </style>
-        <div style={{ animation: 'pulse-book 1.5s infinite ease-in-out', marginBottom: '20px' }}>
-            <BookOpen size={72} color="#1890ff" strokeWidth={1.5} /> {/* Match primary brand color */}
+    // Full-screen route transition placeholder, styled on the shared design tokens.
+    <div
+        role="status"
+        aria-live="polite"
+        className="dc-app fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-5 bg-surface"
+    >
+        <div className="grid size-16 place-items-center rounded-2xl bg-accent text-accent-foreground motion-safe:animate-pulse">
+            <BookOpen aria-hidden="true" className="size-8" strokeWidth={1.75} />
         </div>
-        <h2 style={{ fontSize: '18px', fontWeight: '600', letterSpacing: '3px', color: '#595959', animation: 'fade-text 1.5s infinite ease-in-out' }}>
-            LOADING...
-        </h2>
+        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+            Loading
+        </p>
     </div>
 );
 
@@ -171,6 +149,15 @@ const router = createBrowserRouter([
         ],
     },
 
+    // Public auth routes — deliberately outside AuthLayout, which redirects unauthenticated users.
+    {
+        path: "/login",
+        element: withSuspense(LoginPage),
+    },
+    {
+        path: "/register",
+        element: withSuspense(RegisterPage),
+    },
     {
         path: "/reset-password",
         element: withSuspense(ResetPasswordPage),

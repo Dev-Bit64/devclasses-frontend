@@ -1,13 +1,22 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useEffect } from 'react';
-import { Modal, Form, Input, Button, message } from 'antd';
-import { WhatsAppOutlined } from '@ant-design/icons';
-// import { useDispatch } from 'react-redux';
-// import { AppDispatch } from '../../redux/store';
-// import { sendWhatsAppMessageAction } from '../../redux/action/authAction';
-import './index.scss';
-
-const { TextArea } = Input;
+import React, { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { MessageCircle } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog';
+import { Input } from '../ui/input';
+import { Textarea } from '../ui/textarea';
+import { Button } from '../ui/button';
+import { Spinner } from '../ui/spinner';
+import { FormField } from '../ui/form-field';
+import { toastText } from '../../utils/toast';
 
 interface SendWhatsAppMessageProps {
     visible: boolean;
@@ -16,60 +25,66 @@ interface SendWhatsAppMessageProps {
     phoneNumber?: string;
 }
 
+// Same rules the previous antd form enforced, transcribed message-for-message.
+const whatsAppSchema = z.object({
+    phoneNumber: z
+        .string()
+        .min(1, 'Please enter phone number')
+        .regex(/^[0-9]{10}$/, 'Phone number must be exactly 10 digits'),
+    message: z.string().min(1, 'Please enter a message'),
+});
+
+type WhatsAppValues = z.infer<typeof whatsAppSchema>;
+
 const SendWhatsAppMessage: React.FC<SendWhatsAppMessageProps> = ({
     visible,
     onClose,
     studentName,
     phoneNumber = '',
 }) => {
-    const [form] = Form.useForm();
-    // const dispatch = useDispatch<AppDispatch>();
     const [loading, setLoading] = useState(false);
+
+    const {
+        register,
+        handleSubmit,
+        reset,
+        formState: { errors },
+    } = useForm<WhatsAppValues>({
+        resolver: zodResolver(whatsAppSchema),
+        defaultValues: { phoneNumber: '', message: '' },
+    });
 
     // Set initial values when modal opens
     useEffect(() => {
         if (visible) {
-            form.setFieldsValue({
+            reset({
                 phoneNumber: phoneNumber,
                 message: `${studentName} is absent today`,
             });
         }
-    }, [visible, studentName, phoneNumber, form]);
+    }, [visible, studentName, phoneNumber, reset]);
 
     /**
      * Handle form submission
      */
-    const handleSubmit = async () => {
+    const handleFormSubmit = async (values: WhatsAppValues) => {
         try {
-            const values = await form.validateFields();
             setLoading(true);
 
-            // const payload = {
-            //     phoneNumber: values.phoneNumber,
-            //     message: values.message,
-            // };
-
-
-            // await dispatch(sendWhatsAppMessageAction(payload)).unwrap();
-
-            // message.success('WhatsApp message sent successfully!');
-
+            // Link is built from the phoneNumber prop, matching the previous behaviour.
             const waLink = `https://wa.me/${phoneNumber}?text=${values.message}`;
 
             // Open WhatsApp
             window.open(waLink, "_blank");
 
-            message.success("Opening WhatsApp...");
+            toastText("Opening WhatsApp...", 'success');
             handleClose();
         } catch (error: any) {
             console.error('Error sending WhatsApp message:', error);
             if (error?.message) {
-                message.error(error.message);
-            } else if (error?.errorFields) {
-                // Form validation errors - Ant Design will show them automatically
-                return;
+                toastText(error.message, 'error');
             } else {
-                message.error('Failed to send WhatsApp message. Please try again.');
+                toastText('Failed to send WhatsApp message. Please try again.', 'error');
             }
         } finally {
             setLoading(false);
@@ -80,98 +95,74 @@ const SendWhatsAppMessage: React.FC<SendWhatsAppMessageProps> = ({
      * Handle modal close
      */
     const handleClose = () => {
-        form.resetFields();
+        reset({ phoneNumber: '', message: '' });
         onClose();
     };
 
     return (
-        <Modal
-            title={
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <WhatsAppOutlined style={{ color: '#25D366', fontSize: 20 }} />
-                    <span>Send WhatsApp Message</span>
-                </div>
-            }
-            open={visible}
-            onCancel={handleClose}
-            maskClosable={false}
-            footer={[
-                <Button key="cancel" onClick={handleClose} disabled={loading}>
-                    Cancel
-                </Button>,
-                <Button
-                    key="send"
-                    type="primary"
-                    icon={<WhatsAppOutlined />}
-                    loading={loading}
-                    onClick={handleSubmit}
-                    style={{ backgroundColor: '#25D366', borderColor: '#25D366' }}
-                >
-                    Send
-                </Button>,
-            ]}
-            width={500}
-            className="send-whatsapp-modal"
-            destroyOnClose
-            centered
-        >
-            <Form
-                form={form}
-                layout="vertical"
-                autoComplete="off"
-            >
-                <Form.Item
-                    label="Student Name"
-                    style={{ marginBottom: 16 }}
-                >
-                    <Input
-                        value={studentName}
-                        disabled
-                        style={{ backgroundColor: '#f5f5f5', color: '#666' }}
-                    />
-                </Form.Item>
+        <Dialog open={visible} onOpenChange={(open) => !open && handleClose()}>
+            <DialogContent className="max-w-lg gap-5 p-5 sm:p-6">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2.5">
+                        <MessageCircle aria-hidden="true" className="size-5 text-success" />
+                        Send WhatsApp Message
+                    </DialogTitle>
+                </DialogHeader>
 
-                <Form.Item
-                    label="Phone Number"
-                    name="phoneNumber"
-                    rules={[
-                        {
-                            required: true,
-                            message: 'Please enter phone number',
-                        },
-                        {
-                            pattern: /^[0-9]{10}$/,
-                            message: 'Phone number must be exactly 10 digits',
-                        },
-                    ]}
-                    style={{ marginBottom: 16 }}
+                <form
+                    noValidate
+                    autoComplete="off"
+                    onSubmit={handleSubmit(handleFormSubmit)}
+                    className="flex flex-col gap-4"
                 >
-                    <Input
-                        placeholder="Enter 10-digit phone number"
-                        maxLength={10}
-                        style={{ fontSize: 14 }}
-                    />
-                </Form.Item>
+                    {/* Student name is contextual only and stays read-only. */}
+                    <FormField id="wa-student" label="Student Name">
+                        {(aria) => <Input {...aria} value={studentName} disabled readOnly />}
+                    </FormField>
 
-                <Form.Item
-                    label="Message"
-                    name="message"
-                    rules={[
-                        {
-                            required: true,
-                            message: 'Please enter a message',
-                        },
-                    ]}
-                    style={{ marginBottom: 0 }}
-                >
-                    <TextArea
-                        rows={4}
-                        placeholder="Enter your message"
-                        style={{ fontSize: 14 }}
-                    />
-                </Form.Item>
-            </Form>
-        </Modal>
+                    <FormField
+                        id="wa-phone"
+                        label="Phone Number"
+                        required
+                        error={errors.phoneNumber?.message}
+                    >
+                        {(aria) => (
+                            <Input
+                                {...aria}
+                                {...register('phoneNumber')}
+                                type="tel"
+                                inputMode="numeric"
+                                placeholder="Enter 10-digit phone number"
+                                maxLength={10}
+                                invalid={Boolean(errors.phoneNumber)}
+                            />
+                        )}
+                    </FormField>
+
+                    <FormField id="wa-message" label="Message" required error={errors.message?.message}>
+                        {(aria) => (
+                            <Textarea
+                                {...aria}
+                                {...register('message')}
+                                rows={4}
+                                placeholder="Enter your message"
+                                invalid={Boolean(errors.message)}
+                            />
+                        )}
+                    </FormField>
+
+                    <DialogFooter>
+                        <Button variant="secondary" onClick={handleClose} disabled={loading}>
+                            Cancel
+                        </Button>
+                        <Button type="submit" disabled={loading}>
+                            {loading ? <Spinner /> : <MessageCircle aria-hidden="true" />}
+                            Send
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
     );
 };
 

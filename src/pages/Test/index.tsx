@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Radio, Space, Progress, message, Statistic, Empty, Spin } from 'antd';
-import { LeftOutlined, RightOutlined, CheckOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { ChevronLeft, ChevronRight, Check, FileQuestion } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../redux/store';
 import { getQuestionAction, submitExamAction } from '../../redux/action/examAction';
-import './index.scss';
-
-const { Countdown } = Statistic;
+import { ExamLayout } from '../../components/layout/ExamLayout';
+import { AnswerOption } from '../../components/exam/AnswerOption';
+import { RadioGroup } from '../../components/ui/radio-group';
+import { Button } from '../../components/ui/button';
+import { Spinner } from '../../components/ui/spinner';
+import { Card } from '../../components/ui/card';
+import { Skeleton } from '../../components/ui/skeleton';
+import { EmptyState } from '../../components/common/EmptyState';
+import { PageShell } from '../../components/common/PageShell';
+import { toastText } from '../../utils/toast';
 
 /**
  * Question interface for MCQ questions
@@ -67,7 +73,7 @@ const TestPage: React.FC = () => {
    */
   useEffect(() => {
     if (!examId) {
-      message.warning('No active exam session. Please start a new exam.');
+      toastText('No active exam session. Please start a new exam.', 'error');
       setTimeout(() => {
         navigate('/quiz-details');
       }, 2000);
@@ -103,12 +109,10 @@ const TestPage: React.FC = () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await dispatch(getQuestionAction({ examId, page }) as any);
     } catch (error) {
-      message.error('Failed to fetch question. Please try again.');
+      toastText('Failed to fetch question. Please try again.', 'error');
       console.error('Error fetching question:', error);
     }
   };
-
-  const progress = totalQuestions && totalQuestions > 0 ? (currentPage / totalQuestions) * 100 : 0;
 
   /**
    * Timer effect - Auto-submit when time runs out
@@ -181,7 +185,7 @@ const TestPage: React.FC = () => {
    */
   const handleSubmit = async () => {
     if (!examId || !userId) {
-      message.error('Missing exam session or user information.');
+      toastText('Missing exam session or user information.', 'error');
       return;
     }
 
@@ -196,31 +200,23 @@ const TestPage: React.FC = () => {
         selectedOption
       }));
 
-      // Verify payload format before submission
-      console.log('=== SUBMITTING EXAM ===');
-      console.log('Sample answer format:', answers[0]);
-      console.log('Expected: { questionId: "...", selectedOption: "OPTIONA" }');
-
       // Call submit exam API
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await dispatch(submitExamAction({ userId, examId, answers }) as any);
 
       if (result.payload?.statusCode === 200) {
-        message.success({
-          content: '🎉 Test submitted successfully!',
-          duration: 3,
-        });
+        toastText('Test submitted successfully!', 'success');
 
         // Navigate to result page
         setTimeout(() => {
           navigate('/your-result');
         }, 1000);
       } else {
-        message.error('Failed to submit test. Please try again.');
+        toastText('Failed to submit test. Please try again.', 'error');
       }
 
     } catch (error) {
-      message.error('Failed to submit test. Please try again.');
+      toastText('Failed to submit test. Please try again.', 'error');
       console.error('Error submitting exam:', error);
     } finally {
       setIsSubmitting(false);
@@ -234,146 +230,121 @@ const TestPage: React.FC = () => {
   // Show empty state if no exam session
   if (!examId) {
     return (
-      <div className="quiz-taking">
-        <Empty
-          description="No Active Exam Session"
-          style={{ marginTop: '100px' }}
-        >
-          <Button type="primary" onClick={() => navigate('/quiz-details')}>
-            Start a New Exam
-          </Button>
-        </Empty>
-      </div>
+      <PageShell>
+        <EmptyState
+          icon={FileQuestion}
+          title="No Active Exam Session"
+          description="Start a new exam to begin practising."
+          action={
+            <Button onClick={() => navigate('/quiz-details')}>Start a New Exam</Button>
+          }
+        />
+      </PageShell>
     );
   }
 
   // Show loading state while fetching question
   if (isLoading || !questionData) {
     return (
-      <div className="quiz-taking" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
-        <Spin size="large" tip="Loading question..." />
-      </div>
+      <ExamLayout current={currentPage} total={totalQuestions} msLeft={timeLeft}>
+        <Card className="flex flex-col gap-5 p-5 sm:p-6">
+          <Skeleton className="h-5 w-32" />
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-5 w-full" />
+            <Skeleton className="h-5 w-4/5" />
+          </div>
+          <div className="flex flex-col gap-2.5">
+            {Array.from({ length: 4 }, (_, index) => (
+              <Skeleton key={index} className="h-14 w-full rounded-xl" />
+            ))}
+          </div>
+        </Card>
+      </ExamLayout>
     );
   }
 
+  const selectedValue = selectedAnswers[questionData.id] || '';
+
   return (
-    <div className="quiz-taking">
-      <div className="quiz-header">
-        <div className="quiz-title-container">
-          <h1 className="quiz-title">📝 Exam Test</h1>
-          <div className="timer-container">
-            <ClockCircleOutlined className="timer-icon" />
-            <Countdown
-              value={Date.now() + timeLeft}
-              format="mm:ss"
-              valueStyle={{
-                color: timeLeft < 1 * 60 * 1000 ? '#ff4d4f' : '#3E69E7',
-                fontSize: '20px',
-                fontWeight: 'bold'
-              }}
-              onFinish={() => handleSubmit()}
-            />
-          </div>
-        </div>
-        <div className="quiz-progress">
-          <Progress
-            percent={progress}
-            strokeColor="#3E69E7"
-            trailColor="rgba(62, 105, 231, 0.1)"
-            strokeWidth={8}
-            format={() => `${currentPage}/${totalQuestions}`}
-          />
-        </div>
-      </div>
-
-      <div className="quiz-content">
-        <div className="quiz-content-scroll">
-          <div className="question-container">
-            <div className="question-header">
-              <span className="question-number">Question {currentPage}</span>
-              <span className="question-type">Multiple Choice</span>
-            </div>
-
-            <div className="question-text">
-              {questionData.question}
-            </div>
-
-            <div className="options-container">
-              <Radio.Group
-                value={selectedAnswers[questionData.id] || ''} // Match direct standardized OPTION[A-D] format
-                onChange={(e) => handleAnswerChange(e.target.value)}
-                className="quiz-radio-group"
-              >
-                <Space direction="vertical" size="large" className="options-list">
-                  {Object.entries(questionData.options).map(([key, value]) => {
-                    // Handle both formats: "A" or "OPTIONA"
-                    // Extract letter for display: "OPTIONA" -> "A", or "A" -> "A"
-                    const optionLetter = key.startsWith('OPTION') ? key.replace('OPTION', '') : key;
-                    // Normalize option value to standard OPTION[A-D] format for consistent selection matching
-                    const optionValue = key.toUpperCase().startsWith('OPTION') ? key.toUpperCase() : `OPTION${key.toUpperCase()}`;
-
-                    return (
-                      <Radio
-                        key={key}
-                        value={optionValue} // Store standardized option value
-                        className="quiz-radio-option"
-                      >
-                        <span className="option-label">
-                          {optionLetter}. {value}
-                        </span>
-                      </Radio>
-                    );
-                  })}
-                </Space>
-              </Radio.Group>
-            </div>
-          </div>
-        </div>
-
-        <div className="quiz-navigation">
+    <ExamLayout
+      current={currentPage}
+      total={totalQuestions}
+      msLeft={timeLeft}
+      footer={
+        <div className="flex items-center justify-between gap-3">
           <Button
+            variant="secondary"
             onClick={handlePrevious}
             disabled={isFirstQuestion || isLoading}
-            className="nav-button prev-button"
-            size="large"
-            icon={<LeftOutlined />}
           >
-            Previous
+            <ChevronLeft aria-hidden="true" />
+            <span className="hidden sm:inline">Previous</span>
+            <span className="sm:hidden">Back</span>
           </Button>
 
           {/* Question progress indicator */}
-          <div className="question-indicator">
-            <span className="progress-text">
-              Question {currentPage} of {totalQuestions}
-            </span>
-          </div>
+          <span className="dc-caption dc-numeric hidden sm:block">
+            Question {currentPage} of {totalQuestions}
+          </span>
 
           {/* Submit or Next button based on question position */}
           {isLastQuestion ? (
             <Button
               onClick={handleSubmit}
-              loading={isSubmitting}
-              className="nav-button submit-button"
-              size="large"
-              icon={<CheckOutlined />}
-              disabled={!hasAnsweredCurrent || isLoading}
+              disabled={!hasAnsweredCurrent || isLoading || isSubmitting}
             >
+              {isSubmitting ? <Spinner /> : <Check aria-hidden="true" />}
               {isSubmitting ? 'Submitting...' : 'Submit Test'}
             </Button>
           ) : (
-            <Button
-              onClick={handleNext}
-              disabled={!hasAnsweredCurrent || isLoading}
-              className="nav-button next-button"
-              size="large"
-              icon={<RightOutlined />}
-            >
+            <Button onClick={handleNext} disabled={!hasAnsweredCurrent || isLoading}>
               Next
+              <ChevronRight aria-hidden="true" />
             </Button>
           )}
         </div>
-      </div>
-    </div>
+      }
+    >
+      <Card className="flex flex-col gap-5 p-5 sm:gap-6 sm:p-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="dc-label">Question {currentPage}</span>
+          <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+            Multiple Choice
+          </span>
+        </div>
+
+        {/* Long question text wraps naturally rather than being clipped to a fixed height. */}
+        <p className="break-words text-base font-medium leading-relaxed text-foreground sm:text-lg">
+          {questionData.question}
+        </p>
+
+        <RadioGroup
+          value={selectedValue}
+          onValueChange={handleAnswerChange}
+          aria-label={`Answer options for question ${currentPage}`}
+          className="gap-2.5"
+        >
+          {Object.entries(questionData.options).map(([key, value]) => {
+            // Handle both formats: "A" or "OPTIONA"
+            // Extract letter for display: "OPTIONA" -> "A", or "A" -> "A"
+            const optionLetter = key.startsWith('OPTION') ? key.replace('OPTION', '') : key;
+            // Normalize option value to standard OPTION[A-D] format for consistent selection matching
+            const optionValue = key.toUpperCase().startsWith('OPTION') ? key.toUpperCase() : `OPTION${key.toUpperCase()}`;
+
+            return (
+              <AnswerOption
+                key={key}
+                id={`${questionData.id}-${key}`}
+                value={optionValue}
+                letter={optionLetter}
+                label={value}
+                selected={selectedValue === optionValue}
+              />
+            );
+          })}
+        </RadioGroup>
+      </Card>
+    </ExamLayout>
   );
 };
 
