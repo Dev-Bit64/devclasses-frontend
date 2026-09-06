@@ -1,59 +1,153 @@
-import React, { useState } from 'react';
-import { Table, Button, Tooltip, Avatar, Input, Select, Row, Col, Card } from 'antd';
-import { WhatsAppOutlined, EyeOutlined, UserOutlined, SearchOutlined, FilterOutlined } from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useState, useEffect, useCallback } from 'react';
+import { Eye, MessageCircle, Search, Trash2 } from 'lucide-react';
+import { useDispatch, useSelector } from 'react-redux';
 import UserResultsModal from '../../components/UserResultsModal';
-import './index.scss';
+import SendWhatsAppMessage from '../../components/SendWhatsAppMessage';
+import { getUsersAction, deleteUserAction } from '../../redux/action/userAction';
+import { RootState, AppDispatch } from '../../redux/store';
+import { PageShell } from '../../components/common/PageShell';
+import { PageHeader } from '../../components/common/PageHeader';
+import { DataTable, type DataTableColumn } from '../../components/common/DataTable';
+import { ColumnFilter } from '../../components/common/ColumnFilter';
+import { ConfirmDialog } from '../../components/common/ConfirmDialog';
+import { Card } from '../../components/ui/card';
+import { Input } from '../../components/ui/input';
+import { Button } from '../../components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
+import { toastText } from '../../utils/toast';
 
 interface User {
-  key: number;
+  key: string;
+  id: string;
   name: string;
   email: string;
   testsGiven: number;
   avatar: string;
   standard: string;
   board: string;
+  firstName?: string;
+  lastName?: string;
 }
 
-const mockUsers: User[] = [
-  { key: 1, name: 'John Doe', email: 'john.doe@example.com', testsGiven: 5, avatar: '', standard: '10th', board: 'CBSE' },
-  { key: 2, name: 'Jane Smith', email: 'jane.smith@example.com', testsGiven: 8, avatar: '', standard: '12th', board: 'ICSE' },
-  { key: 3, name: 'Alice Johnson', email: 'alice.johnson@example.com', testsGiven: 3, avatar: '', standard: '9th', board: 'State' },
-  { key: 4, name: 'Bob Brown', email: 'bob.brown@example.com', testsGiven: 10, avatar: '', standard: '11th', board: 'CBSE' },
-  { key: 5, name: 'Charlie Lee', email: 'charlie.lee@example.com', testsGiven: 2, avatar: '', standard: '10th', board: 'ICSE' },
-  { key: 6, name: 'Emily White', email: 'emily.white@example.com', testsGiven: 7, avatar: '', standard: '12th', board: 'State' },
+/**
+ * Static options for Standard and Board column filters
+ */
+const standardFilterOptions = [
+  { text: '11th', value: '11th' },
+  { text: '12th', value: '12th' },
 ];
 
-const standardOptions = [
-  { label: 'All', value: '' },
-  ...Array.from(new Set(mockUsers.map(u => u.standard))).map(s => ({ label: s, value: s }))
-];
-const boardOptions = [
-  { label: 'All', value: '' },
-  ...Array.from(new Set(mockUsers.map(u => u.board))).map(b => ({ label: b, value: b }))
+const boardFilterOptions = [
+  { text: 'CBSE', value: 'CBSE' },
+  { text: 'GSEB', value: 'GSEB' },
 ];
 
 const UsersPage: React.FC = () => {
-  const [search, setSearch] = useState('');
-  const [standardFilter, setStandardFilter] = useState('');
-  const [boardFilter, setBoardFilter] = useState('');
-  
+  // Redux hooks for state management and dispatching actions
+  const dispatch = useDispatch<AppDispatch>();
+  const { userLists = [], isLoading, totalUsers = 0 } = useSelector((state: RootState) => state.user);
+
+  // Transform API response data to match table structure
+  const normalizedUserList: User[] = Array.isArray(userLists)
+    ? userLists.map((user: any) => ({
+      key: user.id,
+      id: user.id,
+      name: `${user.firstName} ${user.lastName}`,
+      email: user.email,
+      testsGiven: user.totalTestsGiven || 0, // Default to 0 if not provided
+      avatar: user.avatar || '', // Default to empty string if not provided
+      standard: user.standard,
+      board: user.board,
+      firstName: user.firstName,
+      lastName: user.lastName,
+    }))
+    : [];
+
+  // Local state for search and column filters
+  const [searchInput, setSearchInput] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState(''); // Track the currently applied search
+  const [standardFilters, setStandardFilters] = useState<string[]>([]);
+  const [boardFilters, setBoardFilters] = useState<string[]>([]);
+  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+
+  // Pagination state
+  const [page, setPage] = useState<number>(1);
+  const DEFAULT_PAGE_SIZE = 10;
+
   // State for UserResultsModal
   const [resultsModalVisible, setResultsModalVisible] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<{ name: string; id: number } | null>(null);
+  const [selectedUser, setSelectedUser] = useState<{ name: string; id: string } | null>(null);
 
-  const filteredUsers = mockUsers.filter(user => {
-    const matchesSearch =
-      user.name.toLowerCase().includes(search.toLowerCase()) ||
-      user.email.toLowerCase().includes(search.toLowerCase());
-    const matchesStandard = standardFilter ? user.standard === standardFilter : true;
-    const matchesBoard = boardFilter ? user.board === boardFilter : true;
-    return matchesSearch && matchesStandard && matchesBoard;
-  });
+  // State for SendWhatsAppMessage modal
+  const [whatsappModalVisible, setWhatsappModalVisible] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<{ name: string; phoneNumber: string } | null>(null);
+
+  /**
+   * Fetch users with current filters and search parameters
+   * Called on component mount and when filters/search/pagination change
+   */
+  const fetchUsers = useCallback((searchTerm: string = '', standard: string = '', board: string = '', pageNum?: number) => {
+    const payload = {
+      page: pageNum || page,
+      limit: DEFAULT_PAGE_SIZE,
+      search: searchTerm,
+      sortField: 'firstName',
+      sortOrder: 'asc',
+      board: board,
+      standard: standard
+    };
+    dispatch(getUsersAction(payload));
+  }, [dispatch, page, DEFAULT_PAGE_SIZE]);
+
+  // Fetch users on component mount with empty search and filters
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  /**
+   * Handle search button click
+   * Validates that search input has at least 3 characters before fetching
+   * Resets pagination to page 1 when searching
+   */
+  const handleSearch = () => {
+    const trimmedSearch = searchInput.trim();
+
+    // If search is empty, fetch all users
+    if (trimmedSearch.length === 0) {
+      setPage(1);
+      setAppliedSearch('');
+      fetchUsers('', standardFilters[0] || '', boardFilters[0] || '', 1);
+      return;
+    }
+
+    // Validate minimum 3 characters
+    if (trimmedSearch.length < 3) {
+      toastText('Please enter at least 3 characters to search', 'error');
+      return;
+    }
+
+    // Fetch users with search term and current filters, reset to page 1
+    setPage(1);
+    setAppliedSearch(trimmedSearch);
+    fetchUsers(trimmedSearch, standardFilters[0] || '', boardFilters[0] || '', 1);
+  };
+
+  /**
+   * Handle clearing the search
+   */
+  const handleClearSearch = () => {
+    setSearchInput('');
+    setAppliedSearch('');
+    setPage(1);
+    // Only fetch if there was a search applied
+    if (appliedSearch) {
+      fetchUsers('', standardFilters[0] || '', boardFilters[0] || '', 1);
+    }
+  };
 
   /**
    * Handle opening the results modal for a specific user
-   * @param user - The user object containing name and key (id)
    */
   const handleViewResults = (user: User) => {
     setSelectedUser({ name: user.name, id: user.key });
@@ -68,51 +162,177 @@ const UsersPage: React.FC = () => {
     setSelectedUser(null);
   };
 
-  const columns: ColumnsType<User> = [
+  /**
+   * Handle opening the WhatsApp modal for a specific user
+   */
+  const handleOpenWhatsAppModal = (user: User) => {
+    setSelectedStudent({ name: user.name, phoneNumber: '' });
+    setWhatsappModalVisible(true);
+  };
+
+  /**
+   * Handle closing the WhatsApp modal
+   */
+  const handleCloseWhatsAppModal = () => {
+    setWhatsappModalVisible(false);
+    setSelectedStudent(null);
+  };
+
+  /**
+   * Handle delete single user
+   * Dispatches deleteUserAction with user ID and refreshes the user list
+   */
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      const resultAction = await dispatch(deleteUserAction(userId));
+
+      // Check if deletion was successful
+      if (deleteUserAction.fulfilled.match(resultAction)) {
+        // Refresh the user list after successful deletion with current filters
+        setPage(1);
+        fetchUsers(searchInput.trim(), standardFilters[0] || '', boardFilters[0] || '', 1);
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error);
+    }
+  };
+
+  /**
+   * Handle delete multiple selected users
+   */
+  const handleDeleteMultipleUsers = async () => {
+    if (selectedRowKeys.length === 0) {
+      toastText('Please select at least one user to delete', 'error');
+      return;
+    }
+
+    try {
+      const userIds = selectedRowKeys.map(key => String(key));
+      const resultAction = await dispatch(deleteUserAction(userIds));
+
+      // Check if deletion was successful
+      if (deleteUserAction.fulfilled.match(resultAction)) {
+        // Clear selected rows and refresh the user list with current filters
+        setSelectedRowKeys([]);
+        setPage(1);
+        fetchUsers(searchInput.trim(), standardFilters[0] || '', boardFilters[0] || '', 1);
+      }
+    } catch (error) {
+      console.error('Error deleting users:', error);
+    }
+  };
+
+  // Applying a column filter resets to page 1 and refetches, as it did before.
+  const applyStandardFilter = (values: string[]) => {
+    setStandardFilters(values);
+    setPage(1);
+    fetchUsers(searchInput.trim(), values[0] || '', boardFilters[0] || '', 1);
+  };
+
+  const applyBoardFilter = (values: string[]) => {
+    setBoardFilters(values);
+    setPage(1);
+    fetchUsers(searchInput.trim(), standardFilters[0] || '', values[0] || '', 1);
+  };
+
+  // Row actions, shared by the desktop table and the mobile card list.
+  const renderRowActions = (record: User) => (
+    <TooltipProvider delayDuration={150}>
+      <div className="flex items-center justify-center gap-1">
+        {/* WhatsApp Alert Button */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={`Send WhatsApp alert to ${record.name}`}
+              onClick={() => handleOpenWhatsAppModal(record)}
+            >
+              <MessageCircle aria-hidden="true" className="text-success" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Send Whatsapp alert</TooltipContent>
+        </Tooltip>
+
+        {/* Delete User Button */}
+        <ConfirmDialog
+          variant="destructive"
+          title="Delete User"
+          description="Are you sure you want to delete this user?"
+          confirmLabel="Yes"
+          cancelLabel="No"
+          onConfirm={() => handleDeleteUser(record.key)}
+          trigger={
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={`Delete ${record.name}`}
+            >
+              <Trash2 aria-hidden="true" className="text-destructive" />
+            </Button>
+          }
+        />
+      </div>
+    </TooltipProvider>
+  );
+
+  const columns: DataTableColumn<User>[] = [
     {
       title: 'No.',
-      dataIndex: 'key',
       key: 'no',
       align: 'center',
-      width: 60,
-      render: (_: any, __: User, index: number) => index + 1,
-      responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
+      width: 64,
+      // Numbering continues across pages, matching the server-side pagination.
+      render: (_: any, __: User, index: number) => (page - 1) * DEFAULT_PAGE_SIZE + index + 1,
     },
     {
       title: 'Name',
       dataIndex: 'name',
       key: 'name',
       align: 'left',
-      render: (text: string, record: User) => (
-        <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Avatar icon={<UserOutlined />} src={record.avatar} />
-          {text}
-        </span>
-      ),
-      responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
+      render: (text: string) => <span className="font-medium">{text}</span>,
     },
     {
       title: 'Email',
       dataIndex: 'email',
       key: 'email',
       align: 'left',
-      responsive: ['md', 'lg', 'xl'],
+      hideBelow: 'lg',
+      render: (text: string) => <span className="text-muted-foreground">{text}</span>,
     },
     {
       title: 'Standard',
       dataIndex: 'standard',
       key: 'standard',
       align: 'center',
-      width: 100,
-      responsive: ['sm', 'md', 'lg', 'xl'],
+      width: 130,
+      hideBelow: 'lg',
+      filter: (
+        <ColumnFilter
+          label="Standard"
+          options={standardFilterOptions}
+          value={standardFilters}
+          onApply={applyStandardFilter}
+          onReset={() => applyStandardFilter([])}
+        />
+      ),
     },
     {
       title: 'Board',
       dataIndex: 'board',
       key: 'board',
       align: 'center',
-      width: 100,
-      responsive: ['sm', 'md', 'lg', 'xl'],
+      width: 120,
+      hideBelow: 'lg',
+      filter: (
+        <ColumnFilter
+          label="Board"
+          options={boardFilterOptions}
+          value={boardFilters}
+          onApply={applyBoardFilter}
+          onReset={() => applyBoardFilter([])}
+        />
+      ),
     },
     {
       title: 'Test Given',
@@ -120,153 +340,156 @@ const UsersPage: React.FC = () => {
       key: 'testsGiven',
       align: 'center',
       width: 120,
-      responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
+      render: (text: number) => <span className="dc-numeric">{text}</span>,
     },
     {
       title: 'Results',
       key: 'results',
       align: 'center',
-      width: 140,
-      render: (_: any, record: User) => (
-        <Button
-          type="primary"
-          icon={<EyeOutlined />}
-          size="small"
-          style={{ borderRadius: 6 }}
-          onClick={() => handleViewResults(record)}
-        >
-          View
-        </Button>
-      ),
-      responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
+      width: 130,
+      // Students with no attempts have nothing to show, so the button is omitted entirely.
+      render: (_: any, record: User) =>
+        record.testsGiven > 0 ? (
+          <Button size="sm" variant="secondary" onClick={() => handleViewResults(record)}>
+            <Eye aria-hidden="true" />
+            View
+          </Button>
+        ) : (
+          <span className="dc-caption">No results</span>
+        ),
     },
     {
       title: 'Action',
       key: 'action',
       align: 'center',
-      width: 80,
-      render: (_: any, record: User) => (
-        <Tooltip title="Send Whatsapp alert">
-          <Button
-            type="text"
-            icon={<WhatsAppOutlined style={{ color: '#25D366', fontSize: 22 }} />}
-            onClick={() => alert(`Send Whatsapp alert to ${record.name}`)}
-          />
-        </Tooltip>
-      ),
-      responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
+      width: 120,
+      render: (_: any, record: User) => renderRowActions(record),
     },
   ];
 
   return (
-    <div className="users-page-container animate-fade-in">
-      <h1 className="welcome-title" style={{ marginBottom: 24 }}>Users</h1>
-      <Card className="users-filter-card" style={{ marginBottom: 24, borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-        <Row gutter={[16, 16]} align="middle" justify="start">
-          {/* Search Section - Updated to match Subjects page design */}
-          <Col xs={24} md={12} style={{ marginBottom: 8 }}>
-            <div className="search-section" style={{ 
-              display: 'flex', 
-              flexDirection: 'column',
-              alignItems: 'flex-start', 
-              gap: '4px',
-              flexShrink: 0,
-              minWidth: 'fit-content'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Input
-                  allowClear
-                  placeholder="Search by name or email... (min 3 characters)"
-                  prefix={<SearchOutlined />}
-                  style={{ 
-                    minWidth: 300, 
-                    maxWidth: 400,
-                    borderColor: search.length > 0 && search.length < 3 ? '#ff4d4f' : undefined
-                  }}
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  onPressEnter={() => {
-                    if (search.trim().length >= 3) {
-                      // Trigger search functionality
-                    } else if (search.trim().length === 0) {
-                      // Clear search
-                    } else {
-                      // Show warning for minimum characters
-                    }
-                  }}
-                  status={search.length > 0 && search.length < 3 ? 'error' : undefined}
-                />
-                <Button
-                  type="primary"
-                  icon={<SearchOutlined />}
-                  onClick={() => {
-                    if (search.trim().length >= 3) {
-                      // Trigger search functionality
-                    } else if (search.trim().length === 0) {
-                      // Clear search
-                    } else {
-                      // Show warning for minimum characters
-                    }
-                  }}
-                  className="search-button"
-                  style={{ flexShrink: 0, marginLeft: '4px', height: '36px' }}
-                  disabled={search.length > 0 && search.length < 3}
-                >
-                  Search
-                </Button>
-              </div>
-              {search.length > 0 && search.length < 3 && (
-                <div style={{ 
-                  color: '#ff4d4f', 
-                  fontSize: '12px', 
-                  marginTop: '2px',
-                  marginLeft: '4px'
-                }}>
-                  Please enter at least 3 characters to search
-                </div>
-              )}
-            </div>
-          </Col>
-          <Col xs={24} sm={12} md={6} style={{ marginBottom: 8 }}>
-            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8, width: '100%' }}>
-              <label style={{ fontWeight: 500, marginBottom: 0, whiteSpace: 'nowrap' }}>Standard</label>
-              <Select
-                allowClear
-                placeholder="Select Standard"
-                value={standardFilter}
-                onChange={setStandardFilter}
-                size="large"
-                style={{ width: '100%', borderRadius: 8, flex: 1 }}
-                options={standardOptions}
+    <PageShell>
+      <PageHeader title="Users" description="Every student registered on Dev Classes." />
+
+      {/* Search Card - Contains search input and buttons */}
+      <Card className="p-4 sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <div className="relative">
+              <Search
+                aria-hidden="true"
+                className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              />
+              <Input
+                aria-label="Search users by name or email"
+                placeholder="Search by name or email... (min 3 characters)"
+                className="pl-10"
+                value={searchInput}
+                onChange={e => setSearchInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') handleSearch();
+                }}
+                invalid={searchInput.length > 0 && searchInput.length < 3}
               />
             </div>
-          </Col>
-          <Col xs={24} sm={12} md={6} style={{ marginBottom: 8 }}>
-            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8, width: '100%' }}>
-              <label style={{ fontWeight: 500, marginBottom: 0, whiteSpace: 'nowrap' }}>Board</label>
-              <Select
-                allowClear
-                placeholder="Select Board"
-                value={boardFilter}
-                onChange={setBoardFilter}
-                size="large"
-                style={{ width: '100%', borderRadius: 8, flex: 1 }}
-                options={boardOptions}
-              />
-            </div>
-          </Col>
-        </Row>
+            {/* Error message for search validation */}
+            {searchInput.length > 0 && searchInput.length < 3 && (
+              <p role="alert" className="text-xs font-medium text-destructive">
+                Please enter at least 3 characters to search
+              </p>
+            )}
+          </div>
+
+          {/* Search and Clear buttons container */}
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              onClick={handleSearch}
+              disabled={searchInput.length > 0 && searchInput.length < 3}
+            >
+              <Search aria-hidden="true" />
+              Search
+            </Button>
+
+            {/* Clear button - only shown when search is applied */}
+            {appliedSearch && (
+              <Button variant="secondary" onClick={handleClearSearch}>
+                Clear
+              </Button>
+            )}
+          </div>
+        </div>
       </Card>
-      <div className="users-table-wrapper" style={{ overflowX: 'auto', maxWidth: '100%', minWidth: 0 }}>
-        <Table
-          columns={columns}
-          dataSource={filteredUsers}
-          pagination={{ pageSize: 8 }}
-          bordered
-          rowKey="key"
-          scroll={{ x: 600 }}
-        />
-      </div>
+
+      {/* Bulk Delete Button - shown when users are selected */}
+      {selectedRowKeys.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-accent px-4 py-3">
+          <span className="text-sm font-medium text-foreground">
+            {selectedRowKeys.length} user(s) selected
+          </span>
+          <ConfirmDialog
+            variant="destructive"
+            title="Delete Selected Users"
+            description={`Are you sure you want to delete ${selectedRowKeys.length} user(s)? This action cannot be undone.`}
+            confirmLabel="Yes"
+            cancelLabel="No"
+            onConfirm={handleDeleteMultipleUsers}
+            trigger={
+              <Button variant="destructive" size="sm" className="ml-auto">
+                <Trash2 aria-hidden="true" />
+                Delete Selected
+              </Button>
+            }
+          />
+        </div>
+      )}
+
+      {/* Users Table with Checkbox Selection and Column Filters */}
+      <DataTable<User>
+        columns={columns}
+        dataSource={normalizedUserList}
+        rowKey="key"
+        loading={isLoading}
+        skeletonRows={5}
+        emptyTitle="No users found"
+        emptyDescription="Try a different search term or clear the filters."
+        rowSelection={{
+          selectedRowKeys,
+          onChange: (keys) => setSelectedRowKeys(keys),
+        }}
+        pagination={{
+          current: page,
+          pageSize: DEFAULT_PAGE_SIZE,
+          total: totalUsers,
+          onChange: (newPage) => {
+            setPage(newPage);
+            fetchUsers(searchInput.trim(), standardFilters[0] || '', boardFilters[0] || '', newPage);
+          },
+          showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} users`,
+        }}
+        // Below `md` each user becomes a card, keeping every action reachable on a phone.
+        renderMobileCard={(record) => (
+          <Card className="flex flex-col gap-3 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex min-w-0 flex-col">
+                <span className="truncate font-semibold text-foreground">{record.name}</span>
+                <span className="truncate text-xs text-muted-foreground">{record.email}</span>
+              </div>
+              {renderRowActions(record)}
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <span className="dc-caption">{record.standard}</span>
+              <span className="dc-caption">{record.board}</span>
+              <span className="dc-caption dc-numeric">{record.testsGiven} tests</span>
+            </div>
+            {record.testsGiven > 0 && (
+              <Button size="sm" variant="secondary" onClick={() => handleViewResults(record)}>
+                <Eye aria-hidden="true" />
+                View results
+              </Button>
+            )}
+          </Card>
+        )}
+      />
 
       {/* User Results Modal */}
       {selectedUser && (
@@ -277,7 +500,17 @@ const UsersPage: React.FC = () => {
           userId={selectedUser.id}
         />
       )}
-    </div>
+
+      {/* Send WhatsApp Message Modal */}
+      {selectedStudent && (
+        <SendWhatsAppMessage
+          visible={whatsappModalVisible}
+          onClose={handleCloseWhatsAppModal}
+          studentName={selectedStudent.name}
+          phoneNumber={selectedStudent.phoneNumber}
+        />
+      )}
+    </PageShell>
   );
 };
 

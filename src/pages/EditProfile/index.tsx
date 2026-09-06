@@ -1,40 +1,75 @@
-
-import React, { useEffect } from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import {
-  Form,
-  Input,
-  Button,
-  Avatar,
-  Card,
-  Typography,
-  Row,
-  Col,
-  Breadcrumb,
-  message,
-  Select,
-  Skeleton,
-} from 'antd';
-import {
-  UserOutlined,
-  MailOutlined,
-  HomeOutlined,
-  SaveOutlined,
-} from '@ant-design/icons';
-import { Link } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Home, Save, User } from 'lucide-react';
 
-import './index.scss';
-// import { userData } from '../../constants/constants';
-import { getUserProfileAction } from '../../redux/action/userAction';
+import { getUserProfileAction, updateUserProfileAction } from '../../redux/action/userAction';
 import { AppDispatch, RootState } from '../../redux/store';
+import { PageShell } from '../../components/common/PageShell';
+import { Breadcrumb } from '../../components/common/Breadcrumb';
+import { Card } from '../../components/ui/card';
+import { Input } from '../../components/ui/input';
+import { Button } from '../../components/ui/button';
+import { Spinner } from '../../components/ui/spinner';
+import { Skeleton } from '../../components/ui/skeleton';
+import { FormField } from '../../components/ui/form-field';
+import { NativeSelect } from '../../components/ui/native-select';
+import { toastText } from '../../utils/toast';
 
-const { Title } = Typography;
-const { Option } = Select;
+// Same rules the previous antd form enforced, transcribed message-for-message.
+const profileSchema = z.object({
+  firstName: z.string().trim().min(1, 'Please input your first name!'),
+  lastName: z.string().trim().min(1, 'Please input your last name!'),
+  email: z.string().trim().min(1, 'Please input a valid email!').email('Please input a valid email!'),
+});
+
+type ProfileValues = z.infer<typeof profileSchema>;
+
+// Options are unchanged; both fields remain read-only, as before.
+const STANDARD_OPTIONS = [
+  { value: '10th Grade', label: '10th Grade' },
+  { value: '11th Grade', label: '11th Grade' },
+  { value: '12th Grade', label: '12th Grade' },
+];
+
+const BOARD_OPTIONS = [
+  { value: 'State Board', label: 'State Board' },
+  { value: 'CBSE', label: 'CBSE' },
+  { value: 'ICSE', label: 'ICSE' },
+];
+
+const getInitials = (name: string) =>
+  name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('') || 'U';
 
 const EditProfile: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { isLoading, data: userProfileData } = useSelector((state: RootState) => state.user);
-  const [form] = Form.useForm();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<ProfileValues>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: { firstName: '', lastName: '', email: '' },
+  });
+
+  // Reset isSubmitting when loading finishes
+  useEffect(() => {
+    if (!isLoading) {
+      setIsSubmitting(false);
+    }
+  }, [isLoading]);
 
   // Get user ID from localStorage
   const getUserInfo = () => {
@@ -58,262 +93,220 @@ const EditProfile: React.FC = () => {
   // Update form when user profile data is received
   useEffect(() => {
     if (userProfileData?.data) {
-      form.setFieldsValue(userProfileData.data);
+      reset({
+        firstName: userProfileData.data.firstName ?? '',
+        lastName: userProfileData.data.lastName ?? '',
+        email: userProfileData.data.email ?? '',
+      });
     }
-  }, [userProfileData, form]);
+  }, [userProfileData, reset]);
 
-  const onFinish = async (values: any) => {
-    console.log('Success:', values);
+  const onFinish = async (values: ProfileValues) => {
+    setIsSubmitting(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      message.success('Profile updated successfully!');
-    }, 1500);
+    const userInfo = getUserInfo();
+
+    if (userInfo?.id) {
+      try {
+        const payload = {
+          userId: userInfo.id,
+          firstName: values.firstName,
+          lastName: values.lastName,
+          email: values.email,
+        }
+        dispatch(updateUserProfileAction(payload));
+      } catch (error: any) {
+        console.log(error);
+        toastText(error?.message ? error?.message : 'Failed to update profile. Please check the form.', 'error');
+      }
+    }
   };
 
-  const onFinishFailed = (errorInfo: any) => {
-    console.log('Failed:', errorInfo);
-    message.error('Failed to update profile. Please check the form.');
+  const onFinishFailed = () => {
+    toastText('Failed to update profile. Please check the form.', 'error');
   };
 
-  const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.target.parentElement?.classList.add('input-focused');
-  };
+  const profileName = `${userProfileData?.data?.firstName ?? ''} ${userProfileData?.data?.lastName ?? ''}`.trim();
 
-  const handleInputBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.target.parentElement?.classList.remove('input-focused');
-  };
-
-  // Loading skeleton component
-  const LoadingSkeleton = () => (
-    <div className="edit-profile-container animate-fade-in">
-      <Breadcrumb
-        className="breadcrumb-nav animate-slide-down"
-        style={{ marginBottom: '24px' }}
-        items={[
-          {
-            title: (
-              <Link to="/dashboard" className="breadcrumb-link hover-scale">
-                <HomeOutlined />
-                <span style={{ marginLeft: 8 }}>Dashboard</span>
-              </Link>
-            )
-          },
-          {
-            title: 'Edit Profile'
-          }
-        ]}
-      />
-
-      <Card className="edit-profile-card animate-scale-in">
-        <Row gutter={[32, 32]}>
-          <Col xs={24} md={8} className="avatar-section animate-fade-in">
-            <div className="avatar-container hover-scale">
-              <Skeleton.Avatar active size={150} shape="circle" />
-            </div>
-            <div style={{ marginTop: '16px', textAlign: 'center' }}>
-              <Skeleton active paragraph={{ rows: 1, width: '80%' }} />
-              <Skeleton active paragraph={{ rows: 1, width: '50%' }} />
-            </div>
-          </Col>
-
-          <Col xs={24} md={16} className="form-section animate-slide-in-right">
-            <Skeleton active paragraph={{ rows: 1, width: '40%' }} />
-            <Skeleton active paragraph={{ rows: 1, width: '60%' }} />
-
-            <div style={{ marginTop: '24px' }}>
-              <Row gutter={16}>
-                <Col xs={24} sm={12}>
-                  <Skeleton active paragraph={{ rows: 1 }} />
-                </Col>
-                <Col xs={24} sm={12}>
-                  <Skeleton active paragraph={{ rows: 1 }} />
-                </Col>
-              </Row>
-
-              <Skeleton active paragraph={{ rows: 1 }} />
-
-              <Row gutter={16}>
-                <Col xs={24} sm={12}>
-                  <Skeleton active paragraph={{ rows: 1 }} />
-                </Col>
-                <Col xs={24} sm={12}>
-                  <Skeleton active paragraph={{ rows: 1 }} />
-                </Col>
-              </Row>
-
-              <Skeleton.Button active size="large" style={{ marginTop: '24px' }} />
-            </div>
-          </Col>
-        </Row>
-      </Card>
-    </div>
+  const breadcrumb = (
+    <Breadcrumb
+      items={[
+        {
+          label: (
+            <>
+              <Home aria-hidden="true" className="size-3.5" />
+              Dashboard
+            </>
+          ),
+          to: '/dashboard',
+        },
+        { label: 'Edit Profile' },
+      ]}
+    />
   );
 
   // Show loading skeleton when data is being fetched
-  if (isLoading && !userProfileData?.data) {
-    return <LoadingSkeleton />;
+  if (isLoading && !isSubmitting) {
+    return (
+      <PageShell className="max-w-4xl">
+        {breadcrumb}
+        <Card className="grid gap-8 p-5 sm:p-7 md:grid-cols-[240px_1fr]">
+          <div className="flex flex-col items-center gap-3">
+            <Skeleton className="size-32 rounded-full" />
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-4 w-20" />
+          </div>
+          <div className="flex flex-col gap-5">
+            <Skeleton className="h-6 w-40" />
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+            </div>
+            <Skeleton className="h-16 w-full" />
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+            </div>
+            <Skeleton className="h-12 w-40" />
+          </div>
+        </Card>
+      </PageShell>
+    );
   }
 
   return (
-    <div className="edit-profile-container animate-fade-in">
-      <Breadcrumb
-        className="breadcrumb-nav animate-slide-down"
-        style={{ marginBottom: '24px' }}
-        items={[
-          {
-            title: (
-              <Link to="/dashboard" className="breadcrumb-link hover-scale">
-                <HomeOutlined />
-                <span style={{ marginLeft: 8 }}>Dashboard</span>
-              </Link>
-            )
-          },
-          {
-            title: 'Edit Profile'
-          }
-        ]}
-      />
+    <PageShell className="max-w-4xl">
+      {breadcrumb}
 
-      <Card className="edit-profile-card animate-scale-in">
-        <Row gutter={[32, 32]}>
-          <Col xs={24} md={8} className="avatar-section animate-fade-in">
-            <div className="avatar-container hover-scale">
-              <Avatar
-                size={150}
-                icon={<UserOutlined style={{ fontSize: '60px', color: 'white' }} />}
-                className="profile-avatar"
-                style={{
-                  backgroundColor: '#1890ff',
-                  border: '3px solid white',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
-                }}
-              />
-              <div className="avatar-overlay">
-                <UserOutlined style={{ fontSize: '24px', color: 'white' }} />
-              </div>
-            </div>
-            <Title level={4} className="user-name animate-fade-in" style={{ marginTop: '16px', textAlign: 'center' }}>
-              {`${userProfileData?.data?.firstName} ${userProfileData?.data?.lastName}`}
-            </Title>
-            <Typography.Text type="secondary" className="user-role animate-fade-in" style={{ textAlign: 'center', display: 'block' }}>
-              {userProfileData?.data?.role}
-            </Typography.Text>
-          </Col>
+      <Card className="grid gap-8 p-5 sm:p-7 md:grid-cols-[240px_1fr]">
+        {/* Identity panel */}
+        <div className="flex flex-col items-center gap-3 text-center md:border-r md:border-border md:pr-8">
+          <span
+            aria-hidden="true"
+            className="grid size-28 place-items-center rounded-full bg-primary text-3xl font-bold text-primary-foreground"
+          >
+            {getInitials(profileName)}
+          </span>
+          <div className="flex flex-col gap-0.5">
+            <p className="dc-h3">{profileName}</p>
+            {userProfileData?.data?.role && (
+              <p className="dc-caption capitalize">
+                {String(userProfileData.data.role).toLowerCase()}
+              </p>
+            )}
+          </div>
+        </div>
 
-          <Col xs={24} md={16} className="form-section animate-slide-in-right">
-            <Title level={3} className="form-title">
-              <UserOutlined style={{ marginRight: '8px' }} />
-              Edit Profile
-            </Title>
-            <Typography.Text type="secondary" className="form-subtitle">
-              Update your profile information below.
-            </Typography.Text>
+        {/* Profile form */}
+        <div className="flex flex-col gap-1.5">
+          <h1 className="dc-h2 flex items-center gap-2">
+            <User aria-hidden="true" className="size-5 text-primary" />
+            Edit Profile
+          </h1>
+          <p className="dc-small">Update your profile information below.</p>
 
-            <Form
-              form={form}
-              layout="vertical"
-              initialValues={userProfileData?.data}
-              onFinish={onFinish}
-              onFinishFailed={onFinishFailed}
-              className="profile-form animate-fade-in"
-              style={{ marginTop: '24px' }}
-            >
-              <Row gutter={16}>
-                <Col xs={24} sm={12}>
-                  <Form.Item
-                    label="First Name"
-                    name="firstName"
-                    rules={[{ required: true, message: 'Please input your first name!' }]}
-                    className="form-item-animated"
-                  >
-                    <Input
-                      prefix={<UserOutlined />}
-                      placeholder="First Name"
-                      className="interactive-input"
-                      onFocus={handleInputFocus}
-                      onBlur={handleInputBlur}
-                    />
-                  </Form.Item>
-                </Col>
-                <Col xs={24} sm={12}>
-                  <Form.Item
-                    label="Last Name"
-                    name="lastName"
-                    rules={[{ required: true, message: 'Please input your last name!' }]}
-                    className="form-item-animated"
-                  >
-                    <Input
-                      placeholder="Last Name"
-                      className="interactive-input"
-                      onFocus={handleInputFocus}
-                      onBlur={handleInputBlur}
-                    />
-                  </Form.Item>
-                </Col>
-              </Row>
-
-              <Form.Item
-                label="Email Address"
-                name="email"
-                rules={[{ required: true, type: 'email', message: 'Please input a valid email!' }]}
-                className="form-item-animated"
+          <form
+            noValidate
+            onSubmit={handleSubmit(onFinish, onFinishFailed)}
+            className="mt-6 flex flex-col gap-5"
+          >
+            <div className="grid gap-5 sm:grid-cols-2">
+              <FormField
+                id="profile-firstName"
+                label="First Name"
+                required
+                error={errors.firstName?.message}
               >
+                {(aria) => (
+                  <Input
+                    {...aria}
+                    {...register('firstName')}
+                    placeholder="First Name"
+                    autoComplete="given-name"
+                    invalid={Boolean(errors.firstName)}
+                  />
+                )}
+              </FormField>
+
+              <FormField
+                id="profile-lastName"
+                label="Last Name"
+                required
+                error={errors.lastName?.message}
+              >
+                {(aria) => (
+                  <Input
+                    {...aria}
+                    {...register('lastName')}
+                    placeholder="Last Name"
+                    autoComplete="family-name"
+                    invalid={Boolean(errors.lastName)}
+                  />
+                )}
+              </FormField>
+            </div>
+
+            <FormField
+              id="profile-email"
+              label="Email Address"
+              required
+              error={errors.email?.message}
+            >
+              {(aria) => (
                 <Input
-                  prefix={<MailOutlined />}
+                  {...aria}
+                  {...register('email')}
+                  type="email"
                   placeholder="Email Address"
-                  className="interactive-input"
-                  onFocus={handleInputFocus}
-                  onBlur={handleInputBlur}
+                  autoComplete="email"
+                  invalid={Boolean(errors.email)}
                 />
-              </Form.Item>
+              )}
+            </FormField>
 
-              <Row gutter={16}>
-                <Col xs={24} sm={12}>
-                  <Form.Item
-                    label="Standard"
-                    name="standard"
-                    className="form-item-animated"
-                  >
-                    <Select disabled className="interactive-select">
-                      <Option value="10th Grade">10th Grade</Option>
-                      <Option value="11th Grade">11th Grade</Option>
-                      <Option value="12th Grade">12th Grade</Option>
-                    </Select>
-                  </Form.Item>
-                </Col>
-                <Col xs={24} sm={12}>
-                  <Form.Item
-                    label="Board"
-                    name="board"
-                    className="form-item-animated"
-                  >
-                    <Select disabled className="interactive-select">
-                      <Option value="State Board">State Board</Option>
-                      <Option value="CBSE">CBSE</Option>
-                      <Option value="ICSE">ICSE</Option>
-                    </Select>
-                  </Form.Item>
-                </Col>
-              </Row>
+            {/* Standard and Board stay read-only, exactly as before. */}
+            <div className="grid gap-5 sm:grid-cols-2">
+              <FormField
+                id="profile-standard"
+                label="Standard"
+                hint="Set when you registered."
+              >
+                {(aria) => (
+                  <NativeSelect
+                    {...aria}
+                    disabled
+                    options={STANDARD_OPTIONS}
+                    value={userProfileData?.data?.standard ?? ''}
+                    placeholder="Not set"
+                    onChange={() => undefined}
+                  />
+                )}
+              </FormField>
 
-              <Form.Item className="submit-section">
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  loading={isLoading}
-                  icon={<SaveOutlined />}
-                  className="save-button hover-scale"
-                  size="large"
-                >
-                  {isLoading ? 'Saving...' : 'Save Changes'}
-                </Button>
-              </Form.Item>
-            </Form>
-          </Col>
-        </Row>
+              <FormField id="profile-board" label="Board" hint="Set when you registered.">
+                {(aria) => (
+                  <NativeSelect
+                    {...aria}
+                    disabled
+                    options={BOARD_OPTIONS}
+                    value={userProfileData?.data?.board ?? ''}
+                    placeholder="Not set"
+                    onChange={() => undefined}
+                  />
+                )}
+              </FormField>
+            </div>
+
+            <div>
+              <Button type="submit" size="lg" disabled={isLoading && isSubmitting}>
+                {isLoading && isSubmitting ? <Spinner /> : <Save aria-hidden="true" />}
+                {isLoading && isSubmitting ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          </form>
+        </div>
       </Card>
-    </div>
+    </PageShell>
   );
 };
 

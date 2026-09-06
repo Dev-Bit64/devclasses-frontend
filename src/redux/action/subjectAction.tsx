@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { postApi, putApi, getApi, deleteApi } from "../apis";
+import { postApi, putApi, getApi, deleteApi, patchApi } from "../apis";
 import { APIEndpoints } from "../../constants/constants";
 import { AddChapter, AddSubjectPayload, UpdateChapter, UpdateSubject } from "../../interfaces/interfaces";
 
@@ -50,7 +51,7 @@ export const updateSubjectAction = createAsyncThunk(
     "UpdateSubject",
     async (payload: UpdateSubject, { rejectWithValue }) => {
         try {
-            const response = await putApi(APIEndpoints.UpdateSubject, payload);
+            const response = await patchApi(APIEndpoints.UpdateSubject, payload);
             if (response?.data?.statusCode === 200) {
                 {
                     return response.data;
@@ -193,3 +194,46 @@ export const getchaptersBySubjectIdAction = createAsyncThunk(
         }
     }
 )
+
+export const getSubjectsForDDAction = createAsyncThunk(
+    "GetSubjectsForDD",
+    async (_, { rejectWithValue }) => {
+        try {
+            const response = await getApi(APIEndpoints.GetSubjectsForDD);
+            if (response?.data?.statusCode === 200) {
+                {
+                    return response.data;
+                }
+            } else {
+                throw Error(response?.data?.message);
+            }
+        } catch (error: any) {
+            if (!error.response) {
+                throw error;
+            }
+            return rejectWithValue(error?.response?.data);
+        }
+    }
+)
+
+export const getSubjectsByBoardAction = createAsyncThunk(
+    "GetSubjectsByBoard",
+    async (board: string, { rejectWithValue }) => {
+        try {
+            const response = await getApi(APIEndpoints.GetSubjectsForExam + `?board=${board}`);
+            if (response?.data?.statusCode === 200) {
+                {
+                    return response.data;
+                }
+            } else {
+                throw Error(response?.data?.message);
+            }
+        } catch (error: any) {
+            if (!error.response) {
+                throw error;
+            }
+            return rejectWithValue(error?.response?.data);
+        }
+    }
+)
+

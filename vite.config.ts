@@ -13,4 +13,20 @@ export default defineConfig({
       brotliSize: true,
     })
   ],
+  assetsInclude: ['**/*.PNG', '**/*.png'],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          axios: ['axios'],
+          redux: ['@reduxjs/toolkit', 'react-redux'],
+          // Split so a page only pays for what it actually renders.
+          motion: ['framer-motion'],
+          charts: ['recharts'],
+          forms: ['react-hook-form', '@hookform/resolvers', 'zod'],
+        }
+      }
+    }
+  }
 })

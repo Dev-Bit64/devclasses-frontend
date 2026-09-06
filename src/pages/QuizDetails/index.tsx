@@ -1,222 +1,262 @@
-﻿
-import React, { useState } from 'react';
-import { Select, Button, Form, message } from 'antd';
-import { BookOutlined, FileTextOutlined, NumberOutlined } from '@ant-design/icons';
+import React, { useState, useEffect } from 'react';
+import { BookOpen, FileText, Hash, Rocket } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import './index.scss';
-
-const { Option } = Select;
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '../../redux/store';
+import { getchaptersBySubjectIdAction } from '../../redux/action/subjectAction';
+import { startExamAction, getSubjectsForExamAction } from '../../redux/action/examAction';
+import CustomDropdown, { DropdownOption } from '../../components/ImportModal/CustomDropdown';
+import { PageShell } from '../../components/common/PageShell';
+import { Card } from '../../components/ui/card';
+import { Label } from '../../components/ui/label';
+import { Button } from '../../components/ui/button';
+import { Spinner } from '../../components/ui/spinner';
+import { toastText } from '../../utils/toast';
 
 const QuizDetailsPage: React.FC = () => {
-    const [form] = Form.useForm();
     const navigate = useNavigate();
+    const dispatch = useDispatch();
+
+    // Get user info from localStorage
+    const getUserInfo = () => {
+        try {
+            const userInfo = localStorage.getItem('user');
+            return userInfo ? JSON.parse(userInfo) : null;
+        } catch (error) {
+            console.error('Error parsing userInfo from localStorage:', error);
+            return null;
+        }
+    };
+
+    const userInfo = getUserInfo();
+    const userBoard = userInfo?.board || 'CBSE';
+    const userStandard = userInfo?.standard || '10';
+
+    // Redux state selectors
+    const { chapterLists } = useSelector((state: RootState) => state.subject);
+    const { isLoading: examLoading, examSubjectsList } = useSelector((state: RootState) => state.exam);
+
+    // Local component state
     const [selectedSubject, setSelectedSubject] = useState<string>('');
+    const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
     const [selectedChapter, setSelectedChapter] = useState<string>('');
+    const [selectedChapterId, setSelectedChapterId] = useState<string>('');
     const [selectedQuestions, setSelectedQuestions] = useState<number | undefined>();
     const [loading, setLoading] = useState(false);
 
-    const subjects = [
-        { value: 'mathematics', label: '🔢 Mathematics', icon: '📐' },
-        { value: 'physics', label: '⚗️ Physics', icon: '🔬' },
-        { value: 'chemistry', label: '🧪 Chemistry', icon: '⚛️' },
-        { value: 'biology', label: '🧬 Biology', icon: '🌱' },
-        { value: 'english', label: '📚 English', icon: '📖' },
-    ];
-
-    const chapters = {
-        mathematics: ['📊 Algebra', '📐 Geometry', '📈 Calculus', '📉 Statistics'],
-        physics: ['⚙️ Mechanics', '🔥 Thermodynamics', '🔍 Optics', '⚡ Electricity'],
-        chemistry: ['🌿 Organic Chemistry', '⚡ Inorganic Chemistry', '🔬 Physical Chemistry'],
-        biology: ['🔬 Cell Biology', '🧬 Genetics', '🌍 Ecology', '👤 Human Anatomy'],
-        english: ['✏️ Grammar', '📖 Literature', '✍️ Composition', '📝 Vocabulary'],
-    };
-
+    // Question number options
     const questionNumbers = [
-        { value: 5, label: '5 Questions', description: 'Quick Quiz' },
-        { value: 10, label: '10 Questions', description: 'Short Test' },
-        { value: 15, label: '15 Questions', description: 'Medium Test' },
-        { value: 20, label: '20 Questions', description: 'Standard Test' },
-        { value: 25, label: '25 Questions', description: 'Extended Test' },
-        { value: 30, label: '30 Questions', description: 'Comprehensive' },
-        { value: 50, label: '50 Questions', description: 'Full Assessment' },
+        { value: 5, label: '5 Questions' },
+        { value: 10, label: '10 Questions' },
+        { value: 15, label: '15 Questions' },
     ];
 
+    /**
+     * Fetch subjects on component mount
+     * This populates the subject dropdown with data from the API
+     * Uses getSubjectsForExamAction to fetch subjects based on board and standard from localStorage
+     */
+    useEffect(() => {
+        // Fetch subjects for exam with board and standard from localStorage
+        if (userBoard) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            dispatch(getSubjectsForExamAction({ board: userBoard}) as any);
+        }
+    }, [dispatch, userBoard]);
+
+    /**
+     * Handle subject selection
+     * - Updates selected subject state
+     * - Resets chapter selection
+     * - Fetches chapters for the selected subject
+     */
     const handleSubjectChange = (value: string) => {
         setSelectedSubject(value);
+        setSelectedSubjectId(value);
         setSelectedChapter('');
-        form.setFieldsValue({ chapter: undefined });
+        setSelectedChapterId('');
 
-        // Show success message
-        const selectedSubjectLabel = subjects.find(s => s.value === value)?.label;
-        message.success(`${selectedSubjectLabel} selected!`);
+        // Fetch chapters for the selected subject
+        if (value) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            dispatch(getchaptersBySubjectIdAction(value) as any);
+        }
     };
 
+    /**
+     * Handle chapter selection
+     */
     const handleChapterChange = (value: string) => {
         setSelectedChapter(value);
-        message.info(`Chapter "${value}" selected!`);
+        setSelectedChapterId(value);
     };
 
+    /**
+     * Handle question count selection
+     */
     const handleQuestionsChange = (value: number) => {
         setSelectedQuestions(value);
-        const selectedOption = questionNumbers.find(q => q.value === value);
-        message.info(`${selectedOption?.label} - ${selectedOption?.description} selected!`);
     };
 
-    const handleSubmit = async (values: any) => {
+    /**
+     * Handle form submission - Start Exam
+     * - Calls startExamAction API to create exam session
+     * - Uses board and standard from localStorage userInfo
+     * - Stores examId in Redux state
+     * - Navigates to Test page to begin quiz
+     * - Handles errors with user-friendly messages
+     */
+    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
         setLoading(true);
 
         try {
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            // Prepare payload for startExam API
+            // Uses board and standard from localStorage userInfo
+            const payload = {
+                board: userBoard,
+                standard: userStandard,
+                subject: selectedSubjectId,
+                chapter: selectedChapterId,
+                numberOfQuestions: selectedQuestions || 5,
+            };
 
-            console.log('Form submitted:', values);
-            message.success({
-                content: '🎉 Test generated successfully! Redirecting to quiz...',
-                duration: 2,
-                style: {
-                    marginTop: '20vh',
-                },
-            });
+            // Call the startExam API to create exam session
+            // This returns examId, totalQuestions, and startedAt
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const result = await dispatch(startExamAction(payload) as any);
 
-            // Navigate to quiz taking page
-            setTimeout(() => {
-                navigate('/quiz');
-            }, 1000);
+            if (result.payload?.statusCode === 200) {
+                // Navigate to test page after a short delay
+                // The examId is now stored in Redux state
+                setTimeout(() => {
+                    navigate('/quiz');
+                }, 1000);
+            } else {
+                toastText('Failed to start exam. Please try again.', 'error');
+            }
 
         } catch (error) {
-            message.error('Failed to generate test. Please try again.');
+            toastText('Failed to start exam. Please try again.', 'error');
+            console.error('Error starting exam:', error);
         } finally {
             setLoading(false);
         }
     };
 
+    // Convert subjects to dropdown options
+    // Uses examSubjectsList from getSubjectsForExamAction
+    // Ensure examSubjectsList is always an array to prevent .map errors
+    // Normalize subject fields (some APIs return `id` / `_id` and `subname` / `subjectName`)
+    const subjectOptions: DropdownOption[] = Array.isArray(examSubjectsList)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ? examSubjectsList.map((subject: any) => ({
+            value: String(subject.id ?? subject._id ?? subject.value ?? ''),
+            label: subject.subname ?? subject.subjectName ?? subject.name ?? subject.label ?? '',
+        }))
+        : [];
+
+    // Convert chapters to dropdown options
+    // Support multiple API shapes: { _id, chapterName } or { id, name }
+    const chapterOptions: DropdownOption[] = Array.isArray(chapterLists)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ? chapterLists.map((chapter: any) => ({
+            value: String(chapter._id ?? chapter.id ?? chapter.value ?? ''),
+            label: chapter.chapterName ?? chapter.name ?? chapter.label ?? '',
+        }))
+        : [];
+
+    // Convert question numbers to dropdown options
+    const questionOptions: DropdownOption[] = questionNumbers.map((q) => ({
+        value: String(q.value),
+        label: `${q.label}`,
+    }));
+
+    const isSubmitDisabled = !selectedSubject || !selectedChapter || !selectedQuestions;
+    const isBusy = loading || examLoading;
+
     return (
-        <div className="test-page">
-            <h1 className="test-title">✨ Create Your Perfect Test</h1>
-            <p className="test-subtitle">
-                Select your preferences to generate a custom test tailored just for you! 🎯
-            </p>
-
-            <div className="test-form-container">
-                <Form
-                    form={form}
-                    layout="vertical"
-                    onFinish={handleSubmit}
-                    className="test-form"
-                    requiredMark={false}
-                >
-                    <Form.Item
-                        label={
-                            <span>
-                                <BookOutlined style={{ marginRight: 8, color: '#3E69E7' }} />
-                                Choose Your Subject
-                            </span>
-                        }
-                        name="subject"
-                        rules={[{ required: true, message: '📚 Please select a subject to continue!' }]}
-                    >
-                        <Select
-                            placeholder="🔍 Select a subject to get started..."
-                            onChange={handleSubjectChange}
-                            className="form-select"
-                            size="large"
-                            showSearch
-                            optionFilterProp="children"
-                            filterOption={(input, option) =>
-                                (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
-                            }
-                        >
-                            {subjects.map((subject) => (
-                                <Option key={subject.value} value={subject.value}>
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        {subject.label}
-                                    </span>
-                                </Option>
-                            ))}
-                        </Select>
-                    </Form.Item>
-
-                    <Form.Item
-                        label={
-                            <span>
-                                <FileTextOutlined style={{ marginRight: 8, color: '#3E69E7' }} />
-                                Select Chapter
-                            </span>
-                        }
-                        name="chapter"
-                        rules={[{ required: true, message: '📖 Please select a chapter!' }]}
-                    >
-                        <Select
-                            placeholder={selectedSubject ? "📋 Choose your chapter..." : "🔒 Select a subject first"}
-                            onChange={handleChapterChange}
-                            disabled={!selectedSubject}
-                            className="form-select"
-                            size="large"
-                            showSearch
-                            optionFilterProp="children"
-                            filterOption={(input, option) =>
-                                (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
-                            }
-                            notFoundContent={selectedSubject ? "No chapters found" : "Select a subject first"}
-                        >
-                            {selectedSubject && chapters[selectedSubject as keyof typeof chapters]?.map((chapter) => (
-                                <Option key={chapter} value={chapter}>
-                                    {chapter}
-                                </Option>
-                            ))}
-                        </Select>
-                    </Form.Item>
-
-                    <Form.Item
-                        label={
-                            <span>
-                                <NumberOutlined style={{ marginRight: 8, color: '#3E69E7' }} />
-                                Number of Questions
-                            </span>
-                        }
-                        name="questions"
-                        rules={[{ required: true, message: '🔢 Please select the number of questions!' }]}
-                    >
-                        <Select
-                            placeholder="🎯 How many questions would you like?"
-                            onChange={handleQuestionsChange}
-                            className="form-select"
-                            size="large"
-                            showSearch={false}
-                        >
-                            {questionNumbers.map((option) => (
-                                <Option key={option.value} value={option.value}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span style={{ fontWeight: 600 }}>{option.label}</span>
-                                        <span style={{ color: '#666', fontSize: '12px' }}>{option.description}</span>
-                                    </div>
-                                </Option>
-                            ))}
-                        </Select>
-                    </Form.Item>
-
-                    <Form.Item>
-                        <Button
-                            type="primary"
-                            htmlType="submit"
-                            className="submit-button"
-                            loading={loading}
-                            disabled={!selectedSubject || !selectedChapter || !selectedQuestions}
-                        >
-                            {loading ? (
-                                <span>
-                                    🔄 Generating Your Test...
-                                </span>
-                            ) : (
-                                <span>
-                                    🚀 Generate Test
-                                </span>
-                            )}
-                        </Button>
-                    </Form.Item>
-                </Form>
+        <PageShell className="max-w-2xl">
+            <div className="flex flex-col gap-2 text-center">
+                <h1 className="dc-h1">Create your test</h1>
+                <p className="dc-small">
+                    Choose a subject, chapter and length — we will build the paper for you.
+                </p>
             </div>
-        </div>
+
+            <Card className="p-5 sm:p-7">
+                <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+                    {/* Subject Dropdown */}
+                    <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="quiz-subject" required>
+                            <span className="inline-flex items-center gap-2">
+                                <BookOpen aria-hidden="true" className="size-4 text-primary" />
+                                Choose your subject
+                            </span>
+                        </Label>
+                        <CustomDropdown
+                            id="quiz-subject"
+                            options={subjectOptions}
+                            value={selectedSubject}
+                            onChange={handleSubjectChange}
+                            placeholder="Select a subject to get started"
+                            size="large"
+                        />
+                    </div>
+
+                    {/* Chapter Dropdown */}
+                    <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="quiz-chapter" required>
+                            <span className="inline-flex items-center gap-2">
+                                <FileText aria-hidden="true" className="size-4 text-primary" />
+                                Select chapter
+                            </span>
+                        </Label>
+                        <CustomDropdown
+                            id="quiz-chapter"
+                            options={chapterOptions}
+                            value={selectedChapter}
+                            onChange={handleChapterChange}
+                            placeholder={selectedSubject ? 'Choose your chapter' : 'Select a subject first'}
+                            disabled={!selectedSubject}
+                            size="large"
+                        />
+                    </div>
+
+                    {/* Questions Count Dropdown */}
+                    <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="quiz-count" required>
+                            <span className="inline-flex items-center gap-2">
+                                <Hash aria-hidden="true" className="size-4 text-primary" />
+                                Number of questions
+                            </span>
+                        </Label>
+                        <CustomDropdown
+                            id="quiz-count"
+                            options={questionOptions}
+                            value={selectedQuestions?.toString() || ''}
+                            onChange={(value) => handleQuestionsChange(parseInt(value))}
+                            placeholder="How many questions would you like?"
+                            size="large"
+                        />
+                        {/* Each question is timed at one minute, matching how the exam clock is set. */}
+                        <p className="dc-caption">You get one minute per question.</p>
+                    </div>
+
+                    {/* Generate Exam Button */}
+                    <Button
+                        type="submit"
+                        size="lg"
+                        block
+                        className="mt-1"
+                        disabled={isSubmitDisabled || isBusy}
+                    >
+                        {isBusy ? <Spinner /> : <Rocket aria-hidden="true" />}
+                        {isBusy ? 'Generating your test...' : 'Generate exam'}
+                    </Button>
+                </form>
+            </Card>
+        </PageShell>
     );
 };
 

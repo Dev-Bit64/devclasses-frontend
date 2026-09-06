@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { postApi } from "../apis";
+import { postApi, patchApi } from "../apis";
 import { APIEndpoints } from "../../constants/constants";
 
 export const loginAction = createAsyncThunk(
@@ -32,7 +32,9 @@ export const logoutAction = createAsyncThunk(
         try {
             // Make an API call to log the user out
             const response = await postApi(APIEndpoints.LOGOUT, data);
-            if (response?.data?.statusCode === 200) {
+
+            // Handle both 200 and 201 status codes for backward-compatibility
+            if (response?.data?.statusCode === 200 || response?.data?.statusCode === 201) {
                 // Clear the accessToken cookie when the user logs out
                 localStorage.clear();
             }
@@ -59,6 +61,83 @@ export const registerAction = createAsyncThunk(
                 }
             } else {
                 throw Error(response?.data?.message);
+            }
+        } catch (error: any) {
+            if (!error.response) {
+                throw error;
+            }
+            return rejectWithValue(error?.response?.data);
+        }
+    }
+);
+
+export const forgotPasswordMailAction = createAsyncThunk(
+    "ForgotPasswordMail",
+    async (payload: string, { rejectWithValue }) => {
+        try {
+            // Send email in request body as an object to match backend API expectations
+            const response = await postApi(APIEndpoints.ForgotPasswordMail, { email: payload });
+            if (response?.data?.statusCode === 200) {
+                return response.data;
+            } else {
+                throw Error(response?.data?.message);
+            }
+        } catch (error: any) {
+            if (!error.response) {
+                throw error;
+            }
+            return rejectWithValue(error?.response?.data);
+        }
+    }
+);
+
+/**
+ * Reset Password Action
+ * Handles password reset functionality by sending new password to the backend
+ *
+ * @param payload - Object containing token and new password
+ * @returns Response data on success or error message on failure
+ */
+export const resetPasswordAction = createAsyncThunk(
+    "ResetPassword",
+    async (payload: any, { rejectWithValue }) => {
+        try {
+            // Map frontend token parameter to backend resetToken DTO field
+            const backendPayload = {
+                resetToken: payload.token,
+                newPassword: payload.newPassword,
+            };
+            const response = await patchApi(APIEndpoints.ResetPassword, backendPayload);
+            if (response?.data?.statusCode === 200) {
+                return response.data;
+            } else {
+                throw Error(response?.data?.message);
+            }
+        } catch (error: any) {
+            if (!error.response) {
+                throw error;
+            }
+            return rejectWithValue(error?.response?.data);
+        }
+    }
+);
+
+/**
+ * Send WhatsApp Message Action
+ * Sends a WhatsApp message to a student's phone number
+ *
+ * @param payload - Object containing phoneNumber and message
+ * @returns Response data on success or error message on failure
+ */
+export const sendWhatsAppMessageAction = createAsyncThunk(
+    "SendWhatsAppMessage",
+    async (payload: { phoneNumber: string; message: string }, { rejectWithValue }) => {
+        try {
+            const response = await postApi(APIEndpoints.SendWhatsAppMessage, payload);
+            if (response?.data?.statusCode === 200) {
+                return response.data;
+            } else {
+                throw Error(response?.data?.message || 'Failed to send WhatsApp message');
             }
         } catch (error: any) {
             if (!error.response) {

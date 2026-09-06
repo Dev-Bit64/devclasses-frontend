@@ -1,30 +1,45 @@
-
-import React, { useEffect } from 'react';
-import { Card, Typography, Skeleton, Alert } from 'antd';
-import { useDispatch, useSelector } from 'react-redux';
+import React, { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import {
-  BookOutlined,
-  FileTextOutlined,
-  CalendarOutlined,
-  TrophyOutlined,
-  UserOutlined,
-  QuestionCircleOutlined,
-  BarChartOutlined,
-} from '@ant-design/icons';
-import { UserSvg } from '../../../utils/svg';
-import { getDasboardDetailsAction } from '../../../redux/action/dasboardAction';
-import { RootState } from '../../../redux/store';
-import { AdminDashboardData, StudentDashboardData } from '../../../interfaces/interfaces';
+    BarChart3,
+    BookOpen,
+    CircleHelp,
+    FileText,
+    Trophy,
+    Users as UsersIcon,
+    type LucideIcon,
+} from "lucide-react";
+import { PageShell } from "../../common/PageShell";
+import { PageHeader } from "../../common/PageHeader";
+import { ErrorState } from "../../common/ErrorState";
+import { EmptyState } from "../../common/EmptyState";
+import { StatCard, StatCardSkeleton } from "../../dashboard/StatCard";
+import CollegeAnalytics, { CollegeAnalyticsSkeleton } from "../../dashboard/CollegeAnalytics";
+import {
+    ProductSwitcher,
+    readStoredProduct,
+    storeProduct,
+    type DashboardProduct,
+} from "../../dashboard/ProductSwitcher";
+import { getDasboardDetailsAction } from "../../../redux/action/dasboardAction";
+import { getCollegeDashboardDetailsAction } from "../../../redux/action/collegeAnalyticsAction";
+import { RootState } from "../../../redux/store";
+import { AdminDashboardData, StudentDashboardData } from "../../../interfaces/interfaces";
 
-const { Title, Text } = Typography;
+interface DashboardCard {
+    title: string;
+    description: string;
+    icon: LucideIcon;
+    count?: string;
+}
 
 // Type guard functions to check dashboard data type
 const isAdminDashboardData = (data: any): data is AdminDashboardData => {
-  return data && 'totalUsersInSystem' in data;
+    return data && "totalStudentsInSystem" in data;
 };
 
 const isStudentDashboardData = (data: any): data is StudentDashboardData => {
-  return data && 'totalTestsGiven' in data;
+    return data && "totalTestsGiven" in data;
 };
 
 const DashboardContent: React.FC = () => {
@@ -33,6 +48,23 @@ const DashboardContent: React.FC = () => {
     const userData = JSON.parse(localStorage.getItem('user') || '{}');
     const isAdmin = userData.role === 'ADMIN';
 
+    // College analytics live in their own slice, since they come from a separate database.
+    const {
+        collegeDashboardDetails,
+        isLoading: isCollegeLoading,
+        error: collegeError,
+    } = useSelector((state: RootState) => state.collegeAnalytics);
+
+    // Students never see the switcher, so their view can only ever be the school one.
+    const [product, setProduct] = useState<DashboardProduct>(
+        isAdmin ? readStoredProduct() : 'school'
+    );
+
+    const handleProductChange = (next: DashboardProduct) => {
+        setProduct(next);
+        storeProduct(next);
+    };
+
     // Fetch dashboard data on component mount
     useEffect(() => {
         if (userData.id) {
@@ -40,122 +72,125 @@ const DashboardContent: React.FC = () => {
         }
     }, [dispatch, userData.id]);
 
+    // Fetched only when the college view is actually open, so the school dashboard costs
+    // exactly what it did before this switcher existed.
+    useEffect(() => {
+        if (isAdmin && product === 'college') {
+            dispatch(getCollegeDashboardDetailsAction() as any);
+        }
+    }, [dispatch, isAdmin, product]);
+
     // Generate admin dashboard cards from API data
-    const getAdminDashboardCards = () => {
-        // if (!isAdminDashboardData(dashboardDetails)) return [];
-        
+    const getAdminDashboardCards = (): DashboardCard[] => {
+        if (!isAdminDashboardData(dashboardDetails)) return [];
+
         return [
             {
                 title: 'Total Students',
                 description: 'Number of students in the system',
-                icon: <UserOutlined />,
+                icon: UsersIcon,
                 count: dashboardDetails?.totalStudentsInSystem?.toString(),
             },
             {
                 title: 'Total Subjects',
                 description: 'Number of subjects available',
-                icon: <BookOutlined />,
+                icon: BookOpen,
                 count: dashboardDetails?.totalSubjecstInSystem?.toString(),
             },
             {
                 title: 'Total Questions',
                 description: 'Total number of questions in the system',
-                icon: <QuestionCircleOutlined />,
+                icon: CircleHelp,
                 count: dashboardDetails?.totalQuestionInSystem?.toString(),
             },
         ];
     };
 
     // Generate student dashboard cards from API data
-    const getStudentDashboardCards = () => {
+    const getStudentDashboardCards = (): DashboardCard[] => {
         if (!isStudentDashboardData(dashboardDetails)) return [];
-        
+
         return [
             {
                 title: 'Tests Given',
                 description: 'Total number of tests completed',
-                icon: <FileTextOutlined />,
+                icon: FileText,
                 count: dashboardDetails.totalTestsGiven.toString(),
             },
             {
                 title: 'Highest Score',
                 description: 'Your best performance so far',
-                icon: <TrophyOutlined />,
+                icon: Trophy,
                 count: `${dashboardDetails.highestScore}%`,
             },
             {
                 title: 'Average Score',
                 description: 'Your average performance across all tests',
-                icon: <BarChartOutlined />,
-                count: `${dashboardDetails.averageScore}%`,
+                icon: BarChart3,
+                count: dashboardDetails.averageScore?.toFixed(2) + `%`,
             },
         ];
     };
 
-    // Generate skeleton cards for loading state
-    const getSkeletonCards = () => {
-        const cardCount = isAdmin ? 4 : 3; // Admin has 4 cards, Student has 3 cards
-        return Array.from({ length: cardCount }, (_, index) => (
-            <Card key={index} className="dashboard-card">
-                <div className="card-icon">
-                    <Skeleton.Avatar size={40} shape="circle" />
-                </div>
-                <Skeleton.Input 
-                    active 
-                    size="small" 
-                    style={{ width: '60%', marginBottom: '8px' }} 
-                />
-                <Skeleton.Input 
-                    active 
-                    size="small" 
-                    style={{ width: '100%', marginBottom: '16px' }} 
-                />
-                <Skeleton.Input 
-                    active 
-                    size="small" 
-                    style={{ width: '40%' }} 
-                />
-            </Card>
-        ));
-    };
+    const welcomeTitle = `Welcome back, ${userData.firstName} ${userData.lastName}!`;
+    const welcomeSubtitle = isAdmin
+        ? "Here's an overview of your system stats."
+        : "Ready to continue your learning journey? Here's your performance overview.";
+
+    // Rendered for admins only; students have a single product and nothing to switch between.
+    const switcher = isAdmin ? (
+        <ProductSwitcher value={product} onChange={handleProductChange} />
+    ) : undefined;
+
+    // College branch. Kept ahead of the school path and fully self-contained, so the school
+    // render below is byte-for-byte the behaviour it had before the switcher existed.
+    if (isAdmin && product === 'college') {
+        const collegeSubtitle =
+            "How the college course in the app is doing. School figures are kept separate.";
+
+        return (
+            <PageShell>
+                <PageHeader title={welcomeTitle} description={collegeSubtitle} actions={switcher} />
+                {isCollegeLoading && <CollegeAnalyticsSkeleton />}
+                {!isCollegeLoading && collegeError && (
+                    <ErrorState
+                        title="Error Loading College Dashboard"
+                        description="Failed to load college data. Please try again later."
+                    />
+                )}
+                {!isCollegeLoading && !collegeError && collegeDashboardDetails && (
+                    <CollegeAnalytics details={collegeDashboardDetails} />
+                )}
+            </PageShell>
+        );
+    }
 
     // Show loading state with skeleton
     if (isLoading) {
+        // Admin and student dashboards render a different number of cards.
+        const skeletonCount = isAdmin ? 4 : 3;
         return (
-            <>
-                {/* Welcome Section Skeleton */}
-                <div className="welcome-section">
-                    <Skeleton.Input 
-                        active 
-                        size="large" 
-                        style={{ width: '60%', marginBottom: '8px' }} 
-                    />
-                    <Skeleton.Input 
-                        active 
-                        size="small" 
-                        style={{ width: '80%' }} 
-                    />
+            <PageShell>
+                <PageHeader title={welcomeTitle} description={welcomeSubtitle} actions={switcher} />
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-5 xl:grid-cols-3">
+                    {Array.from({ length: skeletonCount }, (_, index) => (
+                        <StatCardSkeleton key={index} />
+                    ))}
                 </div>
-
-                {/* Dashboard Cards Skeleton */}
-                <div className="dashboard-cards">
-                    {getSkeletonCards()}
-                </div>
-            </>
+            </PageShell>
         );
     }
 
     // Show error state
     if (error) {
         return (
-            <div style={{ padding: '20px' }}>
-                <Alert
-                    message="Error Loading Dashboard"
+            <PageShell>
+                <PageHeader title={welcomeTitle} description={welcomeSubtitle} actions={switcher} />
+                <ErrorState
+                    title="Error Loading Dashboard"
                     description="Failed to load dashboard data. Please try again later."
-                    type="error"
-                    showIcon
                 />
-            </div>
+            </PageShell>
         );
     }
 
@@ -163,52 +198,28 @@ const DashboardContent: React.FC = () => {
     const dashboardCards = isAdmin ? getAdminDashboardCards() : getStudentDashboardCards();
 
     return (
-        <>
-            {/* Welcome Section */}
-            <div className="welcome-section">
-                <Title level={2} className="welcome-title">
-                    Welcome back, {`${userData.firstName} ${userData.lastName}`}! 👋
-                </Title>
-                <Text className="welcome-subtitle">
-                    {isAdmin
-                        ? "Here's an overview of your system stats."
-                        : "Ready to continue your learning journey? Here's your performance overview."}
-                </Text>
-            </div>
+        <PageShell>
+            <PageHeader title={welcomeTitle} description={welcomeSubtitle} actions={switcher} />
 
-            {/* Dashboard Cards */}
-            <div className="dashboard-cards">
-                {dashboardCards.length > 0 ? (
-                    dashboardCards.map((card, index) => (
-                        <Card 
-                            key={index}
-                            className="dashboard-card"
-                            hoverable
-                            onClick={() => console.log(`Clicked on ${card.title}`)}
-                        >
-                            <div className="card-icon">
-                                {card.icon}
-                            </div>
-                            <Title level={4} className="card-title">
-                                {card.title}
-                            </Title>
-                            <Text className="card-description">
-                                {card.description}
-                            </Text>
-                            <div style={{ marginTop: 16 }}>
-                                <Text strong style={{ color: '#1890ff' }}>
-                                    {card.count}
-                                </Text>
-                            </div>
-                        </Card>
-                    ))
-                ) : (
-                    <div style={{ textAlign: 'center', padding: '40px' }}>
-                        <Text>No dashboard data available</Text>
-                    </div>
-                )}
-            </div>
-        </>
+            {dashboardCards.length > 0 ? (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-5 xl:grid-cols-3">
+                    {dashboardCards.map((card) => (
+                        <StatCard
+                            key={card.title}
+                            title={card.title}
+                            description={card.description}
+                            value={card.count}
+                            icon={card.icon}
+                        />
+                    ))}
+                </div>
+            ) : (
+                <EmptyState
+                    title="No dashboard data available"
+                    description="Your stats will appear here once there is activity to report."
+                />
+            )}
+        </PageShell>
     );
 };
 

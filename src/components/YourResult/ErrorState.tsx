@@ -1,7 +1,7 @@
-
-import React from 'react';
-import { Result } from 'antd';
-import { HomeOutlined } from '@ant-design/icons';
+import React from "react";
+import { Home } from "lucide-react";
+import { ErrorState as SharedErrorState } from "../common/ErrorState";
+import { Button } from "../ui/button";
 
 interface ErrorStateProps {
   onReturnToDashboard: () => void;
@@ -9,19 +9,15 @@ interface ErrorStateProps {
 
 const ErrorState: React.FC<ErrorStateProps> = ({ onReturnToDashboard }) => {
   return (
-    <div className="your-result error-container">
-      <Result
-        status="error"
+    <div className="dc-app mx-auto w-full max-w-2xl px-4 py-12">
+      <SharedErrorState
         title="Failed to Load Results"
-        subTitle="Sorry, there was an error loading your quiz results."
-        extra={
-          <button 
-            onClick={onReturnToDashboard} 
-            className="font-semibold rounded-xl"
-          >
-            <HomeOutlined className="mr-2" />
+        description="Sorry, there was an error loading your quiz results."
+        action={
+          <Button onClick={onReturnToDashboard}>
+            <Home aria-hidden="true" />
             Return to Dashboard
-          </button>
+          </Button>
         }
       />
     </div>

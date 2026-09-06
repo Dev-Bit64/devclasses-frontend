@@ -1,13 +1,24 @@
-import React, { useState } from 'react';
-import { Modal, Upload, Button, Typography, Alert, Space, Form, Row, Col } from 'antd';
-import { InboxOutlined, FileExcelOutlined, CloseOutlined } from '@ant-design/icons';
-import type { UploadProps, UploadFile } from 'antd';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useState, useEffect } from 'react';
+import { FileSpreadsheet } from 'lucide-react';
+import { useDispatch, useSelector } from 'react-redux';
+import { getSubjectsForDDAction, getchaptersBySubjectIdAction } from '../../redux/action/subjectAction';
+import { importQuestionsAction } from '../../redux/action/questionAction';
+import { RootState, AppDispatch } from '../../redux/store';
 import CustomDropdown from './CustomDropdown';
-import './index.scss';
-
-const { Dragger } = Upload;
-const { Title } = Typography;
-// const { Option } = Select;
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog';
+import { Label } from '../ui/label';
+import { Button } from '../ui/button';
+import { Spinner } from '../ui/spinner';
+import { Alert } from '../ui/alert';
+import { FileDropzone } from '../common/FileDropzone';
+import { toastText } from '../../utils/toast';
 
 // Interface for dropdown options
 interface DropdownOption {
@@ -15,19 +26,23 @@ interface DropdownOption {
   label: string;
 }
 
-// Interface for subject with chapters
-interface SubjectWithChapters extends DropdownOption {
-  chapters: DropdownOption[];
-}
-
 interface ImportModalProps {
   visible: boolean;
   onClose: () => void;
-  onImport: (file: File) => void;
 }
 
-const ImportModal: React.FC<ImportModalProps> = ({ visible, onClose, onImport }) => {
-  const [fileList, setFileList] = useState<UploadFile[]>([]);
+// Same accept list the previous uploader used.
+const EXCEL_ACCEPT =
+  '.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel';
+
+const ImportModal: React.FC<ImportModalProps> = ({ visible, onClose }) => {
+  const dispatch = useDispatch<AppDispatch>();
+
+  // Redux selectors for subjects and chapters
+  const { subjectDropdownList, chapterLists } = useSelector((state: RootState) => state.subject);
+
+  // File upload state
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
   // Dropdown state management
@@ -36,157 +51,153 @@ const ImportModal: React.FC<ImportModalProps> = ({ visible, onClose, onImport })
   const [selectedSubject, setSelectedSubject] = useState<string>('');
   const [selectedChapter, setSelectedChapter] = useState<string>('');
 
-  // Mock data for dropdowns
+  // Static data for standards and boards
   const standards: DropdownOption[] = [
-    { value: 'class-1', label: 'Class 1' },
-    { value: 'class-2', label: 'Class 2' },
-    { value: 'class-3', label: 'Class 3' },
-    { value: 'class-4', label: 'Class 4' },
-    { value: 'class-5', label: 'Class 5' },
-    { value: 'class-6', label: 'Class 6' },
-    { value: 'class-7', label: 'Class 7' },
-    { value: 'class-8', label: 'Class 8' },
-    { value: 'class-9', label: 'Class 9' },
-    { value: 'class-10', label: 'Class 10' },
-    { value: 'class-11', label: 'Class 11' },
-    { value: 'class-12', label: 'Class 12' },
+    { value: '11th', label: '11th Standard' },
+    { value: '12th', label: '12th Standard' },
   ];
 
   const boards: DropdownOption[] = [
     { value: 'cbse', label: 'CBSE' },
-    { value: 'icse', label: 'ICSE' },
-    { value: 'state-board', label: 'State Board' },
-    { value: 'ib', label: 'IB' },
-    { value: 'igcse', label: 'IGCSE' },
-  ];
-
-  const subjects: SubjectWithChapters[] = [
-    {
-      value: 'mathematics',
-      label: 'Mathematics',
-      chapters: [
-        { value: 'algebra', label: 'Algebra' },
-        { value: 'geometry', label: 'Geometry' },
-        { value: 'trigonometry', label: 'Trigonometry' },
-        { value: 'calculus', label: 'Calculus' },
-        { value: 'statistics', label: 'Statistics' },
-      ]
-    },
-    {
-      value: 'physics',
-      label: 'Physics',
-      chapters: [
-        { value: 'mechanics', label: 'Mechanics' },
-        { value: 'thermodynamics', label: 'Thermodynamics' },
-        { value: 'optics', label: 'Optics' },
-        { value: 'electricity', label: 'Electricity' },
-        { value: 'magnetism', label: 'Magnetism' },
-      ]
-    },
-    {
-      value: 'chemistry',
-      label: 'Chemistry',
-      chapters: [
-        { value: 'organic-chemistry', label: 'Organic Chemistry' },
-        { value: 'inorganic-chemistry', label: 'Inorganic Chemistry' },
-        { value: 'physical-chemistry', label: 'Physical Chemistry' },
-        { value: 'biochemistry', label: 'Biochemistry' },
-      ]
-    },
-    {
-      value: 'biology',
-      label: 'Biology',
-      chapters: [
-        { value: 'cell-biology', label: 'Cell Biology' },
-        { value: 'genetics', label: 'Genetics' },
-        { value: 'ecology', label: 'Ecology' },
-        { value: 'evolution', label: 'Evolution' },
-        { value: 'human-biology', label: 'Human Biology' },
-      ]
-    },
-    {
-      value: 'english',
-      label: 'English',
-      chapters: [
-        { value: 'grammar', label: 'Grammar' },
-        { value: 'literature', label: 'Literature' },
-        { value: 'composition', label: 'Composition' },
-        { value: 'comprehension', label: 'Comprehension' },
-      ]
-    },
+    { value: 'gseb', label: 'GSEB' },
   ];
 
   /**
-   * Get available chapters based on selected subject
-   * Returns empty array if no subject is selected
+   * Fetch subjects from API when modal becomes visible
    */
-  const getAvailableChapters = (): DropdownOption[] => {
-    if (!selectedSubject) return [];
-    const subject = subjects.find(sub => sub.value === selectedSubject);
-    return subject ? subject.chapters : [];
+  useEffect(() => {
+    if (visible) {
+      dispatch(getSubjectsForDDAction());
+    }
+  }, [visible, dispatch]);
+
+  /**
+   * Convert API subject data to dropdown options format
+   */
+  const getSubjectOptions = (): DropdownOption[] => {
+    if (!Array.isArray(subjectDropdownList)) return [];
+    return subjectDropdownList.map((subject: any) => ({
+      value: subject.id,
+      label: subject.subname,
+    }));
   };
 
   /**
-   * Handle standard dropdown change
-   * Updates the selected standard value
+   * Convert API chapter data to dropdown options format
    */
+  const getChapterOptions = (): DropdownOption[] => {
+    if (!Array.isArray(chapterLists)) return [];
+    return chapterLists.map((chapter: any) => ({
+      value: chapter.id,
+      label: chapter.name,
+    }));
+  };
+
   const handleStandardChange = (value: string) => {
     setSelectedStandard(value);
   };
 
-  /**
-   * Handle board dropdown change
-   * Updates the selected board value
-   */
   const handleBoardChange = (value: string) => {
     setSelectedBoard(value);
   };
 
   /**
    * Handle subject dropdown change
-   * Updates the selected subject and resets chapter selection
-   * since chapters depend on the selected subject
+   * - Resets chapter selection since chapters depend on the selected subject
+   * - Dispatches getChapters API call to fetch chapters for the selected subject
    */
   const handleSubjectChange = (value: string) => {
     setSelectedSubject(value);
     // Reset chapter when subject changes to avoid invalid selection
     setSelectedChapter('');
+
+    // Fetch chapters for the selected subject from API
+    if (value) {
+      dispatch(getchaptersBySubjectIdAction(value));
+    }
   };
 
-  /**
-   * Handle chapter dropdown change
-   * Updates the selected chapter value
-   */
   const handleChapterChange = (value: string) => {
     setSelectedChapter(value);
   };
 
   /**
    * Validate if all required form fields are filled
-   * Returns true if all dropdowns have values and a file is uploaded
    */
   const isFormValid = () => {
-    return selectedStandard && selectedBoard && selectedSubject && selectedChapter && fileList.length > 0;
+    return selectedStandard && selectedBoard && selectedSubject && selectedChapter && selectedFile;
+  };
+
+  /**
+   * File validation - type and size rules are unchanged.
+   * Returns a message when the file should be rejected.
+   */
+  const validateFile = (file: File): string | null => {
+    // Validate file type - only accept Excel files
+    const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+      file.type === 'application/vnd.ms-excel' ||
+      file.name.endsWith('.xlsx') ||
+      file.name.endsWith('.xls');
+
+    if (!isExcel) {
+      toastText('Please upload only Excel files (.xlsx or .xls)', 'error');
+      return 'Invalid File Type';
+    }
+
+    // Validate file size - max 5MB
+    const isLt5M = file.size / 1024 / 1024 < 5;
+    if (!isLt5M) {
+      toastText('File size must be smaller than 5MB', 'error');
+      return 'File Too Large';
+    }
+
+    return null;
   };
 
   /**
    * Handle the file upload/import process
-   * Validates form, triggers import callback, and resets form on success
+   * - Prepares FormData payload with file and metadata
+   * - Dispatches importQuestionsAction to upload and import questions
+   * - Closes modal and resets form on success
    */
   const handleUpload = async () => {
     if (!isFormValid()) return;
 
     setUploading(true);
     try {
-      const file = fileList[0].originFileObj as File;
-      await onImport(file);
-      setFileList([]);
-      // Reset form to initial state
-      setSelectedStandard('');
-      setSelectedBoard('');
-      setSelectedSubject('');
-      setSelectedChapter('');
-      onClose();
+      const file = selectedFile;
+
+      if (!file) {
+        console.error('No file found');
+        setUploading(false);
+        return;
+      }
+
+      // Prepare FormData payload for multipart/form-data request
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('board', selectedBoard);
+      formData.append('standard', selectedStandard);
+      formData.append('subjectId', selectedSubject);
+      formData.append('chapterId', selectedChapter);
+
+      // Dispatch import action
+      const resultAction = await dispatch(importQuestionsAction(formData));
+
+      // Check if the action was fulfilled successfully
+      if (importQuestionsAction.fulfilled.match(resultAction)) {
+        // Success: Close modal and reset form
+        // Redux slice automatically appends the imported questions to the questions list
+        setSelectedFile(null);
+        setSelectedStandard('');
+        setSelectedBoard('');
+        setSelectedSubject('');
+        setSelectedChapter('');
+        onClose();
+      } else {
+        // Handle API error - error message will be shown by the slice
+        console.error('Failed to import questions:', resultAction.payload);
+      }
     } catch (error) {
       console.error('Import failed:', error);
     } finally {
@@ -195,59 +206,11 @@ const ImportModal: React.FC<ImportModalProps> = ({ visible, onClose, onImport })
   };
 
   /**
-   * Configuration for the Upload component
-   * Handles file validation, size limits, and upload behavior
-   */
-  const uploadProps: UploadProps = {
-    name: 'file',
-    multiple: false,
-    fileList,
-    accept: '.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel',
-    beforeUpload: (file) => {
-      // Validate file type - only accept Excel files
-      const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-        file.type === 'application/vnd.ms-excel' ||
-        file.name.endsWith('.xlsx') ||
-        file.name.endsWith('.xls');
-
-      if (!isExcel) {
-        Modal.error({
-          title: 'Invalid File Type',
-          content: 'Please upload only Excel files (.xlsx or .xls)',
-        });
-        return false;
-      }
-
-      // Validate file size - max 5MB
-      const isLt5M = file.size / 1024 / 1024 < 5;
-      if (!isLt5M) {
-        Modal.error({
-          title: 'File Too Large',
-          content: 'File size must be smaller than 5MB',
-        });
-        return false;
-      }
-
-      setFileList([file]);
-      return false; // Prevent automatic upload
-    },
-    onRemove: () => {
-      setFileList([]);
-    },
-    showUploadList: {
-      showRemoveIcon: true,
-      removeIcon: <CloseOutlined />,
-    },
-  };
-
-
-
-  /**
    * Handle modal cancel/close action
-   * Resets all form fields and file list to initial state
+   * Resets all form fields and file selection to initial state
    */
   const handleCancel = () => {
-    setFileList([]);
+    setSelectedFile(null);
     // Reset all form fields to initial state
     setSelectedStandard('');
     setSelectedBoard('');
@@ -257,145 +220,102 @@ const ImportModal: React.FC<ImportModalProps> = ({ visible, onClose, onImport })
   };
 
   return (
-    <Modal
-      title={null}
-      open={visible}
-      onCancel={handleCancel}
-      footer={null}
-      width={600}
-      destroyOnClose
-      centered
-      className="import-modal"
-    >
-      <div className="import-modal-content">
-        <div className="import-modal-header">
-          <FileExcelOutlined className="import-icon" />
-          <Title level={4} className="import-title">Import Questions from Excel</Title>
-        </div>
+    <Dialog open={visible} onOpenChange={(open) => !open && handleCancel()}>
+      <DialogContent className="max-w-2xl gap-0 p-0">
+        <DialogHeader className="shrink-0 flex-row items-center gap-3 border-b border-border p-5 pr-14">
+          <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-success/10 text-success">
+            <FileSpreadsheet aria-hidden="true" className="size-5" />
+          </div>
+          <DialogTitle>Import Questions from Excel</DialogTitle>
+        </DialogHeader>
 
-        <div className="import-modal-body">
-          {/* Dropdown Section - Form for selecting Standard, Board, Subject, and Chapter */}
-          <div className="dropdown-section">
-            <Form layout="vertical" className="import-form">
-              <Row gutter={[12, 12]}>
-                {/* Standard Dropdown */}
-                <Col xs={24} sm={12}>
-                  <Form.Item label="Standard" required className="form-item">
-                    <CustomDropdown
-                      options={standards}
-                      value={selectedStandard}
-                      onChange={handleStandardChange}
-                      placeholder="Select Standard"
-                      size="large"
-                      className="dropdown-select"
-                    />
-                    {/* <Select
-                      placeholder="Select Standard"
-                      value={selectedStandard}
-                      onChange={handleStandardChange}
-                      className="dropdown-select"
-                      size="large"
-                      getPopupContainer={(triggerNode) => triggerNode.parentNode as HTMLElement}
-                    >
-                      {standards.map((standard) => (
-                        <Option key={standard.value} value={standard.value}>
-                          {standard.label}
-                        </Option>
-                      ))}
-                    </Select> */}
-                  </Form.Item>
-                </Col>
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5">
+          {/* Dropdown Section - Standard, Board, Subject, Chapter */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="import-standard" required>Standard</Label>
+              <CustomDropdown
+                id="import-standard"
+                options={standards}
+                value={selectedStandard}
+                onChange={handleStandardChange}
+                placeholder="Select Standard"
+                size="large"
+              />
+            </div>
 
-                {/* Board Dropdown */}
-                <Col xs={24} sm={12}>
-                  <Form.Item label="Board" required className="form-item">
-                    <CustomDropdown
-                      options={boards}
-                      value={selectedBoard}
-                      onChange={handleBoardChange}
-                      placeholder="Select Board"
-                      size="large"
-                      className="dropdown-select"
-                    />
-                  </Form.Item>
-                </Col>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="import-board" required>Board</Label>
+              <CustomDropdown
+                id="import-board"
+                options={boards}
+                value={selectedBoard}
+                onChange={handleBoardChange}
+                placeholder="Select Board"
+                size="large"
+              />
+            </div>
 
-                {/* Subject Dropdown */}
-                <Col xs={24} sm={12}>
-                  <Form.Item label="Subject" required className="form-item">
-                    <CustomDropdown
-                      options={subjects}
-                      value={selectedSubject}
-                      onChange={handleSubjectChange}
-                      placeholder="Select Subject"
-                      size="large"
-                      className="dropdown-select"
-                    />
-                  </Form.Item>
-                </Col>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="import-subject" required>Subject</Label>
+              <CustomDropdown
+                id="import-subject"
+                options={getSubjectOptions()}
+                value={selectedSubject}
+                onChange={handleSubjectChange}
+                placeholder="Select Subject"
+                size="large"
+              />
+            </div>
 
-                {/* Chapter Dropdown - Disabled until a subject is selected */}
-                <Col xs={24} sm={12}>
-                  <Form.Item label="Chapter" required className="form-item">
-                    <CustomDropdown
-                      options={getAvailableChapters()}
-                      value={selectedChapter}
-                      onChange={handleChapterChange}
-                      placeholder="Select Chapter"
-                      size="large"
-                      className="dropdown-select"
-                      disabled={!selectedSubject}
-                    />
-                  </Form.Item>
-                </Col>
-              </Row>
-            </Form>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="import-chapter" required>Chapter</Label>
+              <CustomDropdown
+                id="import-chapter"
+                options={getChapterOptions()}
+                value={selectedChapter}
+                onChange={handleChapterChange}
+                placeholder="Select Chapter"
+                size="large"
+                disabled={!selectedSubject}
+              />
+            </div>
           </div>
 
           {/* Upload Section - Drag and drop area for Excel files */}
-          <div className="upload-section">
-            <Dragger {...uploadProps} className="upload-dragger">
-              <p className="ant-upload-drag-icon">
-                <InboxOutlined />
-              </p>
-              <p className="ant-upload-text">Click or drag Excel file to upload</p>
-              <p className="ant-upload-hint">
-                Excel files (.xlsx, .xls) up to 5MB
-              </p>
-            </Dragger>
-          </div>
+          <FileDropzone
+            id="import-file"
+            file={selectedFile}
+            onFileSelect={setSelectedFile}
+            onRemove={() => setSelectedFile(null)}
+            accept={EXCEL_ACCEPT}
+            validate={validateFile}
+            title="Click or drag Excel file to upload"
+            hint="Excel files (.xlsx, .xls) up to 5MB"
+          />
 
           {/* Success Alert - Shows when a file is ready for import */}
-          {fileList.length > 0 && (
+          {selectedFile && (
             <Alert
-              message="File Ready"
-              description={`${fileList[0].name} is ready to be imported.`}
-              type="success"
-              showIcon
-              style={{ marginTop: 12 }}
+              variant="success"
+              title="File Ready"
+              description={`${selectedFile.name} is ready to be imported.`}
             />
           )}
         </div>
 
         {/* Modal Footer - Cancel and Import buttons */}
-        <div className="import-modal-footer">
-          <Space>
-            <Button onClick={handleCancel} className="cancel-button">
-              Cancel
-            </Button>
-            <Button
-              type="primary"
-              onClick={handleUpload}
-              disabled={!isFormValid()}
-              loading={uploading}
-              className="import-submit-button"
-            >
-              {uploading ? 'Importing...' : 'Import'}
-            </Button>
-          </Space>
-        </div>
-      </div>
-    </Modal>
+        <DialogFooter className="shrink-0 border-t border-border p-5">
+          <Button variant="secondary" onClick={handleCancel} disabled={uploading}>
+            Cancel
+          </Button>
+          <Button onClick={handleUpload} disabled={!isFormValid() || uploading}>
+            {uploading && <Spinner />}
+            {uploading ? 'Importing...' : 'Import'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 

@@ -1,13 +1,15 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { deleteApi, getApi, postApi } from "../apis";
+import { deleteApi, getApi, patchApi, postApi } from "../apis";
 import { APIEndpoints } from "../../constants/constants";
 import { GetUserResultsPayload, GetUsersPayload } from "../../interfaces/interfaces";
+import { toastText } from "../../utils/toast";
 
 export const getUserProfileAction = createAsyncThunk(
     "GetUserProfile",
-    async (data: any, { rejectWithValue }) => {
+    async (userId: string, { rejectWithValue }) => {
         try {
-            const response = await getApi(APIEndpoints.GetUserProfile + `?id=${data}`);
+            const response = await getApi(APIEndpoints.GetUserProfile + `?id=${userId}`);
             if (response?.data?.statusCode === 200) {
                 {
                     return response.data;
@@ -38,7 +40,7 @@ export const deleteUserAction = createAsyncThunk(
             const ids = Array.isArray(userIds) ? userIds : [userIds];
 
             // Send DELETE request with body
-            const response = await deleteApi(APIEndpoints.DeleteUser, { data: { userIds: ids } });
+            const response = await deleteApi(APIEndpoints.DeleteUser, { userIds: ids });
 
             // Check if deletion was successful
             if (response?.data?.statusCode === 200) {
@@ -80,7 +82,6 @@ export const getUserResultByIdAction = createAsyncThunk(
 )
 
 
-/*Get User Results by Id */
 export const getUsersAction = createAsyncThunk(
     "GetUsers",
     async (payload: GetUsersPayload, { rejectWithValue }) => {
@@ -107,9 +108,10 @@ export const updateUserProfileAction = createAsyncThunk(
     "UpdateUserProfile",
     async (payload: any, { rejectWithValue }) => {
         try {
-            const response = await postApi(APIEndpoints.GetUserResults, payload);
+            const response = await patchApi(APIEndpoints.UpdateUserProfile, payload);
             if (response?.data?.statusCode === 200) {
                 {
+                    toastText(response?.data?.message, "success");
                     return response.data;
                 }
             } else {

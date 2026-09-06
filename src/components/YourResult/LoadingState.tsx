@@ -1,16 +1,11 @@
+import React from "react";
+import { LoadingState as SharedLoadingState } from "../common/LoadingState";
 
-import React from 'react';
-import { Spin, Typography } from 'antd';
-
-const { Text } = Typography;
-
-const LoadingState: React.FC = () => {
-  return (
-    <div className="your-result loading-container">
-      <Spin size="large" />
-      <Text className="loading-text">Calculating your results...</Text>
-    </div>
-  );
-};
+// Full-height wrapper so the result screen does not jump when the content arrives.
+const LoadingState: React.FC = () => (
+  <div className="dc-app flex min-h-[60vh] items-center justify-center">
+    <SharedLoadingState label="Calculating your results..." />
+  </div>
+);
 
 export default LoadingState;

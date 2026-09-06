@@ -8,7 +8,7 @@ export const AuthLayout = () => {
     // const dispatch = useDispatch<AppDispatch>();
     const navigate = useNavigate();
 
-    const path = window.location.pathname;
+    // const path = window.location.pathname;
 
     // // To change the title.
     const { pathname } = useLocation();
@@ -44,7 +44,8 @@ export const AuthLayout = () => {
             document.title = `Dashboard | Dev Classes`;
         }
         if (!token) {
-            if(!path.includes("/")) {
+            // Redirect to landing page if user is not logged in and attempts protected routes
+            if (window.location.pathname !== "/") {
                 navigate("/");
             }
         }
@@ -60,7 +61,7 @@ export const AuthLayout = () => {
     //                 // dispatch(getCompanies(res));
     //             })
     //             .catch((error: any) => {
-    //                 if (error.responseStatus === 401) {
+    //                 if (error?.response?.data?.statusCode === 401) {
     //                     navigate("/access-denied");
     //                 } else if (
     //                     !(path === "/forgot-password" || path === "/reset-password")

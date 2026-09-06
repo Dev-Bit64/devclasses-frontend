@@ -1,20 +1,18 @@
-
-import React from 'react';
-import { Typography } from 'antd';
-import { TrophyOutlined, StarFilled } from '@ant-design/icons';
-
-const { Title, Text } = Typography;
+import React from "react";
+import { Star, Trophy } from "lucide-react";
+import { cn } from "../../libs/utils";
 
 interface ResultHeaderProps {
   scorePercentage: number;
 }
 
+// Thresholds are unchanged from the previous implementation.
 const getPerformanceMessage = (percentage: number) => {
-  if (percentage >= 90) return 'Excellent Performance! 🎉';
-  if (percentage >= 80) return 'Great Job! 👏';
-  if (percentage >= 70) return 'Good Work! 👍';
-  if (percentage >= 60) return 'Not Bad! 📈';
-  return 'Keep Practicing! 💪';
+  if (percentage >= 90) return "Excellent Performance!";
+  if (percentage >= 80) return "Great Job!";
+  if (percentage >= 70) return "Good Work!";
+  if (percentage >= 60) return "Not Bad!";
+  return "Keep Practicing!";
 };
 
 const getStarRating = (percentage: number) => {
@@ -27,24 +25,28 @@ const getStarRating = (percentage: number) => {
 
 const ResultHeader: React.FC<ResultHeaderProps> = ({ scorePercentage }) => {
   const stars = getStarRating(scorePercentage);
-  
+
   return (
-    <div className="result-header">
-      <div className="trophy-container">
-        <TrophyOutlined className="trophy-icon pulse-effect" />
-        <div className="trophy-glow"></div>
+    <div className="flex flex-col items-center gap-3 text-center">
+      <div className="grid size-14 place-items-center rounded-2xl bg-accent text-accent-foreground">
+        <Trophy aria-hidden="true" className="size-7" />
       </div>
-      <Title level={1} className="result-title animate-fade-in">Your Results</Title>
-      <div className="stars-container fade-in-up delay-1">
-        {[...Array(5)].map((_, i) => (
-          <StarFilled
+      <h1 className="dc-h1">Your Results</h1>
+      <div className="flex items-center gap-1" role="img" aria-label={stars + " out of 5 stars"}>
+        {Array.from({ length: 5 }, (_, i) => (
+          <Star
             key={i}
-            className={`star ${i < stars ? 'star-filled' : 'star-empty'}`}
-            style={{ animationDelay: `${i * 0.1}s` }}
+            aria-hidden="true"
+            className={cn(
+              "size-5",
+              i < stars ? "fill-warning text-warning" : "fill-muted text-muted"
+            )}
           />
         ))}
       </div>
-      <Text className="performance-message fade-in-up delay-2">{getPerformanceMessage(scorePercentage)}</Text>
+      <p className="dc-body font-medium text-muted-foreground">
+        {getPerformanceMessage(scorePercentage)}
+      </p>
     </div>
   );
 };
