@@ -3,15 +3,20 @@ import {
   BookOpen,
   FileQuestion,
   FileText,
+  Film,
+  GraduationCap,
   LayoutDashboard,
+  Receipt,
+  Smartphone,
   Trophy,
+  UserRound,
   Users,
 } from "lucide-react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 
 import { AppHeader } from "../../components/layout/AppHeader";
 import { AppSidebar } from "../../components/layout/AppSidebar";
-import type { AppNavItem } from "../../components/layout/types";
+import type { AppNavSection } from "../../components/layout/types";
 import { Sheet, SheetContent } from "../../components/ui/sheet";
 import SEO from "../../components/SEO/SEO";
 import { handleLogout } from "../../utils/auth";
@@ -19,19 +24,45 @@ import { getStoredUser, isAdmin } from "../../utils/session";
 import { cn } from "../../libs/utils";
 
 // Role-based destinations. Which items show is presentation; the API authorises the data.
-const getSidebarMenuItems = (): AppNavItem[] => {
+// The admin menu is split by product: the two halves are separate databases and separate
+// audiences, and reading them as one list of eleven links tells an admin nothing about which
+// is which. Dashboard sits above both because it covers them both.
+const getSidebarSections = (): AppNavSection[] => {
   if (isAdmin()) {
     return [
-      { key: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-      { key: "/questions", icon: FileQuestion, label: "Questions" },
-      { key: "/subjects", icon: BookOpen, label: "Subjects" },
-      { key: "/users", icon: Users, label: "Users" },
+      {
+        items: [{ key: "/dashboard", icon: LayoutDashboard, label: "Dashboard" }],
+      },
+      {
+        label: "Website (Tuition)",
+        items: [
+          { key: "/questions", icon: FileQuestion, label: "Questions" },
+          { key: "/subjects", icon: BookOpen, label: "Subjects" },
+          { key: "/users", icon: Users, label: "Users" },
+        ],
+      },
+      {
+        label: "Mobile (College)",
+        items: [
+          { key: "/college-curriculum", icon: GraduationCap, label: "College" },
+          { key: "/college-content", icon: Film, label: "Content" },
+          { key: "/college-orders", icon: Receipt, label: "Orders" },
+          { key: "/college-students", icon: UserRound, label: "App Users" },
+          { key: "/college-device-requests", icon: Smartphone, label: "Devices" },
+        ],
+      },
     ];
   }
+
+  // Students see one product, so there is nothing to separate.
   return [
-    { key: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-    { key: "/quiz-details", icon: FileText, label: "Test" },
-    { key: "/results", icon: Trophy, label: "Your Results" },
+    {
+      items: [
+        { key: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+        { key: "/quiz-details", icon: FileText, label: "Test" },
+        { key: "/results", icon: Trophy, label: "Your Results" },
+      ],
+    },
   ];
 };
 
@@ -42,7 +73,9 @@ const GlobalLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const sidebarMenuItems = getSidebarMenuItems();
+  const sidebarSections = getSidebarSections();
+  // Flattened once for the active-key lookup, which does not care about grouping.
+  const sidebarMenuItems = sidebarSections.flatMap((section) => section.items);
   const userInfo = getStoredUser() ?? {};
   const userName = `${userInfo.firstName ?? ""} ${userInfo.lastName ?? ""}`.trim() || "User";
 
@@ -51,6 +84,11 @@ const GlobalLayout: React.FC = () => {
     if (path.startsWith("/questions")) return "Questions | Dev Classes";
     if (path.startsWith("/subjects")) return "Subjects | Dev Classes";
     if (path.startsWith("/users")) return "Users | Dev Classes";
+    if (path.startsWith("/college-curriculum")) return "College Curriculum | Dev Classes";
+    if (path.startsWith("/college-content")) return "Chapter Content | Dev Classes";
+    if (path.startsWith("/college-orders")) return "College Orders | Dev Classes";
+    if (path.startsWith("/college-students")) return "Mobile Users | Dev Classes";
+    if (path.startsWith("/college-device-requests")) return "Device Requests | Dev Classes";
     if (path.startsWith("/quiz-details")) return "Test Details | Dev Classes";
     if (path.startsWith("/quiz")) return "Test | Dev Classes";
     if (path.startsWith("/results")) return "Results | Dev Classes";
@@ -104,7 +142,7 @@ const GlobalLayout: React.FC = () => {
   }
 
   const sidebarProps = {
-    items: sidebarMenuItems,
+    sections: sidebarSections,
     activeKey: getSelectedKey(),
     onNavigate: handleMenuClick,
     onLogout: handleLogout,

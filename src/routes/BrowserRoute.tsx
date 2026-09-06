@@ -1,9 +1,10 @@
 import React, { Suspense } from "react";
 import { AuthLayout } from "../components/Global/AuthLayout";
 import { GlobalLayout } from "../layouts";
-import { createBrowserRouter, Navigate } from "react-router-dom";
+import { createBrowserRouter, Navigate, useLocation, type RouteObject } from "react-router-dom";
 import { BookOpen } from "lucide-react";
 import { isAdmin } from "../utils/session";
+import RouteErrorBoundary from "./RouteErrorBoundary";
 
 // Route guard that hides admin-only pages.
 // This is navigation UX, not a security boundary — the API must authorise these calls itself.
@@ -29,6 +30,11 @@ const SubjectsPage = React.lazy(() => import("../pages/Subjects"));
 const ResetPasswordPage = React.lazy(() => import("../pages/ResetPassword"));
 const LoginPage = React.lazy(() => import("../pages/Login"));
 const RegisterPage = React.lazy(() => import("../pages/Register"));
+const CollegeCurriculumPage = React.lazy(() => import("../pages/CollegeCurriculum"));
+const CollegeContentPage = React.lazy(() => import("../pages/CollegeContent"));
+const CollegeOrdersPage = React.lazy(() => import("../pages/CollegeOrders"));
+const CollegeDeviceRequestsPage = React.lazy(() => import("../pages/CollegeDeviceRequests"));
+const CollegeStudentsPage = React.lazy(() => import("../pages/CollegeStudents"));
 
 const LoadingFallback = () => (
     // Full-screen route transition placeholder, styled on the shared design tokens.
@@ -46,13 +52,23 @@ const LoadingFallback = () => (
     </div>
 );
 
+// Old per-kind content URLs now resolve to one tabbed screen. The chapter ids already in the
+// query string are carried across, so a deep link keeps landing on the same chapter.
+const ContentTabRedirect = ({ tab }: { tab: string }) => {
+    const { search } = useLocation();
+    const params = new URLSearchParams(search);
+    params.set("tab", tab);
+    return <Navigate to={`/college-content?${params.toString()}`} replace />;
+};
+
 const withSuspense = (Component: React.ComponentType) => (
     <Suspense fallback={<LoadingFallback />}>
         <Component />
     </Suspense>
 );
 
-const router = createBrowserRouter([
+// Every application route lives here; the router below wraps them in one shared error boundary.
+const appRoutes: RouteObject[] = [
     {
         element: <AuthLayout />, // All authenticated pages
         children: [
@@ -146,6 +162,61 @@ const router = createBrowserRouter([
                     },
                 ],
             },
+            {
+                path: "/college-curriculum",
+                element: <GlobalLayout />,
+                children: [
+                    {
+                        index: true,
+                        element: <AdminRoute>{withSuspense(CollegeCurriculumPage)}</AdminRoute>,
+                    },
+                ],
+            },
+            {
+                path: "/college-content",
+                element: <GlobalLayout />,
+                children: [
+                    {
+                        index: true,
+                        element: <AdminRoute>{withSuspense(CollegeContentPage)}</AdminRoute>,
+                    },
+                ],
+            },
+            // Videos, notes and practice used to be three screens. Anything already bookmarked
+            // or linked lands on the matching tab instead of a dead URL.
+            { path: "/college-videos", element: <ContentTabRedirect tab="videos" /> },
+            { path: "/college-notes", element: <ContentTabRedirect tab="notes" /> },
+            { path: "/college-practice", element: <ContentTabRedirect tab="practice" /> },
+            {
+                path: "/college-orders",
+                element: <GlobalLayout />,
+                children: [
+                    {
+                        index: true,
+                        element: <AdminRoute>{withSuspense(CollegeOrdersPage)}</AdminRoute>,
+                    },
+                ],
+            },
+            {
+                path: "/college-students",
+                element: <GlobalLayout />,
+                children: [
+                    {
+                        index: true,
+                        element: <AdminRoute>{withSuspense(CollegeStudentsPage)}</AdminRoute>,
+                    },
+                ],
+            },
+            {
+                path: "/college-device-requests",
+                element: <GlobalLayout />,
+                children: [
+                    {
+                        index: true,
+                        element: <AdminRoute>{withSuspense(CollegeDeviceRequestsPage)}</AdminRoute>,
+                    },
+                ],
+            },
         ],
     },
 
@@ -170,6 +241,15 @@ const router = createBrowserRouter([
     {
         path: "*",
         element: withSuspense(PageNotFound),
+    },
+];
+
+const router = createBrowserRouter([
+    {
+        // Pathless root route: a single error boundary for the whole tree. A thrown render or
+        // lazy-load error in any nested route bubbles here and shows a recovery screen, not a blank page.
+        errorElement: <RouteErrorBoundary />,
+        children: appRoutes,
     },
 ]);
 

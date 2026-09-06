@@ -184,6 +184,55 @@
   }
 
   /* -------------------------------------------------------------------------
+     Slim scrollbar for panels that scroll inside the app chrome. The platform
+     default paints a wide light track with stepper arrows, which reads as a
+     seam down a dark sidebar.
+
+     Colours come through two variables so a dark surface only has to override
+     those, not repeat the whole rule. Chrome 121+ honours the standard
+     scrollbar-width/color pair and ignores the ::-webkit- rules entirely;
+     older Chromium and Safari take the ::-webkit- ones. Both paths end up slim,
+     arrow-free and on a transparent track.
+     ------------------------------------------------------------------------- */
+  .dc-scroll {
+    --dc-scroll-thumb: hsl(var(--dc-border));
+    --dc-scroll-thumb-hover: hsl(var(--dc-muted-foreground) / 0.55);
+
+    scrollbar-width: thin;
+    scrollbar-color: var(--dc-scroll-thumb) transparent;
+  }
+  .dc-scroll::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .dc-scroll::-webkit-scrollbar-track,
+  .dc-scroll::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  .dc-scroll::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background-color: var(--dc-scroll-thumb);
+    /* Transparent border + padding-box clip insets the thumb, so it sits as a
+       pill inside the track rather than filling its full width. */
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  .dc-scroll::-webkit-scrollbar-thumb:hover {
+    background-color: var(--dc-scroll-thumb-hover);
+  }
+  /* The stepper arrows at each end have no equivalent anywhere else in the UI. */
+  .dc-scroll::-webkit-scrollbar-button {
+    display: none;
+  }
+
+  /* Dark surfaces (the sidebar): tint off the surface itself rather than the
+     light-theme border token, which would vanish against it. */
+  .dc-scroll-dark {
+    --dc-scroll-thumb: rgb(255 255 255 / 0.18);
+    --dc-scroll-thumb-hover: rgb(255 255 255 / 0.34);
+  }
+
+  /* -------------------------------------------------------------------------
      Typography scale — pages compose these instead of hand-picking sizes, so the
      hierarchy stays consistent across every screen.
      ------------------------------------------------------------------------- */

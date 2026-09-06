@@ -3,11 +3,11 @@ import { BrandLogo } from "../landing/primitives/BrandLogo";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { SidebarNav } from "./SidebarNav";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
-import type { AppNavItem } from "./types";
+import type { AppNavSection } from "./types";
 import { cn } from "../../libs/utils";
 
 export interface AppSidebarProps {
-  items: AppNavItem[];
+  sections: AppNavSection[];
   activeKey?: string;
   collapsed?: boolean;
   onNavigate: (key: string) => void;
@@ -32,7 +32,7 @@ const getInitials = (name: string) =>
  * Presentational — navigation and logout are handled by the caller.
  */
 const AppSidebar = ({
-  items,
+  sections,
   activeKey,
   collapsed = false,
   onNavigate,
@@ -79,7 +79,7 @@ const AppSidebar = ({
     )}
 
     <SidebarNav
-      items={items}
+      sections={sections}
       activeKey={activeKey}
       collapsed={collapsed}
       onNavigate={onNavigate}
@@ -111,16 +111,19 @@ const AppSidebar = ({
       </div>
 
       <TooltipProvider delayDuration={150}>
-        <ConfirmDialog
-          variant="warning"
-          title="Log out of Dev Classes?"
-          description="You will need to sign in again to continue practising."
-          confirmLabel="Log out"
-          cancelLabel="Stay signed in"
-          onConfirm={onLogout}
-          trigger={
-            collapsed ? (
-              <Tooltip>
+        {collapsed ? (
+          // Both triggers are asChild and chained — dialog trigger, then tooltip trigger,
+          // then the button. The Tooltip *root* must never be the dialog's trigger: it is a
+          // plain function component, so the ref the trigger hands down lands nowhere.
+          <Tooltip>
+            <ConfirmDialog
+              variant="warning"
+              title="Log out of Dev Classes?"
+              description="You will need to sign in again to continue practising."
+              confirmLabel="Log out"
+              cancelLabel="Stay signed in"
+              onConfirm={onLogout}
+              trigger={
                 <TooltipTrigger asChild>
                   <button
                     type="button"
@@ -130,9 +133,19 @@ const AppSidebar = ({
                     <LogOut aria-hidden="true" className="size-[18px]" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="right">Log out</TooltipContent>
-              </Tooltip>
-            ) : (
+              }
+            />
+            <TooltipContent side="right">Log out</TooltipContent>
+          </Tooltip>
+        ) : (
+          <ConfirmDialog
+            variant="warning"
+            title="Log out of Dev Classes?"
+            description="You will need to sign in again to continue practising."
+            confirmLabel="Log out"
+            cancelLabel="Stay signed in"
+            onConfirm={onLogout}
+            trigger={
               <button
                 type="button"
                 className="mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-destructive/20 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
@@ -140,9 +153,9 @@ const AppSidebar = ({
                 <LogOut aria-hidden="true" className="size-[18px] shrink-0" />
                 Log out
               </button>
-            )
-          }
-        />
+            }
+          />
+        )}
       </TooltipProvider>
     </div>
   </div>

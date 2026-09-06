@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
     BarChart3,
@@ -14,7 +14,15 @@ import { PageHeader } from "../../common/PageHeader";
 import { ErrorState } from "../../common/ErrorState";
 import { EmptyState } from "../../common/EmptyState";
 import { StatCard, StatCardSkeleton } from "../../dashboard/StatCard";
+import CollegeAnalytics, { CollegeAnalyticsSkeleton } from "../../dashboard/CollegeAnalytics";
+import {
+    ProductSwitcher,
+    readStoredProduct,
+    storeProduct,
+    type DashboardProduct,
+} from "../../dashboard/ProductSwitcher";
 import { getDasboardDetailsAction } from "../../../redux/action/dasboardAction";
+import { getCollegeDashboardDetailsAction } from "../../../redux/action/collegeAnalyticsAction";
 import { RootState } from "../../../redux/store";
 import { AdminDashboardData, StudentDashboardData } from "../../../interfaces/interfaces";
 
@@ -40,12 +48,37 @@ const DashboardContent: React.FC = () => {
     const userData = JSON.parse(localStorage.getItem('user') || '{}');
     const isAdmin = userData.role === 'ADMIN';
 
+    // College analytics live in their own slice, since they come from a separate database.
+    const {
+        collegeDashboardDetails,
+        isLoading: isCollegeLoading,
+        error: collegeError,
+    } = useSelector((state: RootState) => state.collegeAnalytics);
+
+    // Students never see the switcher, so their view can only ever be the school one.
+    const [product, setProduct] = useState<DashboardProduct>(
+        isAdmin ? readStoredProduct() : 'school'
+    );
+
+    const handleProductChange = (next: DashboardProduct) => {
+        setProduct(next);
+        storeProduct(next);
+    };
+
     // Fetch dashboard data on component mount
     useEffect(() => {
         if (userData.id) {
             dispatch(getDasboardDetailsAction(userData.id) as any);
         }
     }, [dispatch, userData.id]);
+
+    // Fetched only when the college view is actually open, so the school dashboard costs
+    // exactly what it did before this switcher existed.
+    useEffect(() => {
+        if (isAdmin && product === 'college') {
+            dispatch(getCollegeDashboardDetailsAction() as any);
+        }
+    }, [dispatch, isAdmin, product]);
 
     // Generate admin dashboard cards from API data
     const getAdminDashboardCards = (): DashboardCard[] => {
@@ -104,13 +137,41 @@ const DashboardContent: React.FC = () => {
         ? "Here's an overview of your system stats."
         : "Ready to continue your learning journey? Here's your performance overview.";
 
+    // Rendered for admins only; students have a single product and nothing to switch between.
+    const switcher = isAdmin ? (
+        <ProductSwitcher value={product} onChange={handleProductChange} />
+    ) : undefined;
+
+    // College branch. Kept ahead of the school path and fully self-contained, so the school
+    // render below is byte-for-byte the behaviour it had before the switcher existed.
+    if (isAdmin && product === 'college') {
+        const collegeSubtitle =
+            "How the college course in the app is doing. School figures are kept separate.";
+
+        return (
+            <PageShell>
+                <PageHeader title={welcomeTitle} description={collegeSubtitle} actions={switcher} />
+                {isCollegeLoading && <CollegeAnalyticsSkeleton />}
+                {!isCollegeLoading && collegeError && (
+                    <ErrorState
+                        title="Error Loading College Dashboard"
+                        description="Failed to load college data. Please try again later."
+                    />
+                )}
+                {!isCollegeLoading && !collegeError && collegeDashboardDetails && (
+                    <CollegeAnalytics details={collegeDashboardDetails} />
+                )}
+            </PageShell>
+        );
+    }
+
     // Show loading state with skeleton
     if (isLoading) {
         // Admin and student dashboards render a different number of cards.
         const skeletonCount = isAdmin ? 4 : 3;
         return (
             <PageShell>
-                <PageHeader title={welcomeTitle} description={welcomeSubtitle} />
+                <PageHeader title={welcomeTitle} description={welcomeSubtitle} actions={switcher} />
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-5 xl:grid-cols-3">
                     {Array.from({ length: skeletonCount }, (_, index) => (
                         <StatCardSkeleton key={index} />
@@ -124,7 +185,7 @@ const DashboardContent: React.FC = () => {
     if (error) {
         return (
             <PageShell>
-                <PageHeader title={welcomeTitle} description={welcomeSubtitle} />
+                <PageHeader title={welcomeTitle} description={welcomeSubtitle} actions={switcher} />
                 <ErrorState
                     title="Error Loading Dashboard"
                     description="Failed to load dashboard data. Please try again later."
@@ -138,7 +199,7 @@ const DashboardContent: React.FC = () => {
 
     return (
         <PageShell>
-            <PageHeader title={welcomeTitle} description={welcomeSubtitle} />
+            <PageHeader title={welcomeTitle} description={welcomeSubtitle} actions={switcher} />
 
             {dashboardCards.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-5 xl:grid-cols-3">
