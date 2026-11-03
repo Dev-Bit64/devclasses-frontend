@@ -113,6 +113,25 @@ export enum APIEndpoints {
   ExportResultToPDF = "/exam/exportResultToPDF",
   AnalyzeStudentPerformance = "/exam/analyzeStudentPerformance",
 
+  //Accounting exams (balance sheet drag-and-drop)
+  AccountingGetFormats = "/accounting/getFormats",
+  AccountingGetLedgerEntries = "/accounting/admin/getLedgerEntries",
+  AccountingAddLedgerEntry = "/accounting/admin/addLedgerEntry",
+  AccountingUpdateLedgerEntry = "/accounting/admin/updateLedgerEntry",
+  AccountingDeleteLedgerEntries = "/accounting/admin/deleteLedgerEntries",
+  AccountingImportLedgerEntries = "/accounting/admin/importLedgerEntries",
+  AccountingCopyLedgerEntries = "/accounting/admin/copyLedgerEntries",
+  AccountingGetQuestions = "/accounting/admin/getQuestions",
+  AccountingGetQuestionById = "/accounting/admin/getQuestionById",
+  AccountingCreateQuestion = "/accounting/admin/createQuestion",
+  AccountingUpdateQuestion = "/accounting/admin/updateQuestion",
+  AccountingDeleteQuestions = "/accounting/admin/deleteQuestions",
+  AccountingGetChapterQuestions = "/accounting/getChapterQuestions",
+  AccountingStartAttempt = "/accounting/startAttempt",
+  AccountingSubmitAttempt = "/accounting/submitAttempt",
+  AccountingGetAttemptResult = "/accounting/getAttemptResult",
+  AccountingGetMyAttempts = "/accounting/getMyAttempts",
+
   //College - Courses (separate college database, served under /api/v2)
   CollegeGetCourses = "/api/v2/college/catalog/admin/getCourses",
   CollegeAddCourse = "/api/v2/college/catalog/admin/addCourse",

@@ -735,3 +735,208 @@ export interface CollegeTransferRequest {
         activeDeviceId?: string | null;
     } | null;
 }
+
+// ---------------------------------------------------------------------------
+// Accounting exams (balance sheets and accounts, drag-and-drop)
+// ---------------------------------------------------------------------------
+
+// Any statement type key served by /accounting/getFormats (e.g. HORIZONTAL, TRADING).
+export type AccountingFormatKey = string;
+
+export type AccountingBoard = "GSEB" | "CBSE";
+
+// Partner column of a columnar statement such as Partners' Capital Accounts.
+export interface AccountingColumn {
+    key: string;
+    label: string;
+}
+
+export interface AccountingSection {
+    key: string;
+    label: string;
+    // Main head shown above a run of sub-heads (Schedule III only).
+    group?: string;
+    // Overrides the format's allowsDeduction for this head (e.g. Sales less Sales Returns in Final Accounts); absent on older servers.
+    allowsDeduction?: boolean;
+}
+
+export interface AccountingSide {
+    key: string;
+    label: string;
+    // Indian T-account wording before each line: "To" on the debit side, "By" on the credit side.
+    prefix?: "To" | "By";
+    sections: AccountingSection[];
+}
+
+// One statement inside a multi-statement question, e.g. the Trading A/c within Final Accounts.
+export interface AccountingStatement {
+    key: string;
+    label: string;
+    layout?: "SIDE_BY_SIDE" | "VERTICAL";
+    sides: AccountingSide[];
+}
+
+export interface AccountingFormat {
+    key: AccountingFormatKey;
+    label: string;
+    // Compact name for badges; optional so an older server response still renders.
+    shortLabel?: string;
+    kind?: "BALANCE_SHEET" | "ACCOUNT" | "FINAL_ACCOUNTS";
+    // SIDE_BY_SIDE puts the two sides next to each other on wide screens; VERTICAL stacks them.
+    layout?: "SIDE_BY_SIDE" | "VERTICAL";
+    boards?: AccountingBoard[];
+    // Present only on columnar statements, e.g. 2–6 partners.
+    columns?: { min: number; max: number; noun: string };
+    // False when no line may be marked "Less" (Final Accounts without adjustments).
+    allowsDeduction?: boolean;
+    // Present only on multi-statement types; their sides live here and the top-level sides are empty.
+    statements?: AccountingStatement[];
+    sides: AccountingSide[];
+}
+
+export interface LedgerEntry {
+    id: string;
+    board?: AccountingBoard;
+    name: string;
+    category?: string | null;
+    createdAt?: string;
+    usedInQuestions?: number;
+}
+
+export interface AccountingAnswerKeyRow {
+    entryId: string;
+    entryName?: string;
+    sectionKey: string;
+    amount: number;
+    isDeduction: boolean;
+    // Partner column of a columnar statement; omitted or '' for single-column ones.
+    columnKey?: string;
+}
+
+export interface AccountingQuestion {
+    id: string;
+    board: string;
+    standard: string;
+    title: string;
+    problem?: string;
+    format: AccountingFormatKey;
+    columns?: AccountingColumn[] | null;
+    timeLimitMinutes?: number | null;
+    isPublished: boolean;
+    createdAt?: string;
+    entryCount: number;
+    subject?: { id: string; subname: string };
+    chapter?: { id: string; name: string };
+    answerKey?: AccountingAnswerKeyRow[];
+}
+
+export interface AccountingQuestionPayload {
+    board: string;
+    standard: string;
+    subjectId: string;
+    chapterId: string;
+    title: string;
+    problem: string;
+    format: AccountingFormatKey;
+    // Sent only for columnar statements on create; null clears them on update.
+    columns?: AccountingColumn[] | null;
+    timeLimitMinutes?: number | null;
+    isPublished: boolean;
+    answerKey: Omit<AccountingAnswerKeyRow, "entryName">[];
+}
+
+export interface GetAccountingListPayload {
+    page: number;
+    limit: number;
+    search?: string;
+    board?: string;
+    standard?: string;
+    subject?: string;
+    chapter?: string;
+}
+
+export interface AccountingChapterQuestion {
+    id: string;
+    title: string;
+    format: AccountingFormatKey;
+    timeLimitMinutes?: number | null;
+}
+
+export interface AccountingAttemptSession {
+    attemptId: string;
+    startedAt: string;
+    question: {
+        id: string;
+        title: string;
+        problem: string;
+        format: AccountingFormatKey;
+        // Partner columns of a columnar statement; null or absent for one amount per line.
+        columns?: AccountingColumn[] | null;
+        timeLimitMinutes?: number | null;
+        subject?: { subname: string };
+        chapter?: { name: string };
+    };
+    formatDefinition: AccountingFormat;
+    // Entry pool — names only, so nothing on a card hints at the answer.
+    pool: { id: string; name: string }[];
+}
+
+export interface AccountingPlacement {
+    entryId: string;
+    sectionKey: string;
+    amount: number;
+    isDeduction: boolean;
+    // Partner column of a columnar statement; omitted for single-column ones.
+    columnKey?: string;
+}
+
+export interface AccountingGradedItem {
+    entryId: string;
+    name: string;
+    // Partner column of a columnar statement; '' or absent for single-column ones.
+    columnKey?: string;
+    // Statement within a multi-statement question; '' or absent for single-statement ones.
+    statementKey?: string;
+    status: "CORRECT" | "WRONG" | "MISSED";
+    reason?: "NOT_IN_ANSWER" | "WRONG_SECTION" | "WRONG_AMOUNT" | "WRONG_SIGN";
+    placed: Omit<AccountingPlacement, "entryId" | "columnKey"> | null;
+    expected: Omit<AccountingPlacement, "entryId" | "columnKey"> | null;
+}
+
+export interface AccountingResult {
+    attemptId: string;
+    questionId: string;
+    title: string;
+    format: AccountingFormatKey;
+    submittedAt: string;
+    correctCount: number;
+    wrongCount: number;
+    missedCount: number;
+    totalEntries: number;
+    marks: number;
+    scorePercent: number;
+    totals: { submitted: Record<string, number>; expected: Record<string, number> };
+    items: AccountingGradedItem[];
+    formatDefinition: AccountingFormat | null;
+    // Present only on columnar results: the partner columns and each partner's side totals.
+    columns?: AccountingColumn[];
+    columnTotals?: Record<string, { submitted: Record<string, number>; expected: Record<string, number> }>;
+    // Present only on multi-statement results: each statement's side totals.
+    statementTotals?: Record<string, { submitted: Record<string, number>; expected: Record<string, number> }>;
+}
+
+export interface AccountingAttemptSummary {
+    id: string;
+    title: string;
+    format: AccountingFormatKey;
+    subject?: string;
+    chapter?: string;
+    correctCount: number;
+    wrongCount: number;
+    missedCount: number;
+    totalEntries: number;
+    marks: number;
+    scorePercent: number;
+    startedAt: string;
+    submittedAt: string;
+}

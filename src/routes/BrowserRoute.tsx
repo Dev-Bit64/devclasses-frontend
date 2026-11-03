@@ -35,6 +35,10 @@ const CollegeContentPage = React.lazy(() => import("../pages/CollegeContent"));
 const CollegeOrdersPage = React.lazy(() => import("../pages/CollegeOrders"));
 const CollegeDeviceRequestsPage = React.lazy(() => import("../pages/CollegeDeviceRequests"));
 const CollegeStudentsPage = React.lazy(() => import("../pages/CollegeStudents"));
+const AccountingTestDetailsPage = React.lazy(() => import("../pages/AccountingTestDetails"));
+const AccountingTestPage = React.lazy(() => import("../pages/AccountingTest"));
+const AccountingResultPage = React.lazy(() => import("../pages/AccountingResult"));
+const AccountingQuestionsPage = React.lazy(() => import("../pages/AccountingQuestions"));
 
 const LoadingFallback = () => (
     // Full-screen route transition placeholder, styled on the shared design tokens.
@@ -129,6 +133,47 @@ const appRoutes: RouteObject[] = [
                     {
                         index: true,
                         element: withSuspense(TestPage),
+                    },
+                ],
+            },
+            // Accounting (balance sheet) exams — separate pages, so the MCQ flow is untouched.
+            {
+                path: "/accounting-test-details",
+                element: <GlobalLayout />,
+                children: [
+                    {
+                        index: true,
+                        element: withSuspense(AccountingTestDetailsPage),
+                    },
+                ],
+            },
+            {
+                path: "/accounting-test",
+                element: <GlobalLayout />,
+                children: [
+                    {
+                        index: true,
+                        element: withSuspense(AccountingTestPage),
+                    },
+                ],
+            },
+            {
+                path: "/accounting-result",
+                element: <GlobalLayout />,
+                children: [
+                    {
+                        index: true,
+                        element: withSuspense(AccountingResultPage),
+                    },
+                ],
+            },
+            {
+                path: "/accounting-questions",
+                element: <GlobalLayout />,
+                children: [
+                    {
+                        index: true,
+                        element: <AdminRoute>{withSuspense(AccountingQuestionsPage)}</AdminRoute>,
                     },
                 ],
             },

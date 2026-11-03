@@ -36,7 +36,10 @@ export interface ConfirmDialogProps {
   onConfirm: () => void;
   loading?: boolean;
   // The element that opens the dialog, mirroring how Popconfirm wrapped its child.
-  trigger: React.ReactNode;
+  trigger?: React.ReactNode;
+  // Optional controlled mode, for prompts opened from code rather than by a trigger.
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   className?: string;
 }
 
@@ -53,14 +56,16 @@ const ConfirmDialog = ({
   onConfirm,
   loading = false,
   trigger,
+  open,
+  onOpenChange,
   className,
 }: ConfirmDialogProps) => {
   const config = variantConfig[variant];
   const Icon = config.icon;
 
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      {trigger && <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>}
       <AlertDialogContent className={className}>
         <div className="flex gap-4">
           <div

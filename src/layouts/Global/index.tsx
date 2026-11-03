@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   BookOpen,
+  Calculator,
   FileQuestion,
   FileText,
   Film,
@@ -37,6 +38,7 @@ const getSidebarSections = (): AppNavSection[] => {
         label: "Website (Tuition)",
         items: [
           { key: "/questions", icon: FileQuestion, label: "Questions" },
+          { key: "/accounting-questions", icon: Calculator, label: "Accounting" },
           { key: "/subjects", icon: BookOpen, label: "Subjects" },
           { key: "/users", icon: Users, label: "Users" },
         ],
@@ -60,6 +62,7 @@ const getSidebarSections = (): AppNavSection[] => {
       items: [
         { key: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
         { key: "/quiz-details", icon: FileText, label: "Test" },
+        { key: "/accounting-test-details", icon: Calculator, label: "Accounting Test" },
         { key: "/results", icon: Trophy, label: "Your Results" },
       ],
     },
@@ -89,6 +92,10 @@ const GlobalLayout: React.FC = () => {
     if (path.startsWith("/college-orders")) return "College Orders | Dev Classes";
     if (path.startsWith("/college-students")) return "Mobile Users | Dev Classes";
     if (path.startsWith("/college-device-requests")) return "Device Requests | Dev Classes";
+    if (path.startsWith("/accounting-questions")) return "Accounting Questions | Dev Classes";
+    if (path.startsWith("/accounting-test-details")) return "Accounting Test | Dev Classes";
+    if (path.startsWith("/accounting-test")) return "Accounting Test | Dev Classes";
+    if (path.startsWith("/accounting-result")) return "Accounting Result | Dev Classes";
     if (path.startsWith("/quiz-details")) return "Test Details | Dev Classes";
     if (path.startsWith("/quiz")) return "Test | Dev Classes";
     if (path.startsWith("/results")) return "Results | Dev Classes";
@@ -101,7 +108,7 @@ const GlobalLayout: React.FC = () => {
   const getPageLabel = (path: string) => getPageTitle(path).split(" | ")[0];
 
   // Check if current route should hide sidebar
-  const shouldHideSidebar = ["/quiz", "/your-result"].includes(location.pathname);
+  const shouldHideSidebar = ["/quiz", "/your-result", "/accounting-test", "/accounting-result"].includes(location.pathname);
 
   useEffect(() => {
     const handleResize = () => {

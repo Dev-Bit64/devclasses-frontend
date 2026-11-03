@@ -12,6 +12,7 @@ import collegePaymentSlice from "./slice/collegePaymentSlice";
 import collegeDeviceSlice from "./slice/collegeDeviceSlice";
 import collegeAnalyticsSlice from "./slice/collegeAnalyticsSlice";
 import collegeStudentSlice from "./slice/collegeStudentSlice";
+import accountingSlice from "./slice/accountingSlice";
 
 const store = configureStore({
     reducer: {
@@ -28,6 +29,7 @@ const store = configureStore({
         collegeDevice: collegeDeviceSlice.reducer,
         collegeAnalytics: collegeAnalyticsSlice.reducer,
         collegeStudent: collegeStudentSlice.reducer,
+        accounting: accountingSlice.reducer,
     }
 });
 
