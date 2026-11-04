@@ -18,10 +18,15 @@ import {
     REASON_LABELS,
     formatAmount,
     formatDateTime,
+    formatSignedAmount,
+    getRunningTotals,
     getSectionLabels,
     getStatements,
     isStatementSideBySide,
+    isTypedAnswer,
 } from '../../components/accounting/accountingUtils';
+import { SignedAmount } from '../../components/accounting/SignedAmount';
+import { WorkingNoteReview } from '../../components/accounting/WorkingNoteReview';
 
 // Wrong lines first, then missed, then correct — the order a student should review them.
 const STATUS_ORDER: Record<AccountingGradedItem['status'], number> = { WRONG: 0, MISSED: 1, CORRECT: 2 };
@@ -73,6 +78,10 @@ const AccountingResultPage: React.FC = () => {
     }
 
     const format = result.formatDefinition;
+    // Cash flow types print negatives in red brackets; every other type keeps plain amounts.
+    const inBrackets = format?.negativesInBrackets === true;
+    // Amount text: unchanged for older types, bracketed negatives for cash flow types.
+    const showAmount = (value: number) => (inBrackets ? <SignedAmount value={value} inBrackets /> : formatAmount(value));
     // Partner columns of a columnar result (snapshotted at submit); empty for single-column ones.
     const columns = result.columns ?? [];
     const columnLabel = new Map(columns.map((column) => [column.key, column.label]));
@@ -99,6 +108,13 @@ const AccountingResultPage: React.FC = () => {
     const renderAnswerSide = (statement: AccountingStatement, side: AccountingSide) => {
         const singleHead = side.sections.length === 1;
         const amountHeader = columns.length > 0 ? columns.map((column) => column.label) : ['Amount (₹)'];
+        // Running totals of the correct answer (e.g. "(G) Cash Generated from Operations"), printed after their heads.
+        const runningTotals = getRunningTotals(
+            side,
+            result.items
+                .filter((item) => item.expected && (item.statementKey ?? '') === statement.key)
+                .map((item) => ({ sectionKey: item.expected!.sectionKey, amount: item.expected!.amount, isDeduction: item.expected!.isDeduction }))
+        );
         return (
             <Card key={side.key} className="flex flex-col gap-3 p-4">
                 <div className="flex flex-col gap-1 border-b border-border pb-2">
@@ -115,12 +131,16 @@ const AccountingResultPage: React.FC = () => {
                 {side.sections.map((section, index) => {
                     const rows = result.items.filter((item) => item.expected?.sectionKey === section.key && (item.statementKey ?? '') === statement.key);
                     const showGroup = section.group && section.group !== side.sections[index - 1]?.group;
-                    if (rows.length === 0 && !showGroup) return null;
+                    const totalsAfter = runningTotals.get(section.key) ?? [];
+                    if (rows.length === 0 && !showGroup && totalsAfter.length === 0) return null;
                     // Columnar: one row per entry with an amount under each partner.
                     const entryRows = [...new Map(rows.map((row) => [row.entryId, row])).values()];
                     const net = rows.reduce((sum, row) => sum + Math.round((row.expected?.amount ?? 0) * 100) * (row.expected?.isDeduction ? -1 : 1), 0) / 100;
                     // Inner and outer columns only matter where a head groups lines or deducts one.
                     const useInnerColumn = columns.length === 0 && !singleHead && (rows.length > 1 || rows.some((row) => row.expected?.isDeduction));
+                    // Bracketed types show a deduction under a head without a fixed sign as a negative amount, e.g. (₹4,00,000).
+                    const lineAmount = (row: AccountingGradedItem) =>
+                        (inBrackets && !section.sign && row.expected?.isDeduction ? -1 : 1) * (row.expected?.amount ?? 0);
                     return (
                         <Fragment key={section.key}>
                             {showGroup && <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{section.group}</p>}
@@ -131,7 +151,8 @@ const AccountingResultPage: React.FC = () => {
                                         <div key={itemKey(row)} className="flex items-start justify-between gap-3 text-sm">
                                             <span className={cn('break-words', !singleHead && 'pl-3')}>
                                                 {side.prefix && <span className="text-muted-foreground">{side.prefix} </span>}
-                                                {row.expected?.isDeduction && <span className="text-destructive">Less: </span>}
+                                                {/* A head with a fixed sign already says "Less", and bracketed types show the sign on the amount. */}
+                                                {row.expected?.isDeduction && !section.sign && !inBrackets && <span className="text-destructive">Less: </span>}
                                                 {row.name}
                                             </span>
                                             {columns.length > 0 ? (
@@ -143,21 +164,28 @@ const AccountingResultPage: React.FC = () => {
                                                 </span>
                                             ) : useInnerColumn ? (
                                                 <span className="dc-numeric grid shrink-0 grid-cols-[6.5rem_6.5rem] text-right">
-                                                    <span className={cn(rowIndex === rows.length - 1 && 'border-b border-foreground/40')}>{formatAmount(row.expected?.amount ?? 0)}</span>
-                                                    <span className="font-medium">{rowIndex === rows.length - 1 ? formatAmount(net) : ''}</span>
+                                                    <span className={cn(rowIndex === rows.length - 1 && 'border-b border-foreground/40')}>{showAmount(lineAmount(row))}</span>
+                                                    <span className="font-medium">{rowIndex === rows.length - 1 ? showAmount(section.sign === 'LESS' ? -net : net) : ''}</span>
                                                 </span>
                                             ) : (
-                                                <span className="dc-numeric shrink-0">{formatAmount(row.expected?.amount ?? 0)}</span>
+                                                <span className="dc-numeric shrink-0">{showAmount(lineAmount(row))}</span>
                                             )}
                                         </div>
                                     ))}
                                 </div>
                             )}
+                            {totalsAfter.map((total) => (
+                                <div key={total.label} className="flex items-start justify-between gap-3 border-y border-border bg-muted/40 px-2 py-1.5 text-sm font-semibold text-foreground">
+                                    <span className="min-w-0 break-words">{total.label}</span>
+                                    <span className="dc-numeric shrink-0">{showAmount(total.value)}</span>
+                                </div>
+                            ))}
                         </Fragment>
                     );
                 })}
                 <div className="mt-auto flex flex-wrap justify-between gap-x-4 gap-y-1 border-t border-border pt-3 text-sm font-semibold">
-                    <span>Total</span>
+                    {/* A working note or cash flow side names its bottom line (e.g. "Net Profit before Tax…"). */}
+                    <span>{side.totalLabel ?? 'Total'}</span>
                     {columns.length > 0 ? (
                         // One total per partner for this side.
                         <span className="dc-numeric flex flex-wrap justify-end gap-x-4">
@@ -166,7 +194,7 @@ const AccountingResultPage: React.FC = () => {
                             ))}
                         </span>
                     ) : (
-                        <span className="dc-numeric">{formatAmount(expectedTotals(statement.key)[side.key] ?? 0)}</span>
+                        <span className="dc-numeric">{showAmount(expectedTotals(statement.key)[side.key] ?? 0)}</span>
                     )}
                 </div>
             </Card>
@@ -237,10 +265,12 @@ const AccountingResultPage: React.FC = () => {
                                 const expected = totals?.expected[side.key] ?? 0;
                                 return (
                                     <div key={`${statement.key}-${side.key}`} className="flex items-center justify-between gap-3 rounded-lg border border-border px-4 py-3 text-sm">
-                                        <span className="font-medium">{isMultiStatement ? `${statement.label} · ${side.label}` : side.label}</span>
+                                        {/* A working note's one side is named by its result, e.g. "Net Profit before Tax and Extraordinary Items". */}
+                                        <span className="font-medium">{isMultiStatement ? `${statement.label} · ${side.label}` : side.totalLabel ?? side.label}</span>
                                         <span className="dc-numeric text-right">
-                                            <span className={yours === expected ? 'text-success' : 'text-destructive'}>{formatAmount(yours)}</span>
-                                            <span className="text-muted-foreground"> / {formatAmount(expected)}</span>
+                                            {/* Green or red shows a match, so these stay plain amounts; brackets still mark a negative. */}
+                                            <span className={yours === expected ? 'text-success' : 'text-destructive'}>{formatSignedAmount(yours, inBrackets)}</span>
+                                            <span className="text-muted-foreground"> / {formatSignedAmount(expected, inBrackets)}</span>
                                         </span>
                                     </div>
                                 );
@@ -252,40 +282,45 @@ const AccountingResultPage: React.FC = () => {
 
             <Tabs defaultValue="review">
                 <TabsList>
-                    <TabsTrigger value="review">Review entries</TabsTrigger>
+                    {/* The typed working note is reviewed as the student wrote it; every other type lists its entries. */}
+                    <TabsTrigger value="review">{isTypedAnswer(format) ? 'Your working' : 'Review entries'}</TabsTrigger>
                     <TabsTrigger value="solution">Correct answer</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="review">
-                    <ul className="flex flex-col gap-2">
-                        {reviewItems.map((item) => {
-                            const meta = STATUS_META[item.status];
-                            return (
-                                <li key={itemKey(item)}>
-                                    <Card className="flex flex-col gap-2 p-4 sm:flex-row sm:items-start sm:justify-between">
-                                        <div className="flex min-w-0 flex-col gap-1">
-                                            <span className="break-words font-medium text-foreground">{itemName(item)}</span>
-                                            <span className="text-sm text-muted-foreground">
-                                                Your answer: <span className="text-foreground">{describe(item.placed)}</span>
-                                            </span>
-                                            {item.status !== 'CORRECT' && (
+                    {format && isTypedAnswer(format) ? (
+                        <WorkingNoteReview format={format} items={result.items} />
+                    ) : (
+                        <ul className="flex flex-col gap-2">
+                            {reviewItems.map((item) => {
+                                const meta = STATUS_META[item.status];
+                                return (
+                                    <li key={itemKey(item)}>
+                                        <Card className="flex flex-col gap-2 p-4 sm:flex-row sm:items-start sm:justify-between">
+                                            <div className="flex min-w-0 flex-col gap-1">
+                                                <span className="break-words font-medium text-foreground">{itemName(item)}</span>
                                                 <span className="text-sm text-muted-foreground">
-                                                    Correct: <span className="text-foreground">{item.expected ? describe(item.expected) : 'Leave it in the pool'}</span>
+                                                    Your answer: <span className="text-foreground">{describe(item.placed)}</span>
                                                 </span>
-                                            )}
-                                        </div>
-                                        <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end">
-                                            <Badge className={meta.className}>
-                                                <meta.icon aria-hidden="true" />
-                                                {meta.label}
-                                            </Badge>
-                                            {item.reason && <span className="text-xs text-muted-foreground">{REASON_LABELS[item.reason]}</span>}
-                                        </div>
-                                    </Card>
-                                </li>
-                            );
-                        })}
-                    </ul>
+                                                {item.status !== 'CORRECT' && (
+                                                    <span className="text-sm text-muted-foreground">
+                                                        Correct: <span className="text-foreground">{item.expected ? describe(item.expected) : 'Leave it in the pool'}</span>
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end">
+                                                <Badge className={meta.className}>
+                                                    <meta.icon aria-hidden="true" />
+                                                    {meta.label}
+                                                </Badge>
+                                                {item.reason && <span className="text-xs text-muted-foreground">{REASON_LABELS[item.reason]}</span>}
+                                            </div>
+                                        </Card>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    )}
                 </TabsContent>
 
                 <TabsContent value="solution">

@@ -28,17 +28,23 @@ import { Spinner } from '../../ui/spinner';
 import { LoadingState } from '../../common/LoadingState';
 import { ConfirmDialog } from '../../common/ConfirmDialog';
 import { LedgerEntriesDialog } from './LedgerEntriesDialog';
+import { cn } from '../../../libs/utils';
 import {
     AMOUNT_PATTERN,
     BOARD_OPTIONS,
     STANDARD_OPTIONS,
     formatAmount,
+    formatSignedAmount,
     getSectionStatements,
     getStatements,
     isBalancedTotals,
+    isComputation,
+    isEntryExcluded,
     normalizeStandard,
     parseAmount,
+    resolveDeduction,
     sectionAllowsDeduction,
+    sectionSign,
     sumBySide,
 } from '../accountingUtils';
 
@@ -291,8 +297,8 @@ const AccountingQuestionDialog = ({ open, questionId, formats, onClose, onSaved 
             setColumns([]);
         }
         if (clearKey) setRows([]);
-        // Rows whose head has no "Less" lines in the new type drop their deduction.
-        else setRows((current) => current.map((row) => ({ ...row, isDeduction: row.isDeduction && sectionAllowsDeduction(next, row.sectionKey) })));
+        // Rows whose head has no "Less" lines in the new type drop their deduction; a head with a fixed sign sets it.
+        else setRows((current) => current.map((row) => ({ ...row, isDeduction: resolveDeduction(next, row.sectionKey, row.isDeduction && sectionAllowsDeduction(next, row.sectionKey)) })));
         setKeyError(null);
     };
 
@@ -373,9 +379,11 @@ const AccountingQuestionDialog = ({ open, questionId, formats, onClose, onSaved 
     const matches = useMemo(
         () =>
             pool
+                // Entries the type leaves out (e.g. non-profit items in cash flow questions) are never offered for its key.
+                .filter((entry) => !isEntryExcluded(format, entry.name))
                 .filter((entry) => (isColumnar || isMultiStatement || !usedIds.has(entry.id)) && (!query || entry.name.toLowerCase().includes(query)))
                 .sort((a, b) => a.name.localeCompare(b.name)),
-        [pool, usedIds, query, isColumnar, isMultiStatement]
+        [pool, usedIds, query, isColumnar, isMultiStatement, format]
     );
     const exactMatch = pool.some((entry) => entry.name.toLowerCase() === query);
     // The answer key needs a board (for the pool) and a statement type (for the heads) first.
@@ -431,9 +439,14 @@ const AccountingQuestionDialog = ({ open, questionId, formats, onClose, onSaved 
         setRows((current) => current.map((row) => (row.rowId === rowId ? { ...row, ...patch } : row)));
 
     // Moving a row under a head without "Less" lines also clears its deduction, so the server accepts the key.
+    // A head with a fixed sign sets it, and a sign that came only from the old head's fixed sign is not carried over.
     const updateRowSection = (rowId: string, sectionKey: string) =>
         setRows((current) =>
-            current.map((row) => (row.rowId === rowId ? { ...row, sectionKey, isDeduction: row.isDeduction && sectionAllowsDeduction(format, sectionKey) } : row))
+            current.map((row) => {
+                if (row.rowId !== rowId) return row;
+                const chosen = sectionSign(format, row.sectionKey) ? false : row.isDeduction;
+                return { ...row, sectionKey, isDeduction: resolveDeduction(format, sectionKey, chosen && sectionAllowsDeduction(format, sectionKey)) };
+            })
         );
 
     const updateRowAmount = (rowId: string, columnKey: string, value: string) =>
@@ -939,8 +952,13 @@ const AccountingQuestionDialog = ({ open, questionId, formats, onClose, onSaved 
                                                                     onChange={(value) => updateRowSection(row.rowId, value)}
                                                                     placeholder="Select head"
                                                                 />
-                                                                {/* Hidden under heads without "Less" lines (most Final Accounts heads); the empty cell keeps the grid aligned. */}
-                                                                {sectionAllowsDeduction(format, row.sectionKey) ? (
+                                                                {/* Hidden under heads without "Less" lines (most Final Accounts heads); the empty cell keeps the grid aligned.
+                                                                    A head with a fixed sign shows that sign as plain text, since it cannot be changed. */}
+                                                                {sectionSign(format, row.sectionKey) ? (
+                                                                    <span className={cn('px-2 text-xs font-medium', row.isDeduction ? 'text-destructive' : 'text-muted-foreground')}>
+                                                                        {row.isDeduction ? 'Less' : 'Add'}
+                                                                    </span>
+                                                                ) : sectionAllowsDeduction(format, row.sectionKey) ? (
                                                                     <Button
                                                                         type="button"
                                                                         variant="ghost"
@@ -991,7 +1009,17 @@ const AccountingQuestionDialog = ({ open, questionId, formats, onClose, onSaved 
                                                         .join('  ·  ')}
                                                 />
                                             )}
-                                            {format && rows.length > 0 && !isColumnar && !isMultiStatement && (
+                                            {/* A working note has nothing to balance, so its alert shows the result the key works out to. */}
+                                            {format && rows.length > 0 && isComputation(format) && (
+                                                <Alert
+                                                    variant="info"
+                                                    title="The answer key works out to"
+                                                    description={format.sides
+                                                        .map((side, index) => `${side.totalLabel ?? side.label}: ${formatSignedAmount(sideTotals[index], format.negativesInBrackets === true)}`)
+                                                        .join('  ·  ')}
+                                                />
+                                            )}
+                                            {format && rows.length > 0 && !isColumnar && !isMultiStatement && !isComputation(format) && (
                                                 <Alert
                                                     variant={isBalanced ? 'success' : 'warning'}
                                                     title={isBalanced ? 'The answer key balances' : 'The answer key does not balance yet'}

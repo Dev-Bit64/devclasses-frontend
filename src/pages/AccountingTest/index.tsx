@@ -7,7 +7,16 @@ import { submitAccountingAttemptAction } from '../../redux/action/accountingActi
 import { BrandLogo } from '../../components/landing/primitives/BrandLogo';
 import { ExamTimer } from '../../components/exam/ExamTimer';
 import { BalanceSheetBoard } from '../../components/accounting/BalanceSheetBoard';
-import { parseAmount, type BoardLine } from '../../components/accounting/accountingUtils';
+import { TypedWorkingNote } from '../../components/accounting/TypedWorkingNote';
+import {
+    countIncompleteTyping,
+    createTypedSheet,
+    isTypedAnswer,
+    parseAmount,
+    toTypedAnswer,
+    type BoardLine,
+    type TypedSheet,
+} from '../../components/accounting/accountingUtils';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { EmptyState } from '../../components/common/EmptyState';
 import { PageShell } from '../../components/common/PageShell';
@@ -29,6 +38,15 @@ const AccountingTestPage: React.FC = () => {
     const submittedRef = useRef(false);
     const linesRef = useRef(lines);
     linesRef.current = lines;
+    // Typed answers (the working note) keep their rows and totals here instead of placed lines.
+    const isTyped = isTypedAnswer(attempt?.formatDefinition);
+    const [sheet, setSheet] = useState<TypedSheet>(() => (attempt ? createTypedSheet(attempt.formatDefinition) : { rows: [], totals: {} }));
+    const sheetRef = useRef(sheet);
+    sheetRef.current = sheet;
+    // A new attempt starts from a blank sheet, so typing from an earlier question never carries over.
+    useEffect(() => {
+        if (attempt) setSheet(createTypedSheet(attempt.formatDefinition));
+    }, [attempt]);
 
     const timeLimitMs = (attempt?.question.timeLimitMinutes ?? 0) * 60 * 1000;
     // Partner columns of a columnar statement; empty for one amount per line.
@@ -63,7 +81,11 @@ const AccountingTestPage: React.FC = () => {
                     isDeduction: line.isDeduction,
                 }));
 
-        const result = await dispatch(submitAccountingAttemptAction({ attemptId: attempt.attemptId, placements }));
+        // A typed answer sends its rows and totals, with no placements.
+        const payload = isTypedAnswer(attempt.formatDefinition)
+            ? { attemptId: attempt.attemptId, placements: [], ...toTypedAnswer(attempt.formatDefinition, sheetRef.current) }
+            : { attemptId: attempt.attemptId, placements };
+        const result = await dispatch(submitAccountingAttemptAction(payload));
         setIsSubmitting(false);
         if (submitAccountingAttemptAction.fulfilled.match(result)) {
             navigate(`/accounting-result?attemptId=${attempt.attemptId}`);
@@ -119,6 +141,21 @@ const AccountingTestPage: React.FC = () => {
     const missingWarning = isColumnar
         ? `${missingAmounts} line${missingAmounts > 1 ? 's have' : ' has'} no amount for any partner and will not be counted. You cannot change your answer after submitting.`
         : `${missingAmounts} line${missingAmounts > 1 ? 's have' : ' has'} no amount and will be marked wrong. You cannot change your answer after submitting.`;
+    // Typed answers warn about rows without an amount and totals left blank, both of which lose marks.
+    const typedGaps = isTyped ? countIncompleteTyping(attempt.formatDefinition, sheet) : null;
+    const typedWarning = typedGaps
+        ? [
+            typedGaps.rowsWithoutAmount > 0 && `${typedGaps.rowsWithoutAmount} row${typedGaps.rowsWithoutAmount > 1 ? 's have' : ' has'} no amount and will be marked wrong.`,
+            typedGaps.blankTotals > 0 && `${typedGaps.blankTotals} total${typedGaps.blankTotals > 1 ? 's are' : ' is'} blank and will be marked missed.`,
+        ]
+            .filter(Boolean)
+            .join(' ')
+        : '';
+    const submitDescription = isTyped
+        ? `${typedWarning ? `${typedWarning} ` : ''}You cannot change your answer after submitting.`
+        : missingAmounts > 0
+            ? missingWarning
+            : 'You cannot change your answer after submitting.';
 
     return (
         <div className="dc-app flex min-h-[100dvh] flex-col bg-surface">
@@ -130,7 +167,7 @@ const AccountingTestPage: React.FC = () => {
                         {timeLimitMs > 0 && <ExamTimer msLeft={msLeft} />}
                         <ConfirmDialog
                             title="Submit your answer?"
-                            description={missingAmounts > 0 ? missingWarning : 'You cannot change your answer after submitting.'}
+                            description={submitDescription}
                             confirmLabel="Submit"
                             cancelLabel="Keep working"
                             onConfirm={handleSubmit}
@@ -172,14 +209,19 @@ const AccountingTestPage: React.FC = () => {
                     )}
                 </Card>
 
-                <BalanceSheetBoard
-                    format={attempt.formatDefinition}
-                    pool={attempt.pool}
-                    lines={lines}
-                    onLinesChange={setLines}
-                    disabled={isSubmitting}
-                    columns={isColumnar ? columns : null}
-                />
+                {/* The working note is typed out as in the exam; every other type keeps the drag-and-drop board. */}
+                {isTyped ? (
+                    <TypedWorkingNote format={attempt.formatDefinition} sheet={sheet} onSheetChange={setSheet} disabled={isSubmitting} />
+                ) : (
+                    <BalanceSheetBoard
+                        format={attempt.formatDefinition}
+                        pool={attempt.pool}
+                        lines={lines}
+                        onLinesChange={setLines}
+                        disabled={isSubmitting}
+                        columns={isColumnar ? columns : null}
+                    />
+                )}
             </main>
         </div>
     );

@@ -5,6 +5,8 @@ import { APIEndpoints } from "../../constants/constants";
 import {
     AccountingBoard,
     AccountingPlacement,
+    AccountingTypedLine,
+    AccountingTypedTotal,
     AccountingQuestionPayload,
     GetAccountingListPayload,
 } from "../../interfaces/interfaces";
@@ -149,7 +151,11 @@ export const startAccountingAttemptAction = createAsyncThunk(
 
 export const submitAccountingAttemptAction = createAsyncThunk(
     "SubmitAccountingAttempt",
-    async (payload: { attemptId: string; placements: AccountingPlacement[] }, { rejectWithValue }) =>
+    // Typed lines and totals are sent only for typed-answer questions such as the working note.
+    async (
+        payload: { attemptId: string; placements: AccountingPlacement[]; typedLines?: AccountingTypedLine[]; typedTotals?: AccountingTypedTotal[] },
+        { rejectWithValue }
+    ) =>
         handleRequest(postApi(APIEndpoints.AccountingSubmitAttempt, payload), rejectWithValue)
 );
 

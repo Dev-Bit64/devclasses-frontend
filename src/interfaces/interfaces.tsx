@@ -758,6 +758,10 @@ export interface AccountingSection {
     group?: string;
     // Overrides the format's allowsDeduction for this head (e.g. Sales less Sales Returns in Final Accounts); absent on older servers.
     allowsDeduction?: boolean;
+    // Every line under this head is added (ADD) or deducted (LESS), so no Add/Less toggle is shown; absent lets each line choose.
+    sign?: "ADD" | "LESS";
+    // Totals printed after this head: GROUP adds up its main head so far, SIDE the whole side so far (e.g. "(D) Operating Profit…").
+    runningTotals?: { label: string; scope: "GROUP" | "SIDE" }[];
 }
 
 export interface AccountingSide {
@@ -765,6 +769,8 @@ export interface AccountingSide {
     label: string;
     // Indian T-account wording before each line: "To" on the debit side, "By" on the credit side.
     prefix?: "To" | "By";
+    // Name of the side's bottom line in place of "Total" (e.g. a working note's result); absent on older servers.
+    totalLabel?: string;
     sections: AccountingSection[];
 }
 
@@ -781,7 +787,8 @@ export interface AccountingFormat {
     label: string;
     // Compact name for badges; optional so an older server response still renders.
     shortLabel?: string;
-    kind?: "BALANCE_SHEET" | "ACCOUNT" | "FINAL_ACCOUNTS";
+    // CASH_FLOW balances against closing cash; COMPUTATION is a one-column working note that ends in a result instead of balancing.
+    kind?: "BALANCE_SHEET" | "ACCOUNT" | "FINAL_ACCOUNTS" | "CASH_FLOW" | "COMPUTATION";
     // SIDE_BY_SIDE puts the two sides next to each other on wide screens; VERTICAL stacks them.
     layout?: "SIDE_BY_SIDE" | "VERTICAL";
     boards?: AccountingBoard[];
@@ -791,6 +798,12 @@ export interface AccountingFormat {
     allowsDeduction?: boolean;
     // Present only on multi-statement types; their sides live here and the top-level sides are empty.
     statements?: AccountingStatement[];
+    // Pool entries never offered for this type, matched by name case-insensitively; absent offers the whole pool.
+    excludedEntries?: string[];
+    // True shows negative amounts (outflows, deductions, a net loss) in red brackets, as printed in Cash Flow Statements.
+    negativesInBrackets?: boolean;
+    // TYPED: students type each particular's name and amount and the totals, with no entry pool; absent means drag and drop.
+    answerMode?: "TYPED";
     sides: AccountingSide[];
 }
 
@@ -901,6 +914,23 @@ export interface AccountingGradedItem {
     reason?: "NOT_IN_ANSWER" | "WRONG_SECTION" | "WRONG_AMOUNT" | "WRONG_SIGN";
     placed: Omit<AccountingPlacement, "entryId" | "columnKey"> | null;
     expected: Omit<AccountingPlacement, "entryId" | "columnKey"> | null;
+    // Typed answers only: the row's id ("typed-<n>", or a total's key), the student's own wording, and whether it is a typed total.
+    lineId?: string;
+    typedName?: string;
+    isTotal?: boolean;
+}
+
+// One row a student typed in a typed answer (the working note); a negative amount is a net loss.
+export interface AccountingTypedLine {
+    sectionKey: string;
+    name: string;
+    amount: number;
+}
+
+// One total a student typed, keyed "<section>#<index>" for a running total or "side:<side>" for a side's bottom line.
+export interface AccountingTypedTotal {
+    key: string;
+    amount: number;
 }
 
 export interface AccountingResult {

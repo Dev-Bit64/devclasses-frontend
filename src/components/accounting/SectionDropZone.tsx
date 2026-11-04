@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, type ReactNode } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { GripVertical, MinusCircle, PlusCircle, X } from "lucide-react";
 import { Input } from "../ui/input";
@@ -16,12 +16,14 @@ interface PlacedEntryRowProps {
     prefix?: "To" | "By";
     // False hides the Add/Less toggle (Final Accounts without adjustments).
     allowDeduction?: boolean;
+    // True when the head fixes the sign (e.g. "Less: Items to be Deducted"), so neither the toggle nor "Less:" is shown.
+    signFixed?: boolean;
     onChange: (key: string, patch: Partial<BoardLine>) => void;
     onRemove: (key: string) => void;
 }
 
 // A line on the sheet: drag handle, name, Add/Less toggle, amount (or one per partner) and remove.
-const PlacedEntryRow = memo(({ line, disabled, columns, prefix, allowDeduction = true, onChange, onRemove }: PlacedEntryRowProps) => {
+const PlacedEntryRow = memo(({ line, disabled, columns, prefix, allowDeduction = true, signFixed = false, onChange, onRemove }: PlacedEntryRowProps) => {
     const key = lineKey(line);
     const isColumnar = Boolean(columns && columns.length > 0);
     // Only the handle starts a drag, so typing in the amount box never picks the line up.
@@ -53,13 +55,13 @@ const PlacedEntryRow = memo(({ line, disabled, columns, prefix, allowDeduction =
 
             <span className="min-w-0 flex-1 break-words text-sm font-medium text-foreground">
                 {prefix && <span className="mr-1 font-normal text-muted-foreground">{prefix}</span>}
-                {line.isDeduction && <span className="mr-1 text-destructive">Less:</span>}
+                {line.isDeduction && !signFixed && <span className="mr-1 text-destructive">Less:</span>}
                 {line.name}
             </span>
 
             <div className="ml-auto flex items-center gap-1.5">
-                {/* Toggles whether the amount is added to or deducted from the head; hidden where no deductions exist. */}
-                {allowDeduction && (
+                {/* Toggles whether the amount is added to or deducted from the head; hidden where no deductions exist or the head fixes the sign. */}
+                {allowDeduction && !signFixed && (
                     <Button
                         type="button"
                         variant="ghost"
@@ -148,10 +150,12 @@ export interface SectionDropZoneProps {
     prefix?: "To" | "By";
     // False hides the Add/Less toggle on every line (Final Accounts without adjustments).
     allowDeduction?: boolean;
+    // True when the head fixes every line's sign (e.g. "(C) Less: Items to be Deducted").
+    signFixed?: boolean;
     // Hides the head's name when the side is one plain "Particulars" column, as in a textbook T-account.
     hideLabel?: boolean;
     // Head's net total for the outer amount column (Indian inner/outer columns); absent hides it.
-    subtotal?: string | null;
+    subtotal?: ReactNode;
     onPlaceSelected: (sectionKey: string) => void;
     onLineChange: (key: string, patch: Partial<BoardLine>) => void;
     onLineRemove: (key: string) => void;
@@ -167,6 +171,7 @@ const SectionDropZone = ({
     columns,
     prefix,
     allowDeduction = true,
+    signFixed = false,
     hideLabel = false,
     subtotal,
     onPlaceSelected,
@@ -204,6 +209,7 @@ const SectionDropZone = ({
                             columns={columns}
                             prefix={prefix}
                             allowDeduction={allowDeduction}
+                            signFixed={signFixed}
                             onChange={onLineChange}
                             onRemove={onLineRemove}
                         />

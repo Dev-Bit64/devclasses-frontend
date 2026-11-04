@@ -9,22 +9,27 @@ import {
     type DragEndEvent,
     type DragStartEvent,
 } from "@dnd-kit/core";
-import { CheckCircle2, GripVertical, Scale } from "lucide-react";
+import { Calculator, CheckCircle2, GripVertical, Scale } from "lucide-react";
 import { Card } from "../ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { cn } from "../../libs/utils";
 import type { AccountingColumn, AccountingFormat, AccountingStatement } from "../../interfaces/interfaces";
 import { EntryPool, type PoolEntry } from "./EntryPool";
 import { SectionDropZone } from "./SectionDropZone";
+import { SignedAmount } from "./SignedAmount";
 import {
     formatAmount,
+    getRunningTotals,
     getSectionStatements,
     getStatements,
     isBalancedTotals,
+    isComputation,
     isStatementSideBySide,
     lineKey,
     parseAmount,
+    resolveDeduction,
     sectionAllowsDeduction,
+    sectionSign,
     sumBySide,
     sumColumnBySide,
     type BoardLine,
@@ -55,6 +60,12 @@ const BalanceSheetBoard = ({ format, pool, lines, onLinesChange, disabled, colum
     const isMultiStatement = statements.length > 1;
     const [activeStatement, setActiveStatement] = useState(statements[0].key);
     const statementOf = useMemo(() => getSectionStatements(format), [format]);
+    // Cash flow types print negatives in red brackets; every other type keeps plain amounts.
+    const inBrackets = format.negativesInBrackets === true;
+    // A working note ends in a result, so it shows that result where other types show "Balanced".
+    const isWorkingNote = isComputation(format);
+    // Amount text for totals: unchanged for older types, bracketed negatives for cash flow types.
+    const showAmount = (value: number) => (inBrackets ? <SignedAmount value={value} inBrackets /> : formatAmount(value));
 
     // A short move threshold keeps clicks working; the touch delay keeps page scrolling working.
     const sensors = useSensors(
@@ -83,14 +94,18 @@ const BalanceSheetBoard = ({ format, pool, lines, onLinesChange, disabled, colum
             if (fromLine && sameStatementLine && sameStatementLine !== fromLine) return;
             const existing = fromLine ?? sameStatementLine;
             if (existing) {
+                // A sign set by the old head's fixed sign is not the student's choice, so it is not carried to the new head.
+                const chosen = sectionSign(format, existing.sectionKey) ? false : existing.isDeduction;
                 // A "Less" line moved under a head without "Less" becomes an added line, so the server never rejects the submission.
-                const isDeduction = existing.isDeduction && sectionAllowsDeduction(format, sectionKey);
+                const isDeduction = resolveDeduction(format, sectionKey, chosen && sectionAllowsDeduction(format, sectionKey));
                 onLinesChange(lines.map((line) => (line === existing ? { ...line, sectionKey, isDeduction } : line)));
                 return;
             }
             const name = nameById.get(entryId);
             if (!name) return;
-            onLinesChange([...lines, { entryId, name, sectionKey, amount: "", isDeduction: false, ...(isColumnar && { amounts: {} }) }]);
+            // A head with a fixed sign (e.g. "Less: Items to be Deducted") gives a new line its sign straight away.
+            const isDeduction = resolveDeduction(format, sectionKey, false);
+            onLinesChange([...lines, { entryId, name, sectionKey, amount: "", isDeduction, ...(isColumnar && { amounts: {} }) }]);
         },
         [lines, nameById, onLinesChange, isColumnar, statementOf, format]
     );
@@ -160,7 +175,8 @@ const BalanceSheetBoard = ({ format, pool, lines, onLinesChange, disabled, colum
     const selectedName = selectedEntryId ? nameById.get(selectedEntryId) ?? null : null;
     const shownStatement = statements.find((statement) => statement.key === activeStatement) ?? statements[0];
     const shownTotals = statementTotals.get(shownStatement.key) ?? {};
-    const isBalanced = isStatementBalanced(shownStatement.key);
+    // A working note has nothing to balance, so it is never shown as balanced.
+    const isBalanced = !isWorkingNote && isStatementBalanced(shownStatement.key);
 
     // One statement in the Indian layout: side headings, a Particulars | Amount (₹) ruling, heads, and side totals.
     const renderStatement = (statement: AccountingStatement) => {
@@ -172,6 +188,8 @@ const BalanceSheetBoard = ({ format, pool, lines, onLinesChange, disabled, colum
                 {statement.sides.map((side) => {
                     // A side with one plain head is a textbook T-account column, so the head's name is not repeated.
                     const singleHead = side.sections.length === 1;
+                    // Totals such as "(D) Operating Profit before Working Capital Changes", printed after their heads.
+                    const runningTotals = getRunningTotals(side, amountLines);
                     return (
                         <Card key={side.key} className="flex flex-col gap-3 p-3 sm:p-4">
                             <div className="flex flex-col gap-1 border-b border-border pb-2">
@@ -201,12 +219,20 @@ const BalanceSheetBoard = ({ format, pool, lines, onLinesChange, disabled, colum
                                             prefix={side.prefix}
                                             // Per head, so Final Accounts allow "Less" only under Sales, Purchases and Capital.
                                             allowDeduction={sectionAllowsDeduction(format, section.key)}
+                                            signFixed={Boolean(section.sign)}
                                             hideLabel={singleHead}
-                                            subtotal={!isColumnar && !singleHead ? formatAmount(sectionNet(section.key)) : null}
+                                            // A "Less" head's amount is printed as the positive figure its label deducts, as in textbooks.
+                                            subtotal={!isColumnar && !singleHead ? showAmount(section.sign === "LESS" ? -sectionNet(section.key) : sectionNet(section.key)) : null}
                                             onPlaceSelected={handlePlaceSelected}
                                             onLineChange={changeLine}
                                             onLineRemove={removeLine}
                                         />
+                                        {runningTotals.get(section.key)?.map((total) => (
+                                            <div key={total.label} className="flex items-start justify-between gap-3 border-y border-border bg-muted/40 px-2.5 py-2 text-sm font-semibold text-foreground">
+                                                <span className="min-w-0 break-words">{total.label}</span>
+                                                <span className="dc-numeric shrink-0">{showAmount(total.value)}</span>
+                                            </div>
+                                        ))}
                                     </Fragment>
                                 );
                             })}
@@ -224,9 +250,10 @@ const BalanceSheetBoard = ({ format, pool, lines, onLinesChange, disabled, colum
                                     </span>
                                 </div>
                             ) : (
-                                <div className="mt-auto flex items-center justify-between border-t border-border pt-3 text-sm font-semibold">
-                                    <span>Total</span>
-                                    <span className="dc-numeric">{formatAmount(sideTotals[side.key] ?? 0)}</span>
+                                <div className="mt-auto flex items-center justify-between gap-3 border-t border-border pt-3 text-sm font-semibold">
+                                    {/* A working note or cash flow side names its bottom line (e.g. "Net Profit before Tax…"). */}
+                                    <span className="min-w-0 break-words">{side.totalLabel ?? "Total"}</span>
+                                    <span className="dc-numeric shrink-0">{showAmount(sideTotals[side.key] ?? 0)}</span>
                                 </div>
                             )}
                         </Card>
@@ -265,11 +292,21 @@ const BalanceSheetBoard = ({ format, pool, lines, onLinesChange, disabled, colum
                     >
                         {isBalanced ? (
                             <CheckCircle2 aria-hidden="true" className="size-4 text-success" />
+                        ) : isWorkingNote ? (
+                            <Calculator aria-hidden="true" className="size-4 text-muted-foreground" />
                         ) : (
                             <Scale aria-hidden="true" className="size-4 text-muted-foreground" />
                         )}
                         {isMultiStatement && <span className="font-semibold text-foreground">{shownStatement.label}:</span>}
-                        {isColumnar
+                        {/* A working note shows its running result; every other type shows each side's total. */}
+                        {isWorkingNote
+                            ? shownStatement.sides.map((side) => (
+                                <span key={side.key} className="dc-numeric">
+                                    <span className="text-muted-foreground">{side.totalLabel ?? side.label}: </span>
+                                    <span className="font-semibold text-foreground">{showAmount(shownTotals[side.key] ?? 0)}</span>
+                                </span>
+                            ))
+                            : isColumnar
                             ? columnTotals.map(({ column, totals: t }) => (
                                 <span key={column.key} className="dc-numeric">
                                     <span className="text-muted-foreground">{column.label}: </span>
@@ -281,12 +318,14 @@ const BalanceSheetBoard = ({ format, pool, lines, onLinesChange, disabled, colum
                             : shownStatement.sides.map((side) => (
                                 <span key={side.key} className="dc-numeric">
                                     <span className="text-muted-foreground">{side.label}: </span>
-                                    <span className="font-semibold text-foreground">{formatAmount(shownTotals[side.key] ?? 0)}</span>
+                                    <span className="font-semibold text-foreground">{showAmount(shownTotals[side.key] ?? 0)}</span>
                                 </span>
                             ))}
-                        <span className={cn("font-medium", isBalanced ? "text-success" : "text-muted-foreground")}>
-                            {isBalanced ? "Balanced" : "Not balanced yet"}
-                        </span>
+                        {!isWorkingNote && (
+                            <span className={cn("font-medium", isBalanced ? "text-success" : "text-muted-foreground")}>
+                                {isBalanced ? "Balanced" : "Not balanced yet"}
+                            </span>
+                        )}
                     </div>
 
                     {isMultiStatement ? (
