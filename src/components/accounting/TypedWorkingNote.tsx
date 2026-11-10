@@ -24,16 +24,18 @@ interface AmountInputProps {
     allowNegative?: boolean;
     onChange: (value: string) => void;
     className?: string;
+    // Overrides the default hint, e.g. on the admin's table of given figures.
+    placeholder?: string;
 }
 
 // An amount box with the rupee sign; a negative figure turns red, as it prints in brackets on the result.
-const AmountInput = ({ label, value, disabled, allowNegative = false, onChange, className }: AmountInputProps) => (
+const AmountInput = ({ label, value, disabled, allowNegative = false, onChange, className, placeholder }: AmountInputProps) => (
     <div className={cn("relative w-full md:w-40 md:shrink-0", className)}>
         <span aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">₹</span>
         <Input
             aria-label={label}
             inputMode={allowNegative ? "text" : "decimal"}
-            placeholder={allowNegative ? "Amount (− for loss)" : "Amount"}
+            placeholder={placeholder ?? (allowNegative ? "Amount (− for loss)" : "Amount")}
             className={cn("dc-numeric h-9 pl-6 pr-2 text-right", value.trim().startsWith("-") && "text-destructive")}
             value={value}
             disabled={disabled}
@@ -164,4 +166,4 @@ const TypedWorkingNote = ({ format, sheet, onSheetChange, disabled }: TypedWorki
     );
 };
 
-export { TypedWorkingNote };
+export { TypedWorkingNote, AmountInput };

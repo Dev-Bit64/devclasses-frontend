@@ -8,6 +8,7 @@ import { BrandLogo } from '../../components/landing/primitives/BrandLogo';
 import { ExamTimer } from '../../components/exam/ExamTimer';
 import { BalanceSheetBoard } from '../../components/accounting/BalanceSheetBoard';
 import { TypedWorkingNote } from '../../components/accounting/TypedWorkingNote';
+import { GivenFiguresTable } from '../../components/accounting/GivenFiguresTable';
 import {
     countIncompleteTyping,
     createTypedSheet,
@@ -203,9 +204,11 @@ const AccountingTestPage: React.FC = () => {
                         <ChevronDown aria-hidden="true" className={cn('size-5 shrink-0 transition-transform', showProblem && 'rotate-180')} />
                     </button>
                     {showProblem && (
-                        <p className="whitespace-pre-line break-words border-t border-border px-4 py-4 text-sm leading-relaxed text-foreground sm:px-5">
-                            {attempt.question.problem}
-                        </p>
+                        <div className="flex flex-col gap-4 border-t border-border px-4 py-4 sm:px-5">
+                            <p className="whitespace-pre-line break-words text-sm leading-relaxed text-foreground">{attempt.question.problem}</p>
+                            {/* Given figures (e.g. closing and opening balances) and additional information, when the question has them. */}
+                            {attempt.question.givenTable && <GivenFiguresTable table={attempt.question.givenTable} />}
+                        </div>
                     )}
                 </Card>
 

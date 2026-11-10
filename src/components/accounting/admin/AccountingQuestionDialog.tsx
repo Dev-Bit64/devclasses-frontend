@@ -15,7 +15,7 @@ import {
     getAllLedgerEntriesAction,
     updateAccountingQuestionAction,
 } from '../../../redux/action/accountingAction';
-import { AccountingBoard, AccountingColumn, AccountingFormat, AccountingFormatKey, LedgerEntry } from '../../../interfaces/interfaces';
+import { AccountingBoard, AccountingColumn, AccountingFormat, AccountingFormatKey, AccountingGivenTable, LedgerEntry } from '../../../interfaces/interfaces';
 import CustomDropdown from '../../ImportModal/CustomDropdown';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../ui/dialog';
 import { FormField } from '../../ui/form-field';
@@ -28,6 +28,7 @@ import { Spinner } from '../../ui/spinner';
 import { LoadingState } from '../../common/LoadingState';
 import { ConfirmDialog } from '../../common/ConfirmDialog';
 import { LedgerEntriesDialog } from './LedgerEntriesDialog';
+import { AmountInput } from '../TypedWorkingNote';
 import { cn } from '../../../libs/utils';
 import {
     AMOUNT_PATTERN,
@@ -104,6 +105,36 @@ type PendingChange = { field: 'board' | 'format'; value: string } | null;
 let rowCounter = 0;
 const nextRowId = () => `row-${++rowCounter}`;
 
+// Most rows the table of given figures may have; the server enforces the same limit.
+const MAX_TABLE_ROWS = 40;
+
+// One row of the table of given figures while it is being edited; amounts stay as typed text.
+interface TableRowDraft {
+    rowId: string;
+    particular: string;
+    first: string;
+    second: string;
+}
+
+// The table of given figures while it is being edited.
+interface TableDraft {
+    firstHeading: string;
+    secondHeading: string;
+    rows: TableRowDraft[];
+    note: string;
+}
+
+const newTableRow = (): TableRowDraft => ({ rowId: nextRowId(), particular: '', first: '', second: '' });
+const emptyTable = (): TableDraft => ({ firstHeading: '', secondHeading: '', rows: [newTableRow()], note: '' });
+
+// A typed table amount: blank is null (shown as '-'), and anything unparseable (e.g. a lone '-') is undefined.
+const toTableAmount = (value: string): number | null | undefined => {
+    const trimmed = value.trim();
+    if (trimmed === '') return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : undefined;
+};
+
 // Next unused partner key (P1, P2, …), so removing a partner never reuses a key mid-edit.
 const nextColumnKey = (columns: AccountingColumn[]) => {
     let index = columns.length + 1;
@@ -145,6 +176,12 @@ const AccountingQuestionDialog = ({ open, questionId, formats, onClose, onSaved 
     const [newEntryError, setNewEntryError] = useState<string | null>(null);
     const [creatingEntry, setCreatingEntry] = useState(false);
     const [managePoolOpen, setManagePoolOpen] = useState(false);
+    // Head-wise keys (Cash Flow, working note): the head whose "Add entry" picker is open, if any.
+    const [targetSection, setTargetSection] = useState<string | null>(null);
+    // Optional table of given figures (types with givenTable only): whether it is ticked, its draft and its error.
+    const [tableOn, setTableOn] = useState(false);
+    const [table, setTable] = useState<TableDraft>(emptyTable);
+    const [tableError, setTableError] = useState<string | null>(null);
     const [loadingQuestion, setLoadingQuestion] = useState(false);
     const [saving, setSaving] = useState(false);
 
@@ -166,10 +203,14 @@ const AccountingQuestionDialog = ({ open, questionId, formats, onClose, onSaved 
     // Columnar statements (e.g. Partners' Capital Accounts) carry one amount per partner.
     const columnRule = format?.columns ?? null;
     const isColumnar = Boolean(columnRule);
+    // Cash Flow Statements and working notes set each entry's head by where it is added, so they have no head dropdown.
+    const isHeadWise = format?.kind === 'CASH_FLOW' || isComputation(format);
     // Final Accounts hold several statements; an entry may be used once in each of them.
     const statements = useMemo(() => (format ? getStatements(format) : []), [format]);
     const isMultiStatement = statements.length > 1;
     const statementOf = useMemo(() => getSectionStatements(format), [format]);
+    // Cash Flow types may carry a table of given figures under the problem; others never show the option.
+    const allowsTable = Boolean(format?.givenTable);
 
     // Fetches one board's whole pool; resolves to the entries, or null if the request failed.
     const loadPool = useCallback(
@@ -201,6 +242,10 @@ const AccountingQuestionDialog = ({ open, questionId, formats, onClose, onSaved 
         setNewEntryOpen(false);
         setManagePoolOpen(false);
         setPendingChange(null);
+        setTargetSection(null);
+        setTableOn(false);
+        setTable(emptyTable());
+        setTableError(null);
 
         if (!questionId) {
             reset(EMPTY_VALUES);
@@ -232,6 +277,23 @@ const AccountingQuestionDialog = ({ open, questionId, formats, onClose, onSaved 
                 timeLimitMinutes: question.timeLimitMinutes ? String(question.timeLimitMinutes) : '',
                 isPublished: question.isPublished,
             });
+
+            // A saved table opens ticked, with its amounts back as editable text (blank for '-').
+            const savedTable: AccountingGivenTable | null = question.givenTable ?? null;
+            if (savedTable) {
+                setTableOn(true);
+                setTable({
+                    firstHeading: savedTable.firstHeading,
+                    secondHeading: savedTable.secondHeading,
+                    rows: savedTable.rows.map((row) => ({
+                        rowId: nextRowId(),
+                        particular: row.particular,
+                        first: row.first === null ? '' : String(row.first),
+                        second: row.second === null ? '' : String(row.second),
+                    })),
+                    note: savedTable.note ?? '',
+                });
+            }
 
             const savedColumns: AccountingColumn[] = Array.isArray(question.columns) ? question.columns : [];
             setColumns(savedColumns);
@@ -281,6 +343,7 @@ const AccountingQuestionDialog = ({ open, questionId, formats, onClose, onSaved 
         }
         setRows([]);
         setKeyError(null);
+        setTargetSection(null);
         setPool([]);
         setSubjects([]);
         loadPool(board);
@@ -300,6 +363,7 @@ const AccountingQuestionDialog = ({ open, questionId, formats, onClose, onSaved 
         // Rows whose head has no "Less" lines in the new type drop their deduction; a head with a fixed sign sets it.
         else setRows((current) => current.map((row) => ({ ...row, isDeduction: resolveDeduction(next, row.sectionKey, row.isDeduction && sectionAllowsDeduction(next, row.sectionKey)) })));
         setKeyError(null);
+        setTargetSection(null);
     };
 
     // A board change always invalidates the key, since entries belong to one board.
@@ -370,6 +434,21 @@ const AccountingQuestionDialog = ({ open, questionId, formats, onClose, onSaved 
         [statements, isMultiStatement]
     );
     const validSections = useMemo(() => new Set(sectionOptions.map((option) => option.value)), [sectionOptions]);
+    // Head-wise layout: every head in statement order, with its group (or side) heading shown where a new one starts.
+    const headBlocks = useMemo(() => {
+        if (!format || !isHeadWise) return [];
+        let previous: string | null = null;
+        return format.sides.flatMap((side) =>
+            side.sections.map((section) => {
+                const group = section.group ?? side.label;
+                const heading = group !== previous ? group : null;
+                previous = group;
+                return { section, heading };
+            })
+        );
+    }, [format, isHeadWise]);
+    // Head-wise rows whose saved head is not in the statement type, so no block holds them.
+    const unassignedRows = isHeadWise ? rows.filter((row) => !validSections.has(row.sectionKey)) : [];
 
     // Pool matches for the entry picker. Single-column keys hold each entry once; a columnar key may
     // repeat an entry under another head (e.g. Balance b/d as Cr. for one partner and Dr. for another).
@@ -390,12 +469,23 @@ const AccountingQuestionDialog = ({ open, questionId, formats, onClose, onSaved 
     const keyReady = Boolean(selectedBoard && format);
 
     const addRow = (entry: { id: string; name: string }) => {
+        // On a head-wise key the entry takes the open head, and that head's fixed sign; otherwise the head is chosen later.
+        const sectionKey = isHeadWise && targetSection ? targetSection : '';
         setRows((current) => [
             ...current,
-            { rowId: nextRowId(), entryId: entry.id, entryName: entry.name, sectionKey: '', amount: '', isDeduction: false, amounts: {} },
+            { rowId: nextRowId(), entryId: entry.id, entryName: entry.name, sectionKey, amount: '', isDeduction: resolveDeduction(format, sectionKey, false), amounts: {} },
         ]);
         setEntrySearch('');
         setKeyError(null);
+    };
+
+    // Opens the entry picker under a head (closing it on a second click); the search and "New entry" form start fresh.
+    const toggleTargetSection = (sectionKey: string) => {
+        const opening = targetSection !== sectionKey;
+        setTargetSection(opening ? sectionKey : null);
+        setEntrySearch('');
+        setNewEntryOpen(false);
+        setPoolListOpen(opening);
     };
 
     // Creates a missing entry in the board's pool and adds it to this key in one step.
@@ -517,6 +607,30 @@ const AccountingQuestionDialog = ({ open, questionId, formats, onClose, onSaved 
         return { cells };
     };
 
+    // Edits one row of the table of given figures.
+    const updateTableRow = (rowId: string, patch: Partial<TableRowDraft>) =>
+        setTable((current) => ({ ...current, rows: current.rows.map((row) => (row.rowId === rowId ? { ...row, ...patch } : row)) }));
+
+    // Checks the table and returns it as the server takes it: null when there is none, or an error message.
+    const buildGivenTable = (): { table: AccountingGivenTable | null } | { error: string } => {
+        if (!allowsTable || !tableOn) return { table: null };
+        const firstHeading = table.firstHeading.trim();
+        const secondHeading = table.secondHeading.trim();
+        if (!firstHeading || !secondHeading) return { error: 'Give both column headings of the table.' };
+        if (table.rows.length === 0) return { error: 'Add at least one row to the table, or untick it.' };
+
+        const tableRows: AccountingGivenTable['rows'] = [];
+        for (const [index, row] of table.rows.entries()) {
+            const particular = row.particular.trim();
+            if (!particular) return { error: `Table row ${index + 1} needs a particular.` };
+            const first = toTableAmount(row.first);
+            const second = toTableAmount(row.second);
+            if (first === undefined || second === undefined) return { error: `Table row ${index + 1} has an amount that is not a number.` };
+            tableRows.push({ particular, first, second });
+        }
+        return { table: { firstHeading, secondHeading, rows: tableRows, note: table.note.trim() || null } };
+    };
+
     const onSubmit = async (values: QuestionValues) => {
         // The key is checked here because it lives outside react-hook-form.
         if (rows.length === 0) return setKeyError('Add at least one entry to the answer key.');
@@ -545,6 +659,10 @@ const AccountingQuestionDialog = ({ open, questionId, formats, onClose, onSaved 
         }
         setKeyError(null);
 
+        const builtTable = buildGivenTable();
+        if ('error' in builtTable) return setTableError(builtTable.error);
+        setTableError(null);
+
         const cleanColumns = columns.map((column) => ({ key: column.key, label: column.label.trim() }));
         const payload = {
             board: values.board,
@@ -560,19 +678,206 @@ const AccountingQuestionDialog = ({ open, questionId, formats, onClose, onSaved 
         };
 
         setSaving(true);
-        // Create omits a null time limit and unused columns; update sends null to clear either.
+        // Create omits a null time limit, unused columns and an unticked table; update sends null to clear any of them.
         const action: any = questionId
-            ? await dispatch(updateAccountingQuestionAction({ id: questionId, ...payload, columns: isColumnar ? cleanColumns : null }))
+            ? await dispatch(updateAccountingQuestionAction({ id: questionId, ...payload, columns: isColumnar ? cleanColumns : null, givenTable: builtTable.table }))
             : await dispatch(
                 createAccountingQuestionAction({
                     ...payload,
                     timeLimitMinutes: payload.timeLimitMinutes ?? undefined,
                     ...(isColumnar && { columns: cleanColumns }),
+                    ...(builtTable.table && { givenTable: builtTable.table }),
                 })
             );
         setSaving(false);
         if (action?.meta?.requestStatus === 'fulfilled') onSaved();
     };
+
+    // The pool search, browse list and "New entry" form; shown above the key, or inside the head being filled on head-wise keys.
+    const entryPicker = (
+        <>
+            {/* Entry picker over the board's pool, with a visible way to add a custom entry. */}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+                <div className="relative min-w-0 flex-1">
+                    <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                        aria-label="Search the entry pool to add an entry"
+                        aria-controls="aq-pool-list"
+                        aria-expanded={poolListOpen}
+                        placeholder={`Search ${pool.length} pool entries to add…`}
+                        className="pl-10"
+                        value={entrySearch}
+                        onFocus={() => setPoolListOpen(true)}
+                        onChange={(event) => {
+                            setEntrySearch(event.target.value);
+                            setPoolListOpen(true);
+                        }}
+                        onKeyDown={(event) => {
+                            // Enter adds the first match instead of submitting the form.
+                            if (event.key === 'Enter') {
+                                event.preventDefault();
+                                if (matches[0]) addRow(matches[0]);
+                            }
+                        }}
+                    />
+                </div>
+                <Button type="button" variant="secondary" onClick={() => setPoolListOpen((isOpen) => !isOpen)} aria-expanded={poolListOpen} aria-controls="aq-pool-list" className="shrink-0">
+                    <List aria-hidden="true" />
+                    {poolListOpen ? 'Hide pool' : 'Browse pool'}
+                </Button>
+                <Button type="button" variant="secondary" onClick={openNewEntryForm} aria-expanded={newEntryOpen} className="shrink-0">
+                    <Plus aria-hidden="true" />
+                    New entry
+                </Button>
+                <Button type="button" variant="secondary" onClick={() => setManagePoolOpen(true)} className="shrink-0">
+                    <Settings2 aria-hidden="true" />
+                    Manage pool
+                </Button>
+            </div>
+
+            {/* Inline rather than a floating popup, so it is never clipped by the dialog's scroll area. */}
+            {poolListOpen && (
+                <div id="aq-pool-list" className="rounded-lg border border-border bg-white">
+                    <p className="border-b border-border px-3 py-2 text-xs text-muted-foreground">
+                        {query ? `${matches.length} matching "${entrySearch.trim()}"` : `${matches.length} entries available`} · click an entry to add it to the answer key
+                    </p>
+                    <div className="dc-scroll max-h-64 overflow-y-auto p-1">
+                        {matches.map((entry) => (
+                            <button
+                                key={entry.id}
+                                type="button"
+                                onClick={() => addRow(entry)}
+                                className="flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
+                            >
+                                <span>{entry.name}</span>
+                                {entry.category && <span className="text-xs text-muted-foreground">{entry.category}</span>}
+                            </button>
+                        ))}
+                        {query && !exactMatch && (
+                            <button
+                                type="button"
+                                disabled={creatingEntry}
+                                onClick={() => createAndAddEntry(entrySearch.trim())}
+                                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-primary hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
+                            >
+                                <Plus aria-hidden="true" className="size-4" />
+                                Add "{entrySearch.trim()}" to the pool
+                            </button>
+                        )}
+                        {!query && matches.length === 0 && (
+                            <p className="px-3 py-4 text-center text-sm text-muted-foreground">Every pool entry is already in this answer key.</p>
+                        )}
+                    </div>
+                </div>
+            )}
+            <p className="dc-caption">Browse the pool or type to search. Can't find an entry? Use “New entry” to add a custom entry to the shared pool.</p>
+
+            {/* A plain div, not a form — it sits inside the question form, and forms cannot nest. */}
+            {newEntryOpen && (
+                <div className="flex flex-col gap-3 rounded-lg border border-primary/30 bg-accent/40 p-3 sm:flex-row sm:items-start">
+                    <FormField id="aq-new-entry-name" label="Entry name" required error={newEntryError ?? undefined} className="flex-1">
+                        {(aria) => (
+                            <Input
+                                {...aria}
+                                autoFocus
+                                maxLength={191}
+                                placeholder="e.g. Loan from Mrs. Mehta"
+                                value={newEntryName}
+                                invalid={Boolean(newEntryError)}
+                                onChange={(event) => {
+                                    setNewEntryName(event.target.value);
+                                    setNewEntryError(null);
+                                }}
+                                onKeyDown={(event) => {
+                                    // Enter saves the entry instead of submitting the whole question.
+                                    if (event.key === 'Enter') {
+                                        event.preventDefault();
+                                        submitNewEntry();
+                                    }
+                                }}
+                            />
+                        )}
+                    </FormField>
+                    <FormField id="aq-new-entry-category" label="Category" hint="Optional, admin-only" className="sm:w-48">
+                        {(aria) => (
+                            <Input {...aria} maxLength={50} placeholder="e.g. LIABILITY" value={newEntryCategory} onChange={(event) => setNewEntryCategory(event.target.value)} />
+                        )}
+                    </FormField>
+                    <div className="flex gap-2 sm:pt-[26px]">
+                        <Button type="button" variant="secondary" onClick={() => setNewEntryOpen(false)} disabled={creatingEntry}>
+                            Cancel
+                        </Button>
+                        <Button type="button" onClick={submitNewEntry} disabled={creatingEntry}>
+                            {creatingEntry ? <Spinner /> : <Plus aria-hidden="true" />}
+                            Add to pool & key
+                        </Button>
+                    </div>
+                </div>
+            )}
+        </>
+    );
+
+    // One single-column answer key row; head-wise keys leave out the head dropdown, as the block sets the head.
+    const renderKeyRow = (row: KeyRow) => (
+        <li
+            key={row.rowId}
+            className={cn(
+                'grid grid-cols-1 items-center gap-2 rounded-lg border border-border p-2.5',
+                isHeadWise ? 'bg-white md:grid-cols-[minmax(0,1fr)_auto_9rem_auto]' : 'md:grid-cols-[minmax(0,1.2fr)_minmax(0,1.6fr)_auto_9rem_auto]'
+            )}
+        >
+            <span className="break-words text-sm font-medium">{row.entryName}</span>
+            {!isHeadWise && (
+                <CustomDropdown
+                    options={sectionOptions}
+                    value={validSections.has(row.sectionKey) ? row.sectionKey : ''}
+                    onChange={(value) => updateRowSection(row.rowId, value)}
+                    placeholder="Select head"
+                />
+            )}
+            {/* Hidden under heads without "Less" lines (most Final Accounts heads); the empty cell keeps the grid aligned.
+                A head with a fixed sign shows that sign as plain text, since it cannot be changed. */}
+            {sectionSign(format, row.sectionKey) ? (
+                <span className={cn('px-2 text-xs font-medium', row.isDeduction ? 'text-destructive' : 'text-muted-foreground')}>
+                    {row.isDeduction ? 'Less' : 'Add'}
+                </span>
+            ) : sectionAllowsDeduction(format, row.sectionKey) ? (
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    aria-pressed={row.isDeduction}
+                    onClick={() => updateRow(row.rowId, { isDeduction: !row.isDeduction })}
+                    className={row.isDeduction ? 'text-destructive' : 'text-muted-foreground'}
+                >
+                    {row.isDeduction ? <MinusCircle aria-hidden="true" /> : <PlusCircle aria-hidden="true" />}
+                    {row.isDeduction ? 'Less' : 'Add'}
+                </Button>
+            ) : (
+                <span aria-hidden="true" />
+            )}
+            <Input
+                aria-label={`Amount for ${row.entryName}`}
+                inputMode="decimal"
+                placeholder="Amount"
+                className="dc-numeric text-right"
+                value={row.amount}
+                onChange={(event) => {
+                    const value = event.target.value.replace(/,/g, '');
+                    if (AMOUNT_PATTERN.test(value)) updateRow(row.rowId, { amount: value });
+                }}
+            />
+            <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={`Remove ${row.entryName}`}
+                onClick={() => setRows((current) => current.filter((r) => r.rowId !== row.rowId))}
+            >
+                <Trash2 aria-hidden="true" className="text-destructive" />
+            </Button>
+        </li>
+    );
 
     return (
         <>
@@ -705,6 +1010,124 @@ const AccountingQuestionDialog = ({ open, questionId, formats, onClose, onSaved 
                                         {(aria) => <Textarea {...aria} {...register('problem')} rows={6} placeholder="Prepare the Balance Sheet of … from the following information:" invalid={Boolean(errors.problem)} />}
                                     </FormField>
 
+                                    {/* Optional table of given figures, offered only on Cash Flow types and shown only once ticked. */}
+                                    {allowsTable && (
+                                        <div className="flex flex-col gap-3">
+                                            <label className="flex w-fit cursor-pointer items-center gap-2.5 text-sm font-medium text-foreground">
+                                                <Checkbox
+                                                    checked={tableOn}
+                                                    onCheckedChange={(checked) => {
+                                                        setTableOn(checked === true);
+                                                        setTableError(null);
+                                                    }}
+                                                />
+                                                Add a two-column table of given figures
+                                            </label>
+                                            {tableOn && (
+                                                <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-3">
+                                                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                                        <FormField id="aq-table-first" label="First column heading" hint="e.g. Closing Balances (₹) or 31st March, 2026">
+                                                            {(aria) => (
+                                                                <Input
+                                                                    {...aria}
+                                                                    maxLength={40}
+                                                                    placeholder="Closing Balances (₹)"
+                                                                    value={table.firstHeading}
+                                                                    onChange={(event) => setTable((current) => ({ ...current, firstHeading: event.target.value }))}
+                                                                />
+                                                            )}
+                                                        </FormField>
+                                                        <FormField id="aq-table-second" label="Second column heading" hint="e.g. Opening Balances (₹) or 31st March, 2025">
+                                                            {(aria) => (
+                                                                <Input
+                                                                    {...aria}
+                                                                    maxLength={40}
+                                                                    placeholder="Opening Balances (₹)"
+                                                                    value={table.secondHeading}
+                                                                    onChange={(event) => setTable((current) => ({ ...current, secondHeading: event.target.value }))}
+                                                                />
+                                                            )}
+                                                        </FormField>
+                                                    </div>
+
+                                                    {/* One row per particular: the name on top on a phone, its two amounts side by side below. */}
+                                                    <ul className="flex flex-col gap-2">
+                                                        {table.rows.map((row, index) => (
+                                                            <li key={row.rowId} className="flex flex-col gap-2 md:flex-row md:items-center">
+                                                                <Input
+                                                                    aria-label={`Table row ${index + 1}: particular`}
+                                                                    maxLength={150}
+                                                                    placeholder="Particular, e.g. Machinery (At cost)"
+                                                                    className="h-9 md:min-w-0 md:flex-1"
+                                                                    value={row.particular}
+                                                                    onChange={(event) => updateTableRow(row.rowId, { particular: event.target.value })}
+                                                                />
+                                                                <div className="flex items-center gap-2">
+                                                                    <AmountInput
+                                                                        label={`Table row ${index + 1}: ${table.firstHeading.trim() || 'first column'}`}
+                                                                        value={row.first}
+                                                                        allowNegative
+                                                                        placeholder="Blank shows -"
+                                                                        className="min-w-0 flex-1 md:flex-none"
+                                                                        onChange={(value) => updateTableRow(row.rowId, { first: value })}
+                                                                    />
+                                                                    <AmountInput
+                                                                        label={`Table row ${index + 1}: ${table.secondHeading.trim() || 'second column'}`}
+                                                                        value={row.second}
+                                                                        allowNegative
+                                                                        placeholder="Blank shows -"
+                                                                        className="min-w-0 flex-1 md:flex-none"
+                                                                        onChange={(value) => updateTableRow(row.rowId, { second: value })}
+                                                                    />
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        aria-label={`Remove table row ${index + 1}`}
+                                                                        onClick={() => setTable((current) => ({ ...current, rows: current.rows.filter((item) => item.rowId !== row.rowId) }))}
+                                                                        disabled={table.rows.length <= 1}
+                                                                    >
+                                                                        <Trash2 aria-hidden="true" />
+                                                                    </Button>
+                                                                </div>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        variant="secondary"
+                                                        className="w-fit"
+                                                        onClick={() => setTable((current) => ({ ...current, rows: [...current.rows, newTableRow()] }))}
+                                                        disabled={table.rows.length >= MAX_TABLE_ROWS}
+                                                    >
+                                                        <Plus aria-hidden="true" />
+                                                        Add row
+                                                    </Button>
+                                                    <p className="dc-caption">Leave an amount blank, or enter 0, to show "-". Use a minus sign for a negative figure; it shows in brackets.</p>
+
+                                                    <FormField id="aq-table-note" label="Additional information" hint="Optional; shown to students under the table, line breaks kept.">
+                                                        {(aria) => (
+                                                            <Textarea
+                                                                {...aria}
+                                                                rows={4}
+                                                                maxLength={5000}
+                                                                placeholder={'Additional Information:\n(i) During the year, a machine costing ₹40,000 …'}
+                                                                value={table.note}
+                                                                onChange={(event) => setTable((current) => ({ ...current, note: event.target.value }))}
+                                                            />
+                                                        )}
+                                                    </FormField>
+                                                    {tableError && (
+                                                        <p role="alert" className="text-sm font-medium text-destructive">
+                                                            {tableError}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
                                     <Controller
                                         name="isPublished"
                                         control={control}
@@ -770,126 +1193,50 @@ const AccountingQuestionDialog = ({ open, questionId, formats, onClose, onSaved 
                                                 </div>
                                             )}
 
-                                            {/* Entry picker over the board's pool, with a visible way to add a custom entry. */}
-                                            <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
-                                                <div className="relative min-w-0 flex-1">
-                                                    <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                                                    <Input
-                                                        aria-label="Search the entry pool to add an entry"
-                                                        aria-controls="aq-pool-list"
-                                                        aria-expanded={poolListOpen}
-                                                        placeholder={`Search ${pool.length} pool entries to add…`}
-                                                        className="pl-10"
-                                                        value={entrySearch}
-                                                        onFocus={() => setPoolListOpen(true)}
-                                                        onChange={(event) => {
-                                                            setEntrySearch(event.target.value);
-                                                            setPoolListOpen(true);
-                                                        }}
-                                                        onKeyDown={(event) => {
-                                                            // Enter adds the first match instead of submitting the form.
-                                                            if (event.key === 'Enter') {
-                                                                event.preventDefault();
-                                                                if (matches[0]) addRow(matches[0]);
-                                                            }
-                                                        }}
-                                                    />
-                                                </div>
-                                                <Button type="button" variant="secondary" onClick={() => setPoolListOpen((isOpen) => !isOpen)} aria-expanded={poolListOpen} aria-controls="aq-pool-list" className="shrink-0">
-                                                    <List aria-hidden="true" />
-                                                    {poolListOpen ? 'Hide pool' : 'Browse pool'}
-                                                </Button>
-                                                <Button type="button" variant="secondary" onClick={openNewEntryForm} aria-expanded={newEntryOpen} className="shrink-0">
-                                                    <Plus aria-hidden="true" />
-                                                    New entry
-                                                </Button>
-                                                <Button type="button" variant="secondary" onClick={() => setManagePoolOpen(true)} className="shrink-0">
-                                                    <Settings2 aria-hidden="true" />
-                                                    Manage pool
-                                                </Button>
-                                            </div>
+                                            {!isHeadWise && entryPicker}
 
-                                            {/* Inline rather than a floating popup, so it is never clipped by the dialog's scroll area. */}
-                                            {poolListOpen && (
-                                                <div id="aq-pool-list" className="rounded-lg border border-border bg-white">
-                                                    <p className="border-b border-border px-3 py-2 text-xs text-muted-foreground">
-                                                        {query ? `${matches.length} matching "${entrySearch.trim()}"` : `${matches.length} entries available`} · click an entry to add it to the answer key
-                                                    </p>
-                                                    <div className="dc-scroll max-h-64 overflow-y-auto p-1">
-                                                        {matches.map((entry) => (
-                                                            <button
-                                                                key={entry.id}
-                                                                type="button"
-                                                                onClick={() => addRow(entry)}
-                                                                className="flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
-                                                            >
-                                                                <span>{entry.name}</span>
-                                                                {entry.category && <span className="text-xs text-muted-foreground">{entry.category}</span>}
-                                                            </button>
-                                                        ))}
-                                                        {query && !exactMatch && (
-                                                            <button
-                                                                type="button"
-                                                                disabled={creatingEntry}
-                                                                onClick={() => createAndAddEntry(entrySearch.trim())}
-                                                                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-primary hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
-                                                            >
-                                                                <Plus aria-hidden="true" className="size-4" />
-                                                                Add "{entrySearch.trim()}" to the pool
-                                                            </button>
-                                                        )}
-                                                        {!query && matches.length === 0 && (
-                                                            <p className="px-3 py-4 text-center text-sm text-muted-foreground">Every pool entry is already in this answer key.</p>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
-                                            <p className="dc-caption">Browse the pool or type to search. Can't find an entry? Use “New entry” to add a custom entry to the shared pool.</p>
-
-                                            {/* A plain div, not a form — it sits inside the question form, and forms cannot nest. */}
-                                            {newEntryOpen && (
-                                                <div className="flex flex-col gap-3 rounded-lg border border-primary/30 bg-accent/40 p-3 sm:flex-row sm:items-start">
-                                                    <FormField id="aq-new-entry-name" label="Entry name" required error={newEntryError ?? undefined} className="flex-1">
-                                                        {(aria) => (
-                                                            <Input
-                                                                {...aria}
-                                                                autoFocus
-                                                                maxLength={191}
-                                                                placeholder="e.g. Loan from Mrs. Mehta"
-                                                                value={newEntryName}
-                                                                invalid={Boolean(newEntryError)}
-                                                                onChange={(event) => {
-                                                                    setNewEntryName(event.target.value);
-                                                                    setNewEntryError(null);
-                                                                }}
-                                                                onKeyDown={(event) => {
-                                                                    // Enter saves the entry instead of submitting the whole question.
-                                                                    if (event.key === 'Enter') {
-                                                                        event.preventDefault();
-                                                                        submitNewEntry();
-                                                                    }
-                                                                }}
-                                                            />
-                                                        )}
-                                                    </FormField>
-                                                    <FormField id="aq-new-entry-category" label="Category" hint="Optional, admin-only" className="sm:w-48">
-                                                        {(aria) => (
-                                                            <Input {...aria} maxLength={50} placeholder="e.g. LIABILITY" value={newEntryCategory} onChange={(event) => setNewEntryCategory(event.target.value)} />
-                                                        )}
-                                                    </FormField>
-                                                    <div className="flex gap-2 sm:pt-[26px]">
-                                                        <Button type="button" variant="secondary" onClick={() => setNewEntryOpen(false)} disabled={creatingEntry}>
-                                                            Cancel
-                                                        </Button>
-                                                        <Button type="button" onClick={submitNewEntry} disabled={creatingEntry}>
-                                                            {creatingEntry ? <Spinner /> : <Plus aria-hidden="true" />}
-                                                            Add to pool & key
-                                                        </Button>
-                                                    </div>
+                                            {/* Cash Flow and working note keys are laid out head by head; an entry takes the head it is added under. */}
+                                            {isHeadWise && (
+                                                <div className="flex flex-col gap-2">
+                                                    {headBlocks.map(({ section, heading }) => {
+                                                        const headRows = rows.filter((row) => row.sectionKey === section.key);
+                                                        const isTarget = targetSection === section.key;
+                                                        return (
+                                                            <div key={section.key} className="flex flex-col gap-2">
+                                                                {heading && <h5 className="pt-1 text-sm font-semibold text-foreground">{heading}</h5>}
+                                                                <div className="flex flex-col gap-2 rounded-lg border border-dashed border-border bg-surface p-2.5">
+                                                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                                                        <span className="min-w-0 break-words text-sm font-medium text-foreground">{section.label}</span>
+                                                                        <Button
+                                                                            type="button"
+                                                                            size="sm"
+                                                                            variant="secondary"
+                                                                            aria-expanded={isTarget}
+                                                                            onClick={() => toggleTargetSection(section.key)}
+                                                                            className="shrink-0"
+                                                                        >
+                                                                            {isTarget ? <X aria-hidden="true" /> : <Plus aria-hidden="true" />}
+                                                                            {isTarget ? 'Done' : 'Add entry'}
+                                                                            <span className="sr-only">: {section.label}</span>
+                                                                        </Button>
+                                                                    </div>
+                                                                    {isTarget && entryPicker}
+                                                                    {headRows.length > 0 && <ul className="flex flex-col gap-2">{headRows.map((row) => renderKeyRow(row))}</ul>}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                    {/* Rows whose saved head is not in this statement type; they are removed and added again under the right head. */}
+                                                    {unassignedRows.length > 0 && (
+                                                        <div className="flex flex-col gap-2 rounded-lg border border-dashed border-destructive/50 p-2.5">
+                                                            <span className="text-sm font-semibold text-destructive">Unassigned — remove these and add them again under the right head</span>
+                                                            <ul className="flex flex-col gap-2">{unassignedRows.map((row) => renderKeyRow(row))}</ul>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
 
-                                            {rows.length > 0 && (
+                                            {!isHeadWise && rows.length > 0 && (
                                                 <ul className="flex flex-col gap-2">
                                                     {rows.map((row) =>
                                                         isColumnar ? (
@@ -944,56 +1291,7 @@ const AccountingQuestionDialog = ({ open, questionId, formats, onClose, onSaved 
                                                                 </div>
                                                             </li>
                                                         ) : (
-                                                            <li key={row.rowId} className="grid grid-cols-1 items-center gap-2 rounded-lg border border-border p-2.5 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1.6fr)_auto_9rem_auto]">
-                                                                <span className="break-words text-sm font-medium">{row.entryName}</span>
-                                                                <CustomDropdown
-                                                                    options={sectionOptions}
-                                                                    value={validSections.has(row.sectionKey) ? row.sectionKey : ''}
-                                                                    onChange={(value) => updateRowSection(row.rowId, value)}
-                                                                    placeholder="Select head"
-                                                                />
-                                                                {/* Hidden under heads without "Less" lines (most Final Accounts heads); the empty cell keeps the grid aligned.
-                                                                    A head with a fixed sign shows that sign as plain text, since it cannot be changed. */}
-                                                                {sectionSign(format, row.sectionKey) ? (
-                                                                    <span className={cn('px-2 text-xs font-medium', row.isDeduction ? 'text-destructive' : 'text-muted-foreground')}>
-                                                                        {row.isDeduction ? 'Less' : 'Add'}
-                                                                    </span>
-                                                                ) : sectionAllowsDeduction(format, row.sectionKey) ? (
-                                                                    <Button
-                                                                        type="button"
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        aria-pressed={row.isDeduction}
-                                                                        onClick={() => updateRow(row.rowId, { isDeduction: !row.isDeduction })}
-                                                                        className={row.isDeduction ? 'text-destructive' : 'text-muted-foreground'}
-                                                                    >
-                                                                        {row.isDeduction ? <MinusCircle aria-hidden="true" /> : <PlusCircle aria-hidden="true" />}
-                                                                        {row.isDeduction ? 'Less' : 'Add'}
-                                                                    </Button>
-                                                                ) : (
-                                                                    <span aria-hidden="true" />
-                                                                )}
-                                                                <Input
-                                                                    aria-label={`Amount for ${row.entryName}`}
-                                                                    inputMode="decimal"
-                                                                    placeholder="Amount"
-                                                                    className="dc-numeric text-right"
-                                                                    value={row.amount}
-                                                                    onChange={(event) => {
-                                                                        const value = event.target.value.replace(/,/g, '');
-                                                                        if (AMOUNT_PATTERN.test(value)) updateRow(row.rowId, { amount: value });
-                                                                    }}
-                                                                />
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    aria-label={`Remove ${row.entryName}`}
-                                                                    onClick={() => setRows((current) => current.filter((r) => r.rowId !== row.rowId))}
-                                                                >
-                                                                    <Trash2 aria-hidden="true" className="text-destructive" />
-                                                                </Button>
-                                                            </li>
+                                                            renderKeyRow(row)
                                                         )
                                                     )}
                                                 </ul>

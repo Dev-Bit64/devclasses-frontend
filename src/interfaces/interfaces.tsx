@@ -804,7 +804,19 @@ export interface AccountingFormat {
     negativesInBrackets?: boolean;
     // TYPED: students type each particular's name and amount and the totals, with no entry pool; absent means drag and drop.
     answerMode?: "TYPED";
+    // True lets the admin add an optional two-column table of given figures to a question (Cash Flow types).
+    givenTable?: boolean;
     sides: AccountingSide[];
+}
+
+// Optional table of given figures under a question's problem, e.g. closing and opening balances.
+export interface AccountingGivenTable {
+    firstHeading: string;
+    secondHeading: string;
+    // A null or zero amount is shown as '-'.
+    rows: { particular: string; first: number | null; second: number | null }[];
+    // Additional information shown under the table; null when there is none.
+    note: string | null;
 }
 
 export interface LedgerEntry {
@@ -834,6 +846,8 @@ export interface AccountingQuestion {
     problem?: string;
     format: AccountingFormatKey;
     columns?: AccountingColumn[] | null;
+    // Absent or null when the question has no table of given figures.
+    givenTable?: AccountingGivenTable | null;
     timeLimitMinutes?: number | null;
     isPublished: boolean;
     createdAt?: string;
@@ -853,6 +867,8 @@ export interface AccountingQuestionPayload {
     format: AccountingFormatKey;
     // Sent only for columnar statements on create; null clears them on update.
     columns?: AccountingColumn[] | null;
+    // Sent on create only when there is a table; null removes it on update.
+    givenTable?: AccountingGivenTable | null;
     timeLimitMinutes?: number | null;
     isPublished: boolean;
     answerKey: Omit<AccountingAnswerKeyRow, "entryName">[];
@@ -885,6 +901,8 @@ export interface AccountingAttemptSession {
         format: AccountingFormatKey;
         // Partner columns of a columnar statement; null or absent for one amount per line.
         columns?: AccountingColumn[] | null;
+        // Table of given figures shown under the problem; null or absent when there is none.
+        givenTable?: AccountingGivenTable | null;
         timeLimitMinutes?: number | null;
         subject?: { subname: string };
         chapter?: { name: string };
