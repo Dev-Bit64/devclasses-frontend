@@ -406,7 +406,8 @@ const AccountingQuestionDialog = ({ open, questionId, formats, onClose, onSaved 
     const subjectOptions = useMemo(
         () =>
             subjects
-                .filter((s) => !selectedStandard || s.standard === undefined || normalizeStandard(s.standard) === normalizeStandard(selectedStandard))
+                // A subject saved without a standard ('' or null) applies to every standard, so it stays listed.
+                .filter((s) => !selectedStandard || !s.standard || normalizeStandard(s.standard) === normalizeStandard(selectedStandard))
                 .map((s) => ({ label: s.subname, value: s.id })),
         [subjects, selectedStandard]
     );
