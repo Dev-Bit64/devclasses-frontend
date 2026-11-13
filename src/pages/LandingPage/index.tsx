@@ -4,6 +4,7 @@ import { Hero } from "../../components/landing/Hero";
 // CapabilityStrip is intentionally not composed here — see the note in <main> below.
 import { SyllabusSection } from "../../components/landing/SyllabusSection";
 import { PracticeSection } from "../../components/landing/PracticeSection";
+import { AccountingSection } from "../../components/landing/AccountingSection";
 import { ProgressSection } from "../../components/landing/ProgressSection";
 import { HowItWorks } from "../../components/landing/HowItWorks";
 import { FeatureGrid } from "../../components/landing/FeatureGrid";
@@ -30,6 +31,8 @@ const LandingPage = () => (
         {/* CapabilityStrip removed: its items duplicate the FeatureGrid section below. */}
         <SyllabusSection />
         <PracticeSection />
+        {/* Accounting Tests spotlight on a dark band, between the white Practice and grey Progress sections. */}
+        <AccountingSection />
         <ProgressSection />
         <HowItWorks />
         <FeatureGrid />
